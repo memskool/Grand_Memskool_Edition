@@ -53,9 +53,7 @@ function LibraryPage() {
                 </span>
                 <p className="mt-3 text-sm font-medium">{s.name}</p>
                 <p className="text-xs text-muted-foreground">{s.code}</p>
-                {s.description ? (
-                  <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{s.description}</p>
-                ) : null}
+              </li>
               </li>
             ))}
           </ul>
