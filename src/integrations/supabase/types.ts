@@ -904,6 +904,39 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          kind: string
+          link: string | null
+          read: boolean
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          link?: string | null
+          read?: boolean
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          link?: string | null
+          read?: boolean
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       parent_students: {
         Row: {
           created_at: string
@@ -966,6 +999,244 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      school_applications: {
+        Row: {
+          applicant_name: string
+          class_level: string | null
+          created_at: string
+          documents: Json
+          email: string | null
+          id: string
+          intended_program: string | null
+          personal_statement: string | null
+          phone: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          school_id: string
+          status: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          applicant_name: string
+          class_level?: string | null
+          created_at?: string
+          documents?: Json
+          email?: string | null
+          id?: string
+          intended_program?: string | null
+          personal_statement?: string | null
+          phone?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          school_id: string
+          status?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          applicant_name?: string
+          class_level?: string | null
+          created_at?: string
+          documents?: Json
+          email?: string | null
+          id?: string
+          intended_program?: string | null
+          personal_statement?: string | null
+          phone?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          school_id?: string
+          status?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_applications_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "school_applications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      school_meetings: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          duration_minutes: number
+          id: string
+          kind: string
+          location: string | null
+          meeting_url: string | null
+          scheduled_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          kind?: string
+          location?: string | null
+          meeting_url?: string | null
+          scheduled_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          kind?: string
+          location?: string | null
+          meeting_url?: string | null
+          scheduled_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_meetings_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schools: {
+        Row: {
+          admissions_open: boolean
+          badges: string[]
+          category: string
+          city: string | null
+          contact_email: string | null
+          country: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          fees_currency: string
+          fees_max: number | null
+          fees_min: number | null
+          fees_notes: string | null
+          id: string
+          is_international: boolean
+          logo_url: string | null
+          name: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          admissions_open?: boolean
+          badges?: string[]
+          category?: string
+          city?: string | null
+          contact_email?: string | null
+          country?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          fees_currency?: string
+          fees_max?: number | null
+          fees_min?: number | null
+          fees_notes?: string | null
+          id?: string
+          is_international?: boolean
+          logo_url?: string | null
+          name: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          admissions_open?: boolean
+          badges?: string[]
+          category?: string
+          city?: string | null
+          contact_email?: string | null
+          country?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          fees_currency?: string
+          fees_max?: number | null
+          fees_min?: number | null
+          fees_notes?: string | null
+          id?: string
+          is_international?: boolean
+          logo_url?: string | null
+          name?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      study_reminders: {
+        Row: {
+          active: boolean
+          created_at: string
+          day_of_week: number
+          end_time: string | null
+          id: string
+          remind_minutes_before: number
+          start_time: string
+          subject_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          day_of_week: number
+          end_time?: string | null
+          id?: string
+          remind_minutes_before?: number
+          start_time: string
+          subject_id?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          day_of_week?: number
+          end_time?: string | null
+          id?: string
+          remind_minutes_before?: number
+          start_time?: string
+          subject_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_reminders_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subjects: {
         Row: {

@@ -1,3 +1,4 @@
+import { AdmissionsPanel, MeetingsPanel } from "@/components/app/SchoolLifePanels";
 import { PerformanceAnalytics } from "@/components/app/PerformanceAnalytics";
 import { CalendarClock, ClipboardList, Archive, BookOpen } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
@@ -128,6 +129,10 @@ export function StudentDashboard({ user }: { user: User }) {
           />
         )}
       </Panel>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <AdmissionsPanel studentId={user.id} />
+        <MeetingsPanel />
+      </div>
       <PerformanceAnalytics studentId={user.id} />
 
     </div>
