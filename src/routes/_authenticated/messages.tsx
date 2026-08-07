@@ -15,6 +15,8 @@ import {
   type ConversationKind,
 } from "@/lib/messaging-data";
 import { PageHeader, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
+import { SuspensionNotice } from "@/components/app/SuspensionNotice";
+import { useSuspensionStatus } from "@/lib/discipline-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
