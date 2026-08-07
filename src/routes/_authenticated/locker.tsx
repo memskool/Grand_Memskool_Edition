@@ -346,7 +346,7 @@ function LockerPage() {
 
 /* ------------------------------------------------------------------ */
 
-function NewFolderDialog({ userId }: { userId?: string }) {
+function NewFolderDialog({ userId }: { userId: string | undefined }) {
   const subjects = useSubjects();
   const createFolder = useCreateFolder(userId);
   const [open, setOpen] = useState(false);
@@ -440,7 +440,7 @@ function NewFolderDialog({ userId }: { userId?: string }) {
   );
 }
 
-function UploadDialog({ userId, defaultFolder }: { userId?: string; defaultFolder: string | null }) {
+function UploadDialog({ userId, defaultFolder }: { userId: string | undefined; defaultFolder: string | null }) {
   const subjects = useSubjects();
   const folders = useLockerFolders(userId);
   const createItem = useCreateLockerItem(userId);
