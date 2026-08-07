@@ -1,3 +1,4 @@
+import { PerformanceAnalytics } from "@/components/app/PerformanceAnalytics";
 import { useState } from "react";
 import { CalendarCheck, TrendingUp, Users, GraduationCap } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
@@ -132,6 +133,12 @@ export function ParentDashboard({ user }: { user: User }) {
           )}
         </Panel>
       </div>
+      <PerformanceAnalytics
+        studentId={childId}
+        title="Progress report"
+        description="Assessment grade trend for your child."
+      />
+
     </div>
   );
 }

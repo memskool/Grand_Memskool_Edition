@@ -1,3 +1,4 @@
+import { PerformanceAnalytics } from "@/components/app/PerformanceAnalytics";
 import { CalendarClock, ClipboardList, Archive, BookOpen } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -127,6 +128,8 @@ export function StudentDashboard({ user }: { user: User }) {
           />
         )}
       </Panel>
+      <PerformanceAnalytics studentId={user.id} />
+
     </div>
   );
 }

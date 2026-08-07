@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedAiTutorRouteImport } from './routes/_authenticated/ai-tutor'
 import { Route as AuthenticatedAssessmentsRouteImport } from './routes/_authenticated/assessments'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDreamSchoolRouteImport } from './routes/_authenticated/dream-school'
@@ -21,6 +22,7 @@ import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedMissedWorkRouteImport } from './routes/_authenticated/missed-work'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedVirtualClassroomRouteImport } from './routes/_authenticated/virtual-classroom'
+import { Route as AuthenticatedExamAssessmentIdRouteImport } from './routes/_authenticated/exam.$assessmentId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -35,6 +37,11 @@ const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAiTutorRoute = AuthenticatedAiTutorRouteImport.update({
+  id: '/ai-tutor',
+  path: '/ai-tutor',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAssessmentsRoute =
   AuthenticatedAssessmentsRouteImport.update({
@@ -84,10 +91,17 @@ const AuthenticatedVirtualClassroomRoute =
     path: '/virtual-classroom',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedExamAssessmentIdRoute =
+  AuthenticatedExamAssessmentIdRouteImport.update({
+    id: '/exam/$assessmentId',
+    path: '/exam/$assessmentId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/ai-tutor': typeof AuthenticatedAiTutorRoute
   '/assessments': typeof AuthenticatedAssessmentsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dream-school': typeof AuthenticatedDreamSchoolRoute
@@ -97,10 +111,12 @@ export interface FileRoutesByFullPath {
   '/missed-work': typeof AuthenticatedMissedWorkRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
+  '/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/ai-tutor': typeof AuthenticatedAiTutorRoute
   '/assessments': typeof AuthenticatedAssessmentsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dream-school': typeof AuthenticatedDreamSchoolRoute
@@ -110,12 +126,14 @@ export interface FileRoutesByTo {
   '/missed-work': typeof AuthenticatedMissedWorkRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
+  '/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/ai-tutor': typeof AuthenticatedAiTutorRoute
   '/_authenticated/assessments': typeof AuthenticatedAssessmentsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/dream-school': typeof AuthenticatedDreamSchoolRoute
@@ -125,12 +143,14 @@ export interface FileRoutesById {
   '/_authenticated/missed-work': typeof AuthenticatedMissedWorkRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
+  '/_authenticated/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/auth'
+    | '/ai-tutor'
     | '/assessments'
     | '/dashboard'
     | '/dream-school'
@@ -140,10 +160,12 @@ export interface FileRouteTypes {
     | '/missed-work'
     | '/settings'
     | '/virtual-classroom'
+    | '/exam/$assessmentId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/ai-tutor'
     | '/assessments'
     | '/dashboard'
     | '/dream-school'
@@ -153,11 +175,13 @@ export interface FileRouteTypes {
     | '/missed-work'
     | '/settings'
     | '/virtual-classroom'
+    | '/exam/$assessmentId'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/ai-tutor'
     | '/_authenticated/assessments'
     | '/_authenticated/dashboard'
     | '/_authenticated/dream-school'
@@ -167,6 +191,7 @@ export interface FileRouteTypes {
     | '/_authenticated/missed-work'
     | '/_authenticated/settings'
     | '/_authenticated/virtual-classroom'
+    | '/_authenticated/exam/$assessmentId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -197,6 +222,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/ai-tutor': {
+      id: '/_authenticated/ai-tutor'
+      path: '/ai-tutor'
+      fullPath: '/ai-tutor'
+      preLoaderRoute: typeof AuthenticatedAiTutorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/assessments': {
       id: '/_authenticated/assessments'
@@ -261,10 +293,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVirtualClassroomRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/exam/$assessmentId': {
+      id: '/_authenticated/exam/$assessmentId'
+      path: '/exam/$assessmentId'
+      fullPath: '/exam/$assessmentId'
+      preLoaderRoute: typeof AuthenticatedExamAssessmentIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAiTutorRoute: typeof AuthenticatedAiTutorRoute
   AuthenticatedAssessmentsRoute: typeof AuthenticatedAssessmentsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDreamSchoolRoute: typeof AuthenticatedDreamSchoolRoute
@@ -274,9 +314,11 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMissedWorkRoute: typeof AuthenticatedMissedWorkRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedVirtualClassroomRoute: typeof AuthenticatedVirtualClassroomRoute
+  AuthenticatedExamAssessmentIdRoute: typeof AuthenticatedExamAssessmentIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAiTutorRoute: AuthenticatedAiTutorRoute,
   AuthenticatedAssessmentsRoute: AuthenticatedAssessmentsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDreamSchoolRoute: AuthenticatedDreamSchoolRoute,
@@ -286,6 +328,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMissedWorkRoute: AuthenticatedMissedWorkRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedVirtualClassroomRoute: AuthenticatedVirtualClassroomRoute,
+  AuthenticatedExamAssessmentIdRoute: AuthenticatedExamAssessmentIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

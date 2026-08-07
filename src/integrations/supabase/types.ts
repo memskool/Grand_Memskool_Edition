@@ -14,6 +14,182 @@ export type Database = {
   }
   public: {
     Tables: {
+      assessment_questions: {
+        Row: {
+          assessment_id: string
+          correct_answer: string | null
+          created_at: string
+          id: string
+          kind: string
+          options: Json
+          points: number
+          position: number
+          prompt: string
+          updated_at: string
+        }
+        Insert: {
+          assessment_id: string
+          correct_answer?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          options?: Json
+          points?: number
+          position?: number
+          prompt: string
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string
+          correct_answer?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          options?: Json
+          points?: number
+          position?: number
+          prompt?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_questions_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_submissions: {
+        Row: {
+          answers: Json
+          assessment_id: string
+          auto_score: number
+          created_at: string
+          id: string
+          manual_score: number | null
+          passed: boolean | null
+          started_at: string
+          status: string
+          student_id: string
+          submitted_at: string | null
+          total_points: number
+          updated_at: string
+        }
+        Insert: {
+          answers?: Json
+          assessment_id: string
+          auto_score?: number
+          created_at?: string
+          id?: string
+          manual_score?: number | null
+          passed?: boolean | null
+          started_at?: string
+          status?: string
+          student_id: string
+          submitted_at?: string | null
+          total_points?: number
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json
+          assessment_id?: string
+          auto_score?: number
+          created_at?: string
+          id?: string
+          manual_score?: number | null
+          passed?: boolean | null
+          started_at?: string
+          status?: string
+          student_id?: string
+          submitted_at?: string | null
+          total_points?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_submissions_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_submissions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessments: {
+        Row: {
+          available_from: string | null
+          available_until: string | null
+          class_id: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          passing_score: number
+          published: boolean
+          subject_id: string | null
+          time_limit_minutes: number
+          title: string
+          total_points: number
+          updated_at: string
+        }
+        Insert: {
+          available_from?: string | null
+          available_until?: string | null
+          class_id?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          passing_score?: number
+          published?: boolean
+          subject_id?: string | null
+          time_limit_minutes?: number
+          title: string
+          total_points?: number
+          updated_at?: string
+        }
+        Update: {
+          available_from?: string | null
+          available_until?: string | null
+          class_id?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          passing_score?: number
+          published?: boolean
+          subject_id?: string | null
+          time_limit_minutes?: number
+          title?: string
+          total_points?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessments_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessments_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assignments: {
         Row: {
           class_id: string
@@ -963,6 +1139,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_take_assessment: {
+        Args: { _assessment_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -980,6 +1160,10 @@ export type Database = {
       }
       is_parent_of: {
         Args: { _parent_id: string; _student_id: string }
+        Returns: boolean
+      }
+      owns_assessment: {
+        Args: { _assessment_id: string; _user_id: string }
         Returns: boolean
       }
       session_class_id: { Args: { _session_id: string }; Returns: string }

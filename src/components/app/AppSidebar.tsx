@@ -10,8 +10,10 @@ import {
   Sparkles,
   Settings,
   GraduationCap,
+  Bot,
 
 } from "lucide-react";
+import { useExamMode } from "@/lib/exam-mode";
 import {
   Sidebar,
   SidebarContent,
@@ -32,6 +34,7 @@ const NAV = [
   { title: "Messages", url: "/messages", icon: MessageSquare },
 
   { title: "Library", url: "/library", icon: BookOpen },
+  { title: "AI Tutor", url: "/ai-tutor", icon: Bot },
   { title: "Assessments", url: "/assessments", icon: ClipboardCheck },
   { title: "Dream School", url: "/dream-school", icon: Sparkles },
   { title: "Settings", url: "/settings", icon: Settings },
@@ -39,6 +42,8 @@ const NAV = [
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const examActive = useExamMode();
+  const items = NAV.filter((i) => !(examActive && i.url === "/ai-tutor"));
 
   return (
     <Sidebar collapsible="icon">
@@ -57,7 +62,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV.map((item) => (
+              {items.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton
                     asChild
