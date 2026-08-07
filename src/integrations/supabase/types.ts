@@ -175,6 +175,229 @@ export type Database = {
           },
         ]
       }
+      classroom_messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          sender_id: string
+          session_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          sender_id: string
+          session_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          sender_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classroom_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classroom_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "classroom_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      classroom_participants: {
+        Row: {
+          cam_on: boolean
+          camera_allowed: boolean
+          created_at: string
+          hand_raised: boolean
+          id: string
+          is_host: boolean
+          joined_at: string
+          left_at: string | null
+          mic_on: boolean
+          session_id: string
+          updated_at: string
+          user_id: string
+          warned_at: string | null
+        }
+        Insert: {
+          cam_on?: boolean
+          camera_allowed?: boolean
+          created_at?: string
+          hand_raised?: boolean
+          id?: string
+          is_host?: boolean
+          joined_at?: string
+          left_at?: string | null
+          mic_on?: boolean
+          session_id: string
+          updated_at?: string
+          user_id: string
+          warned_at?: string | null
+        }
+        Update: {
+          cam_on?: boolean
+          camera_allowed?: boolean
+          created_at?: string
+          hand_raised?: boolean
+          id?: string
+          is_host?: boolean
+          joined_at?: string
+          left_at?: string | null
+          mic_on?: boolean
+          session_id?: string
+          updated_at?: string
+          user_id?: string
+          warned_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classroom_participants_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "classroom_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classroom_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      classroom_sessions: {
+        Row: {
+          class_id: string
+          created_at: string
+          ended_at: string | null
+          host_id: string
+          id: string
+          is_active: boolean
+          started_at: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          ended_at?: string | null
+          host_id: string
+          id?: string
+          is_active?: boolean
+          started_at?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          ended_at?: string | null
+          host_id?: string
+          id?: string
+          is_active?: boolean
+          started_at?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classroom_sessions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_members: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          last_read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          last_read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          last_read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_members_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_resources: {
         Row: {
           category: string
@@ -396,6 +619,45 @@ export type Database = {
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          body: string
+          conversation_id: string
+          created_at: string
+          id: string
+          sender_id: string
+        }
+        Insert: {
+          body: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          sender_id: string
+        }
+        Update: {
+          body?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -636,6 +898,45 @@ export type Database = {
           },
         ]
       }
+      user_relations: {
+        Row: {
+          created_at: string
+          id: string
+          relation: string
+          target_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          relation: string
+          target_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          relation?: string
+          target_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_relations_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_relations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -669,6 +970,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_conversation_member: {
+        Args: { _conversation_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_enrolled: {
         Args: { _class_id: string; _user_id: string }
         Returns: boolean
@@ -677,6 +982,7 @@ export type Database = {
         Args: { _parent_id: string; _student_id: string }
         Returns: boolean
       }
+      session_class_id: { Args: { _session_id: string }; Returns: string }
       teaches_class: {
         Args: { _class_id: string; _user_id: string }
         Returns: boolean
