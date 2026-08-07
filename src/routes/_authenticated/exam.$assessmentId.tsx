@@ -12,7 +12,6 @@ import {
 } from "@/lib/assessment-data";
 import { setExamMode } from "@/lib/exam-mode";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -274,7 +273,3 @@ function ExamPage() {
     </div>
   );
 }
-
-// Keeps Input import used when short-answer single-line variants are added.
-export type { AssessmentSubmission };
-void Input;
