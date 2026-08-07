@@ -27,7 +27,7 @@ function useSubjects() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("subjects")
-        .select("id, name, code, description")
+        .select("id, name, code")
         .order("name");
       if (error) throw error;
       return data ?? [];
