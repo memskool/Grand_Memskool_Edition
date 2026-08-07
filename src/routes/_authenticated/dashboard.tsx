@@ -36,8 +36,8 @@ const SUBTITLES: Record<string, string> = {
 
 function DashboardPage() {
   const { user, loading } = useSession();
-  const { data: profile } = useProfile(user?.id);
-  const { data: role, isLoading: roleLoading } = useRole(user?.id);
+  const { data: profile } = useProfile(user ?? null);
+  const { data: role, isLoading: roleLoading } = useRole(user ?? null);
 
   if (loading || roleLoading || !user) {
     return <ListSkeleton rows={4} />;
@@ -49,7 +49,7 @@ function DashboardPage() {
     <>
       <PageHeader
         title={firstName ? `Welcome back, ${firstName}` : "Welcome back"}
-        subtitle={SUBTITLES[role ?? "student"]}
+        subtitle={SUBTITLES[role ?? "student"] ?? ""}
       />
       {role === "teacher" ? (
         <TeacherDashboard user={user} />
