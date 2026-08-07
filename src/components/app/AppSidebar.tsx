@@ -13,6 +13,7 @@ import {
   Bot,
   CalendarDays,
   Building2,
+  ShoppingBag,
 
 } from "lucide-react";
 import { useExamMode } from "@/lib/exam-mode";
@@ -41,6 +42,7 @@ const NAV = [
   { title: "AI Tutor", url: "/ai-tutor", icon: Bot },
   { title: "Assessments", url: "/assessments", icon: ClipboardCheck },
   { title: "Dream School", url: "/dream-school", icon: Sparkles },
+  { title: "Marketplace", url: "/marketplace", icon: ShoppingBag },
   { title: "School Admin", url: "/school-admin", icon: Building2 },
   { title: "Settings", url: "/settings", icon: Settings },
 ] as const;

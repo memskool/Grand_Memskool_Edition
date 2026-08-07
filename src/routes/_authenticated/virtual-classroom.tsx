@@ -7,6 +7,8 @@ import { useMyEnrolledClasses, useTeachingClasses } from "@/lib/school-data";
 import { useActiveSession, useStartSession } from "@/lib/classroom-data";
 import { ClassroomRoom } from "@/components/app/ClassroomRoom";
 import { PageHeader, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
+import { SuspensionNotice } from "@/components/app/SuspensionNotice";
+import { useSuspensionStatus } from "@/lib/discipline-data";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/virtual-classroom")({
@@ -34,7 +36,18 @@ function VirtualClassroomPage() {
   const teaching = useTeachingClasses(isTeacher ? user?.id : undefined);
   const source = isTeacher ? teaching : enrolled;
 
+  const { suspension } = useSuspensionStatus(user?.id);
+
   const [openClass, setOpenClass] = useState<{ id: string; name: string } | null>(null);
+
+  if (suspension && !isTeacher) {
+    return (
+      <>
+        <PageHeader title="Virtual Classroom" subtitle="Live lessons" />
+        <SuspensionNotice suspension={suspension} feature="Live Classroom" />
+      </>
+    );
+  }
 
   if (openClass && user) {
     return (
