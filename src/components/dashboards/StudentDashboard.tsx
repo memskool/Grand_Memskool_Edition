@@ -1,4 +1,6 @@
 import { AdmissionsPanel, MeetingsPanel } from "@/components/app/SchoolLifePanels";
+import { RewardsWidget } from "@/components/app/RewardsWidget";
+import { MyBehaviourPanel } from "@/components/app/MyBehaviourPanel";
 import { PerformanceAnalytics } from "@/components/app/PerformanceAnalytics";
 import { CalendarClock, ClipboardList, Archive, BookOpen } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
@@ -45,6 +47,11 @@ export function StudentDashboard({ user }: { user: User }) {
           tone="success"
           loading={locker.isLoading}
         />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <RewardsWidget studentId={user.id} />
+        <MyBehaviourPanel userId={user.id} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
