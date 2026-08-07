@@ -12,7 +12,7 @@ import {
   useRewardEvents,
 } from "@/lib/rewards-data";
 
-export function RewardsWidget({ studentId, compact }: { studentId?: string; compact?: boolean }) {
+export function RewardsWidget({ studentId, compact }: { studentId?: string | undefined; compact?: boolean | undefined }) {
   const { data: events, isLoading } = useRewardEvents(studentId);
   const checkIn = useDailyCheckIn(studentId);
 

@@ -191,7 +191,7 @@ function MarketplacePage() {
   );
 }
 
-function NewItemDialog({ sellerId }: { sellerId?: string }) {
+function NewItemDialog({ sellerId }: { sellerId?: string | undefined }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");

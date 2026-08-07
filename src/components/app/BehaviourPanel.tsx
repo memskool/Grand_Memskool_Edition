@@ -23,7 +23,7 @@ import {
   useStudentDirectory,
 } from "@/lib/discipline-data";
 
-export function BehaviourPanel({ staffId }: { staffId?: string }) {
+export function BehaviourPanel({ staffId }: { staffId?: string | undefined }) {
   const students = useStudentDirectory(!!staffId);
   const actions = useAllDisciplinaryActions(!!staffId);
   const issue = useIssueAction(staffId);
