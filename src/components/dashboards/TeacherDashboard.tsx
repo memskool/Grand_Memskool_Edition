@@ -110,6 +110,7 @@ export function TeacherDashboard({ user }: { user: User }) {
           />
         )}
       </Panel>
+      <MeetingsPanel />
       <TeacherAssessmentPanel teacherId={user.id} />
 
     </div>
