@@ -18,6 +18,7 @@ import { Route as AuthenticatedDreamSchoolRouteImport } from './routes/_authenti
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
 import { Route as AuthenticatedLockerRouteImport } from './routes/_authenticated/locker'
 import { Route as AuthenticatedMissedWorkRouteImport } from './routes/_authenticated/missed-work'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedVirtualClassroomRouteImport } from './routes/_authenticated/virtual-classroom'
 
 const IndexRoute = IndexRouteImport.update({
@@ -66,6 +67,11 @@ const AuthenticatedMissedWorkRoute = AuthenticatedMissedWorkRouteImport.update({
   path: '/missed-work',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedVirtualClassroomRoute =
   AuthenticatedVirtualClassroomRouteImport.update({
     id: '/virtual-classroom',
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/library': typeof AuthenticatedLibraryRoute
   '/locker': typeof AuthenticatedLockerRoute
   '/missed-work': typeof AuthenticatedMissedWorkRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
 }
 export interface FileRoutesByTo {
@@ -93,6 +100,7 @@ export interface FileRoutesByTo {
   '/library': typeof AuthenticatedLibraryRoute
   '/locker': typeof AuthenticatedLockerRoute
   '/missed-work': typeof AuthenticatedMissedWorkRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
 }
 export interface FileRoutesById {
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/_authenticated/library': typeof AuthenticatedLibraryRoute
   '/_authenticated/locker': typeof AuthenticatedLockerRoute
   '/_authenticated/missed-work': typeof AuthenticatedMissedWorkRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
 }
 export interface FileRouteTypes {
@@ -119,6 +128,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/locker'
     | '/missed-work'
+    | '/settings'
     | '/virtual-classroom'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/locker'
     | '/missed-work'
+    | '/settings'
     | '/virtual-classroom'
   id:
     | '__root__'
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
     | '/_authenticated/library'
     | '/_authenticated/locker'
     | '/_authenticated/missed-work'
+    | '/_authenticated/settings'
     | '/_authenticated/virtual-classroom'
   fileRoutesById: FileRoutesById
 }
@@ -216,6 +228,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMissedWorkRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/virtual-classroom': {
       id: '/_authenticated/virtual-classroom'
       path: '/virtual-classroom'
@@ -233,6 +252,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
   AuthenticatedLockerRoute: typeof AuthenticatedLockerRoute
   AuthenticatedMissedWorkRoute: typeof AuthenticatedMissedWorkRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedVirtualClassroomRoute: typeof AuthenticatedVirtualClassroomRoute
 }
 
@@ -243,6 +263,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,
   AuthenticatedLockerRoute: AuthenticatedLockerRoute,
   AuthenticatedMissedWorkRoute: AuthenticatedMissedWorkRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedVirtualClassroomRoute: AuthenticatedVirtualClassroomRoute,
 }
 

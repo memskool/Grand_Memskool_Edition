@@ -33,14 +33,10 @@ function SettingsPage() {
   const { data: role } = useRole(user ?? null);
   const qc = useQueryClient();
   const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (profile) {
-      setFullName(profile.full_name ?? "");
-      setPhone(profile.phone ?? "");
-    }
+    if (profile) setFullName(profile.full_name ?? "");
   }, [profile]);
 
   const save = async (e: React.FormEvent) => {
@@ -49,7 +45,7 @@ function SettingsPage() {
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ full_name: fullName, phone: phone || null })
+      .update({ full_name: fullName })
       .eq("id", user.id);
     setSaving(false);
     if (error) {
@@ -69,10 +65,6 @@ function SettingsPage() {
             <div className="space-y-2">
               <Label htmlFor="st-name">Full name</Label>
               <Input id="st-name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="st-phone">Phone</Label>
-              <Input id="st-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
             <Button type="submit" className="rounded-full" disabled={saving}>
               Save changes
