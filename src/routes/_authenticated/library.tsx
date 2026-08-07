@@ -54,7 +54,6 @@ function LibraryPage() {
                 <p className="mt-3 text-sm font-medium">{s.name}</p>
                 <p className="text-xs text-muted-foreground">{s.code}</p>
               </li>
-              </li>
             ))}
           </ul>
         ) : (
