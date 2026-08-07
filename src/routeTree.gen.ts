@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedLockerRouteImport } from './routes/_authenticated/locker'
 import { Route as AuthenticatedMissedWorkRouteImport } from './routes/_authenticated/missed-work'
+import { Route as AuthenticatedVirtualClassroomRouteImport } from './routes/_authenticated/virtual-classroom'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -45,6 +46,12 @@ const AuthenticatedMissedWorkRoute = AuthenticatedMissedWorkRouteImport.update({
   path: '/missed-work',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedVirtualClassroomRoute =
+  AuthenticatedVirtualClassroomRouteImport.update({
+    id: '/virtual-classroom',
+    path: '/virtual-classroom',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -52,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/locker': typeof AuthenticatedLockerRoute
   '/missed-work': typeof AuthenticatedMissedWorkRoute
+  '/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -59,6 +67,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/locker': typeof AuthenticatedLockerRoute
   '/missed-work': typeof AuthenticatedMissedWorkRoute
+  '/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -68,12 +77,25 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/locker': typeof AuthenticatedLockerRoute
   '/_authenticated/missed-work': typeof AuthenticatedMissedWorkRoute
+  '/_authenticated/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/dashboard' | '/locker' | '/missed-work'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/locker'
+    | '/missed-work'
+    | '/virtual-classroom'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/locker' | '/missed-work'
+  to:
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/locker'
+    | '/missed-work'
+    | '/virtual-classroom'
   id:
     | '__root__'
     | '/'
@@ -82,6 +104,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/locker'
     | '/_authenticated/missed-work'
+    | '/_authenticated/virtual-classroom'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -134,6 +157,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMissedWorkRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/virtual-classroom': {
+      id: '/_authenticated/virtual-classroom'
+      path: '/virtual-classroom'
+      fullPath: '/virtual-classroom'
+      preLoaderRoute: typeof AuthenticatedVirtualClassroomRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -141,12 +171,14 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedLockerRoute: typeof AuthenticatedLockerRoute
   AuthenticatedMissedWorkRoute: typeof AuthenticatedMissedWorkRoute
+  AuthenticatedVirtualClassroomRoute: typeof AuthenticatedVirtualClassroomRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedLockerRoute: AuthenticatedLockerRoute,
   AuthenticatedMissedWorkRoute: AuthenticatedMissedWorkRoute,
+  AuthenticatedVirtualClassroomRoute: AuthenticatedVirtualClassroomRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
