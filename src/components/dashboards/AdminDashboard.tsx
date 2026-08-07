@@ -1,6 +1,8 @@
 import { Users, BookOpen, Library, ShieldCheck } from "lucide-react";
 import { useSchoolOverview } from "@/lib/school-data";
 import { StatCard, Panel, ListSkeleton } from "@/components/app/primitives";
+import { BehaviourPanel } from "@/components/app/BehaviourPanel";
+import { useSession } from "@/hooks/useAuth";
 
 const ROLE_LABELS: Record<string, string> = {
   student: "Students",
@@ -11,6 +13,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export function AdminDashboard() {
   const overview = useSchoolOverview(true);
+  const { user } = useSession();
 
   return (
     <div className="space-y-6">
@@ -59,6 +62,7 @@ export function AdminDashboard() {
           </ul>
         )}
       </Panel>
+      <BehaviourPanel staffId={user?.id} />
     </div>
   );
 }

@@ -4,7 +4,10 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, useProfile, useRole } from "@/hooks/useAuth";
-import { PageHeader, Panel } from "@/components/app/primitives";
+import { PageHeader, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
+import { Receipt } from "lucide-react";
+import { formatDateTime } from "@/lib/format";
+import { formatPrice, useMyOrders } from "@/lib/marketplace-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +37,7 @@ function SettingsPage() {
   const qc = useQueryClient();
   const [fullName, setFullName] = useState("");
   const [saving, setSaving] = useState(false);
+  const orders = useMyOrders(user?.id);
 
   useEffect(() => {
     if (profile) setFullName(profile.full_name ?? "");
@@ -89,6 +93,51 @@ function SettingsPage() {
           </dl>
         </Panel>
       </div>
+
+      <Panel
+        className="mt-6"
+        title="Receipts & transactions"
+        description="Every marketplace purchase and tutoring booking"
+      >
+        {orders.isLoading ? (
+          <ListSkeleton rows={3} />
+        ) : (orders.data ?? []).length === 0 ? (
+          <EmptyState
+            icon={Receipt}
+            title="No transactions yet"
+            hint="Books, revision resources and tutoring bookings show up here."
+          />
+        ) : (
+          <ul className="space-y-3">
+            {(orders.data ?? []).map((o) => (
+              <li key={o.id} className="rounded-2xl border border-border p-3">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{o.item_title}</p>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {o.reference} · {o.provider} · {formatDateTime(o.created_at)}
+                    </p>
+                    {o.scheduled_at ? (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Session: {formatDateTime(o.scheduled_at)}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="font-medium">{formatPrice(o.amount_cents, o.currency)}</p>
+                    <Badge
+                      variant={o.status === "paid" ? "secondary" : "outline"}
+                      className="mt-1 rounded-full capitalize"
+                    >
+                      {o.status}
+                    </Badge>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
     </>
   );
 }

@@ -15,6 +15,8 @@ import {
   type ConversationKind,
 } from "@/lib/messaging-data";
 import { PageHeader, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
+import { SuspensionNotice } from "@/components/app/SuspensionNotice";
+import { useSuspensionStatus } from "@/lib/discipline-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +68,7 @@ function MessagesPage() {
   const conversations = useMyConversations(userId);
   const relations = useUserRelations(userId);
   const setRelation = useSetRelation();
+  const { suspension } = useSuspensionStatus(userId);
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | ConversationKind>("all");
@@ -81,6 +84,15 @@ function MessagesPage() {
 
   const list = (conversations.data ?? []).filter((c) => filter === "all" || c.kind === filter);
   const active = list.find((c) => c.id === activeId) ?? null;
+
+  if (suspension && role !== "teacher" && role !== "admin") {
+    return (
+      <>
+        <PageHeader title="Messages" subtitle="Chats and group conversations" />
+        <SuspensionNotice suspension={suspension} feature="Messaging" />
+      </>
+    );
+  }
 
   return (
     <>
