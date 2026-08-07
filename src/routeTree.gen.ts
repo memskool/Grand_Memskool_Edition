@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAssessmentsRouteImport } from './routes/_authenticated/assessments'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDreamSchoolRouteImport } from './routes/_authenticated/dream-school'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
 import { Route as AuthenticatedLockerRouteImport } from './routes/_authenticated/locker'
 import { Route as AuthenticatedMissedWorkRouteImport } from './routes/_authenticated/missed-work'
@@ -44,6 +45,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDreamSchoolRoute =
+  AuthenticatedDreamSchoolRouteImport.update({
+    id: '/dream-school',
+    path: '/dream-school',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
   id: '/library',
   path: '/library',
@@ -71,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/assessments': typeof AuthenticatedAssessmentsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/dream-school': typeof AuthenticatedDreamSchoolRoute
   '/library': typeof AuthenticatedLibraryRoute
   '/locker': typeof AuthenticatedLockerRoute
   '/missed-work': typeof AuthenticatedMissedWorkRoute
@@ -81,6 +89,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/assessments': typeof AuthenticatedAssessmentsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/dream-school': typeof AuthenticatedDreamSchoolRoute
   '/library': typeof AuthenticatedLibraryRoute
   '/locker': typeof AuthenticatedLockerRoute
   '/missed-work': typeof AuthenticatedMissedWorkRoute
@@ -93,6 +102,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/assessments': typeof AuthenticatedAssessmentsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/dream-school': typeof AuthenticatedDreamSchoolRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRoute
   '/_authenticated/locker': typeof AuthenticatedLockerRoute
   '/_authenticated/missed-work': typeof AuthenticatedMissedWorkRoute
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/assessments'
     | '/dashboard'
+    | '/dream-school'
     | '/library'
     | '/locker'
     | '/missed-work'
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/assessments'
     | '/dashboard'
+    | '/dream-school'
     | '/library'
     | '/locker'
     | '/missed-work'
@@ -126,6 +138,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/assessments'
     | '/_authenticated/dashboard'
+    | '/_authenticated/dream-school'
     | '/_authenticated/library'
     | '/_authenticated/locker'
     | '/_authenticated/missed-work'
@@ -175,6 +188,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dream-school': {
+      id: '/_authenticated/dream-school'
+      path: '/dream-school'
+      fullPath: '/dream-school'
+      preLoaderRoute: typeof AuthenticatedDreamSchoolRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/library': {
       id: '/_authenticated/library'
       path: '/library'
@@ -209,6 +229,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAssessmentsRoute: typeof AuthenticatedAssessmentsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDreamSchoolRoute: typeof AuthenticatedDreamSchoolRoute
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
   AuthenticatedLockerRoute: typeof AuthenticatedLockerRoute
   AuthenticatedMissedWorkRoute: typeof AuthenticatedMissedWorkRoute
@@ -218,6 +239,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAssessmentsRoute: AuthenticatedAssessmentsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDreamSchoolRoute: AuthenticatedDreamSchoolRoute,
   AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,
   AuthenticatedLockerRoute: AuthenticatedLockerRoute,
   AuthenticatedMissedWorkRoute: AuthenticatedMissedWorkRoute,
