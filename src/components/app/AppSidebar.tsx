@@ -4,11 +4,13 @@ import {
   Archive,
   AlarmClock,
   Video,
+  MessageSquare,
   BookOpen,
   ClipboardCheck,
   Sparkles,
   Settings,
   GraduationCap,
+
 } from "lucide-react";
 import {
   Sidebar,
