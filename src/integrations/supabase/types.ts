@@ -574,6 +574,70 @@ export type Database = {
           },
         ]
       }
+      disciplinary_actions: {
+        Row: {
+          active: boolean
+          class_id: string | null
+          created_at: string
+          ends_at: string | null
+          id: string
+          issued_by: string | null
+          kind: string
+          reason: string
+          starts_at: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          class_id?: string | null
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          issued_by?: string | null
+          kind?: string
+          reason: string
+          starts_at?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          class_id?: string | null
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          issued_by?: string | null
+          kind?: string
+          reason?: string
+          starts_at?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disciplinary_actions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disciplinary_actions_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disciplinary_actions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_resources: {
         Row: {
           category: string
@@ -799,6 +863,72 @@ export type Database = {
           },
         ]
       }
+      marketplace_items: {
+        Row: {
+          active: boolean
+          class_level: string | null
+          cover_url: string | null
+          created_at: string
+          currency: string
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          kind: string
+          price_cents: number
+          seller_id: string | null
+          subject_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          class_level?: string | null
+          cover_url?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          kind?: string
+          price_cents?: number
+          seller_id?: string | null
+          subject_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          class_level?: string | null
+          cover_url?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          kind?: string
+          price_cents?: number
+          seller_id?: string | null
+          subject_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_items_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_items_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string
@@ -937,6 +1067,75 @@ export type Database = {
         }
         Relationships: []
       }
+      orders: {
+        Row: {
+          amount_cents: number
+          buyer_id: string
+          created_at: string
+          currency: string
+          id: string
+          item_id: string | null
+          item_kind: string
+          item_title: string
+          notes: string | null
+          provider: string
+          quantity: number
+          reference: string
+          scheduled_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents?: number
+          buyer_id: string
+          created_at?: string
+          currency?: string
+          id?: string
+          item_id?: string | null
+          item_kind?: string
+          item_title: string
+          notes?: string | null
+          provider?: string
+          quantity?: number
+          reference: string
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          buyer_id?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          item_id?: string | null
+          item_kind?: string
+          item_title?: string
+          notes?: string | null
+          provider?: string
+          quantity?: number
+          reference?: string
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       parent_students: {
         Row: {
           created_at: string
@@ -999,6 +1198,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      reward_events: {
+        Row: {
+          created_at: string
+          day: string
+          id: string
+          kind: string
+          note: string | null
+          points: number
+          source_id: string | null
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          day?: string
+          id?: string
+          kind: string
+          note?: string | null
+          points?: number
+          source_id?: string | null
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          day?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          points?: number
+          source_id?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reward_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       school_applications: {
         Row: {
@@ -1410,6 +1650,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      award_points: {
+        Args: {
+          _kind: string
+          _note: string
+          _points: number
+          _source_id: string
+          _student_id: string
+        }
+        Returns: undefined
+      }
       can_take_assessment: {
         Args: { _assessment_id: string; _user_id: string }
         Returns: boolean
@@ -1433,6 +1683,7 @@ export type Database = {
         Args: { _parent_id: string; _student_id: string }
         Returns: boolean
       }
+      is_suspended: { Args: { _user_id: string }; Returns: boolean }
       owns_assessment: {
         Args: { _assessment_id: string; _user_id: string }
         Returns: boolean
