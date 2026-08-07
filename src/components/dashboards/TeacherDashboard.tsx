@@ -1,3 +1,4 @@
+import { TeacherAssessmentPanel } from "@/components/app/TeacherAssessmentPanel";
 import { CalendarClock, ClipboardCheck, Users, BookOpen } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { useTeachingClasses, useTeacherTimetable, usePendingGrading } from "@/lib/school-data";
@@ -108,6 +109,8 @@ export function TeacherDashboard({ user }: { user: User }) {
           />
         )}
       </Panel>
+      <TeacherAssessmentPanel teacherId={user.id} />
+
     </div>
   );
 }
