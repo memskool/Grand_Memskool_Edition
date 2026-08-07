@@ -29,6 +29,8 @@ const NAV = [
   { title: "Locker", url: "/locker", icon: Archive },
   { title: "Missed Work", url: "/missed-work", icon: AlarmClock },
   { title: "Virtual Classroom", url: "/virtual-classroom", icon: Video },
+  { title: "Messages", url: "/messages", icon: MessageSquare },
+
   { title: "Library", url: "/library", icon: BookOpen },
   { title: "Assessments", url: "/assessments", icon: ClipboardCheck },
   { title: "Dream School", url: "/dream-school", icon: Sparkles },
