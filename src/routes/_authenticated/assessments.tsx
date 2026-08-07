@@ -9,7 +9,6 @@ import {
   Eye,
   EyeOff,
   Trash2,
-  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSession, useRole } from "@/hooks/useAuth";
@@ -61,7 +60,7 @@ function AssessmentsPage() {
 
 /* ------------------------------- Teacher ------------------------------- */
 
-function TeacherView({ userId }: { userId?: string }) {
+function TeacherView({ userId }: { userId?: string | undefined }) {
   const [tab, setTab] = useState("list");
   const list = useTeacherAssessments(userId);
   const stats = useTeacherAssessmentStats(userId);
@@ -202,7 +201,7 @@ function TeacherView({ userId }: { userId?: string }) {
 
 /* ------------------------------- Student ------------------------------- */
 
-function StudentView({ userId }: { userId?: string }) {
+function StudentView({ userId }: { userId?: string | undefined }) {
   const available = useAvailableAssessments(userId);
   const attempts = useMyAttempts(userId);
 
@@ -294,9 +293,6 @@ function StudentView({ userId }: { userId?: string }) {
 
 function ParentView() {
   const { user } = useSession();
-  const attempts = useMyAttempts(undefined);
-  void attempts;
-
   return (
     <>
       <PageHeader title="Assessments" subtitle="Your child's exam performance." />
@@ -305,7 +301,6 @@ function ParentView() {
         title="Progress report"
         description="Open the Dashboard to switch between children."
       />
-      {false ? <Loader2 /> : null}
     </>
   );
 }

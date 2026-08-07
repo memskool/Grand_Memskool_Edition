@@ -20,9 +20,9 @@ export function PerformanceAnalytics({
   title = "Performance analytics",
   description = "Grade trend across assessments and subjects.",
 }: {
-  studentId?: string;
-  title?: string;
-  description?: string;
+  studentId?: string | undefined;
+  title?: string | undefined;
+  description?: string | undefined;
 }) {
   const { data, isLoading } = usePerformanceTrend(studentId);
 

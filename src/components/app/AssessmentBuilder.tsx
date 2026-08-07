@@ -42,8 +42,8 @@ export function AssessmentBuilder({
   teacherId,
   onCreated,
 }: {
-  teacherId?: string;
-  onCreated?: () => void;
+  teacherId?: string | undefined;
+  onCreated?: (() => void) | undefined;
 }) {
   const classes = useTeachingClasses(teacherId);
   const subjects = useSubjects();
