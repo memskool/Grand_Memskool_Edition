@@ -167,7 +167,7 @@ export function useMyChildren(parentId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("parent_students")
-        .select("student_id, student:profiles(id, full_name, email)")
+        .select("student_id, student:profiles!parent_students_student_profile_fkey(id, full_name, email)")
         .eq("parent_id", parentId!);
       if (error) throw error;
       return data ?? [];
