@@ -1,3 +1,4 @@
+import { AdmissionsPanel, MeetingsPanel } from "@/components/app/SchoolLifePanels";
 import { PerformanceAnalytics } from "@/components/app/PerformanceAnalytics";
 import { useState } from "react";
 import { CalendarCheck, TrendingUp, Users, GraduationCap } from "lucide-react";
@@ -132,6 +133,10 @@ export function ParentDashboard({ user }: { user: User }) {
             <EmptyState icon={TrendingUp} title="No graded work yet" />
           )}
         </Panel>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <AdmissionsPanel studentId={childId} title="Child's applications" description="Admission progress for your child" />
+        <MeetingsPanel />
       </div>
       <PerformanceAnalytics
         studentId={childId}

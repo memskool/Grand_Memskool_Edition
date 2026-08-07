@@ -1,3 +1,4 @@
+import { MeetingsPanel } from "@/components/app/SchoolLifePanels";
 import { TeacherAssessmentPanel } from "@/components/app/TeacherAssessmentPanel";
 import { CalendarClock, ClipboardCheck, Users, BookOpen } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
@@ -109,6 +110,7 @@ export function TeacherDashboard({ user }: { user: User }) {
           />
         )}
       </Panel>
+      <MeetingsPanel />
       <TeacherAssessmentPanel teacherId={user.id} />
 
     </div>

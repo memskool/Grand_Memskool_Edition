@@ -20,7 +20,9 @@ import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedLockerRouteImport } from './routes/_authenticated/locker'
 import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
 import { Route as AuthenticatedMissedWorkRouteImport } from './routes/_authenticated/missed-work'
+import { Route as AuthenticatedSchoolAdminRouteImport } from './routes/_authenticated/school-admin'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedTimetableRouteImport } from './routes/_authenticated/timetable'
 import { Route as AuthenticatedVirtualClassroomRouteImport } from './routes/_authenticated/virtual-classroom'
 import { Route as AuthenticatedExamAssessmentIdRouteImport } from './routes/_authenticated/exam.$assessmentId'
 
@@ -80,9 +82,20 @@ const AuthenticatedMissedWorkRoute = AuthenticatedMissedWorkRouteImport.update({
   path: '/missed-work',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSchoolAdminRoute =
+  AuthenticatedSchoolAdminRouteImport.update({
+    id: '/school-admin',
+    path: '/school-admin',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTimetableRoute = AuthenticatedTimetableRouteImport.update({
+  id: '/timetable',
+  path: '/timetable',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedVirtualClassroomRoute =
@@ -109,7 +122,9 @@ export interface FileRoutesByFullPath {
   '/locker': typeof AuthenticatedLockerRoute
   '/messages': typeof AuthenticatedMessagesRoute
   '/missed-work': typeof AuthenticatedMissedWorkRoute
+  '/school-admin': typeof AuthenticatedSchoolAdminRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/timetable': typeof AuthenticatedTimetableRoute
   '/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
   '/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
 }
@@ -124,7 +139,9 @@ export interface FileRoutesByTo {
   '/locker': typeof AuthenticatedLockerRoute
   '/messages': typeof AuthenticatedMessagesRoute
   '/missed-work': typeof AuthenticatedMissedWorkRoute
+  '/school-admin': typeof AuthenticatedSchoolAdminRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/timetable': typeof AuthenticatedTimetableRoute
   '/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
   '/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
 }
@@ -141,7 +158,9 @@ export interface FileRoutesById {
   '/_authenticated/locker': typeof AuthenticatedLockerRoute
   '/_authenticated/messages': typeof AuthenticatedMessagesRoute
   '/_authenticated/missed-work': typeof AuthenticatedMissedWorkRoute
+  '/_authenticated/school-admin': typeof AuthenticatedSchoolAdminRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/timetable': typeof AuthenticatedTimetableRoute
   '/_authenticated/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
   '/_authenticated/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
 }
@@ -158,7 +177,9 @@ export interface FileRouteTypes {
     | '/locker'
     | '/messages'
     | '/missed-work'
+    | '/school-admin'
     | '/settings'
+    | '/timetable'
     | '/virtual-classroom'
     | '/exam/$assessmentId'
   fileRoutesByTo: FileRoutesByTo
@@ -173,7 +194,9 @@ export interface FileRouteTypes {
     | '/locker'
     | '/messages'
     | '/missed-work'
+    | '/school-admin'
     | '/settings'
+    | '/timetable'
     | '/virtual-classroom'
     | '/exam/$assessmentId'
   id:
@@ -189,7 +212,9 @@ export interface FileRouteTypes {
     | '/_authenticated/locker'
     | '/_authenticated/messages'
     | '/_authenticated/missed-work'
+    | '/_authenticated/school-admin'
     | '/_authenticated/settings'
+    | '/_authenticated/timetable'
     | '/_authenticated/virtual-classroom'
     | '/_authenticated/exam/$assessmentId'
   fileRoutesById: FileRoutesById
@@ -279,11 +304,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMissedWorkRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/school-admin': {
+      id: '/_authenticated/school-admin'
+      path: '/school-admin'
+      fullPath: '/school-admin'
+      preLoaderRoute: typeof AuthenticatedSchoolAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/timetable': {
+      id: '/_authenticated/timetable'
+      path: '/timetable'
+      fullPath: '/timetable'
+      preLoaderRoute: typeof AuthenticatedTimetableRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/virtual-classroom': {
@@ -312,7 +351,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLockerRoute: typeof AuthenticatedLockerRoute
   AuthenticatedMessagesRoute: typeof AuthenticatedMessagesRoute
   AuthenticatedMissedWorkRoute: typeof AuthenticatedMissedWorkRoute
+  AuthenticatedSchoolAdminRoute: typeof AuthenticatedSchoolAdminRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedTimetableRoute: typeof AuthenticatedTimetableRoute
   AuthenticatedVirtualClassroomRoute: typeof AuthenticatedVirtualClassroomRoute
   AuthenticatedExamAssessmentIdRoute: typeof AuthenticatedExamAssessmentIdRoute
 }
@@ -326,7 +367,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLockerRoute: AuthenticatedLockerRoute,
   AuthenticatedMessagesRoute: AuthenticatedMessagesRoute,
   AuthenticatedMissedWorkRoute: AuthenticatedMissedWorkRoute,
+  AuthenticatedSchoolAdminRoute: AuthenticatedSchoolAdminRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedTimetableRoute: AuthenticatedTimetableRoute,
   AuthenticatedVirtualClassroomRoute: AuthenticatedVirtualClassroomRoute,
   AuthenticatedExamAssessmentIdRoute: AuthenticatedExamAssessmentIdRoute,
 }

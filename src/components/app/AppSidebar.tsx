@@ -11,9 +11,12 @@ import {
   Settings,
   GraduationCap,
   Bot,
+  CalendarDays,
+  Building2,
 
 } from "lucide-react";
 import { useExamMode } from "@/lib/exam-mode";
+import { useSession, useRole } from "@/hooks/useAuth";
 import {
   Sidebar,
   SidebarContent,
@@ -31,19 +34,27 @@ const NAV = [
   { title: "Locker", url: "/locker", icon: Archive },
   { title: "Missed Work", url: "/missed-work", icon: AlarmClock },
   { title: "Virtual Classroom", url: "/virtual-classroom", icon: Video },
+  { title: "Timetable", url: "/timetable", icon: CalendarDays },
   { title: "Messages", url: "/messages", icon: MessageSquare },
 
   { title: "Library", url: "/library", icon: BookOpen },
   { title: "AI Tutor", url: "/ai-tutor", icon: Bot },
   { title: "Assessments", url: "/assessments", icon: ClipboardCheck },
   { title: "Dream School", url: "/dream-school", icon: Sparkles },
+  { title: "School Admin", url: "/school-admin", icon: Building2 },
   { title: "Settings", url: "/settings", icon: Settings },
 ] as const;
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const examActive = useExamMode();
-  const items = NAV.filter((i) => !(examActive && i.url === "/ai-tutor"));
+  const { user } = useSession();
+  const role = useRole(user);
+  const items = NAV.filter(
+    (i) =>
+      !(examActive && i.url === "/ai-tutor") &&
+      !(i.url === "/school-admin" && role.data !== "admin"),
+  );
 
   return (
     <Sidebar collapsible="icon">
