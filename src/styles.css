@@ -70,7 +70,7 @@
 
 :root {
   --radius: 1rem;
-  --font-display: "Google Sans Code", "Roboto", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Roboto Flex", "Roboto", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Roboto", ui-sans-serif, system-ui, sans-serif;
 
   --background: oklch(0.985 0.004 260);
