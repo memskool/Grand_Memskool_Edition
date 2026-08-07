@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { AppSidebar } from "@/components/app/AppSidebar";
 import { UserMenu } from "@/components/app/UserMenu";
 import { NotificationBell } from "@/components/app/NotificationBell";
+import { MobileNav } from "@/components/app/MobileNav";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -15,7 +16,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           <NotificationBell />
           <UserMenu />
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-24 sm:px-6 sm:py-8 md:pb-8">
+          {children}
+        </main>
+        <MobileNav />
       </SidebarInset>
     </SidebarProvider>
   );
