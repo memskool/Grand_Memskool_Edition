@@ -18,6 +18,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedDreamSchoolRouteImport } from './routes/_authenticated/dream-school'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
 import { Route as AuthenticatedLockerRouteImport } from './routes/_authenticated/locker'
+import { Route as AuthenticatedMarketplaceRouteImport } from './routes/_authenticated/marketplace'
 import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
 import { Route as AuthenticatedMissedWorkRouteImport } from './routes/_authenticated/missed-work'
 import { Route as AuthenticatedSchoolAdminRouteImport } from './routes/_authenticated/school-admin'
@@ -72,6 +73,12 @@ const AuthenticatedLockerRoute = AuthenticatedLockerRouteImport.update({
   path: '/locker',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMarketplaceRoute =
+  AuthenticatedMarketplaceRouteImport.update({
+    id: '/marketplace',
+    path: '/marketplace',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedMessagesRoute = AuthenticatedMessagesRouteImport.update({
   id: '/messages',
   path: '/messages',
@@ -120,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/dream-school': typeof AuthenticatedDreamSchoolRoute
   '/library': typeof AuthenticatedLibraryRoute
   '/locker': typeof AuthenticatedLockerRoute
+  '/marketplace': typeof AuthenticatedMarketplaceRoute
   '/messages': typeof AuthenticatedMessagesRoute
   '/missed-work': typeof AuthenticatedMissedWorkRoute
   '/school-admin': typeof AuthenticatedSchoolAdminRoute
@@ -137,6 +145,7 @@ export interface FileRoutesByTo {
   '/dream-school': typeof AuthenticatedDreamSchoolRoute
   '/library': typeof AuthenticatedLibraryRoute
   '/locker': typeof AuthenticatedLockerRoute
+  '/marketplace': typeof AuthenticatedMarketplaceRoute
   '/messages': typeof AuthenticatedMessagesRoute
   '/missed-work': typeof AuthenticatedMissedWorkRoute
   '/school-admin': typeof AuthenticatedSchoolAdminRoute
@@ -156,6 +165,7 @@ export interface FileRoutesById {
   '/_authenticated/dream-school': typeof AuthenticatedDreamSchoolRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRoute
   '/_authenticated/locker': typeof AuthenticatedLockerRoute
+  '/_authenticated/marketplace': typeof AuthenticatedMarketplaceRoute
   '/_authenticated/messages': typeof AuthenticatedMessagesRoute
   '/_authenticated/missed-work': typeof AuthenticatedMissedWorkRoute
   '/_authenticated/school-admin': typeof AuthenticatedSchoolAdminRoute
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/dream-school'
     | '/library'
     | '/locker'
+    | '/marketplace'
     | '/messages'
     | '/missed-work'
     | '/school-admin'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/dream-school'
     | '/library'
     | '/locker'
+    | '/marketplace'
     | '/messages'
     | '/missed-work'
     | '/school-admin'
@@ -210,6 +222,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dream-school'
     | '/_authenticated/library'
     | '/_authenticated/locker'
+    | '/_authenticated/marketplace'
     | '/_authenticated/messages'
     | '/_authenticated/missed-work'
     | '/_authenticated/school-admin'
@@ -290,6 +303,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLockerRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/marketplace': {
+      id: '/_authenticated/marketplace'
+      path: '/marketplace'
+      fullPath: '/marketplace'
+      preLoaderRoute: typeof AuthenticatedMarketplaceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/messages': {
       id: '/_authenticated/messages'
       path: '/messages'
@@ -349,6 +369,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDreamSchoolRoute: typeof AuthenticatedDreamSchoolRoute
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
   AuthenticatedLockerRoute: typeof AuthenticatedLockerRoute
+  AuthenticatedMarketplaceRoute: typeof AuthenticatedMarketplaceRoute
   AuthenticatedMessagesRoute: typeof AuthenticatedMessagesRoute
   AuthenticatedMissedWorkRoute: typeof AuthenticatedMissedWorkRoute
   AuthenticatedSchoolAdminRoute: typeof AuthenticatedSchoolAdminRoute
@@ -365,6 +386,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDreamSchoolRoute: AuthenticatedDreamSchoolRoute,
   AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,
   AuthenticatedLockerRoute: AuthenticatedLockerRoute,
+  AuthenticatedMarketplaceRoute: AuthenticatedMarketplaceRoute,
   AuthenticatedMessagesRoute: AuthenticatedMessagesRoute,
   AuthenticatedMissedWorkRoute: AuthenticatedMissedWorkRoute,
   AuthenticatedSchoolAdminRoute: AuthenticatedSchoolAdminRoute,

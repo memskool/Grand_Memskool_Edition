@@ -28,7 +28,7 @@ export function CheckoutModal({
   onOpenChange,
 }: {
   item: MarketplaceItem | null;
-  buyerId?: string;
+  buyerId?: string | undefined;
   onOpenChange: (open: boolean) => void;
 }) {
   const [quantity, setQuantity] = useState(1);
