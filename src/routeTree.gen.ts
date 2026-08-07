@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedLockerRouteImport } from './routes/_authenticated/locker'
+import { Route as AuthenticatedMissedWorkRouteImport } from './routes/_authenticated/missed-work'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -39,18 +40,25 @@ const AuthenticatedLockerRoute = AuthenticatedLockerRouteImport.update({
   path: '/locker',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMissedWorkRoute = AuthenticatedMissedWorkRouteImport.update({
+  id: '/missed-work',
+  path: '/missed-work',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/locker': typeof AuthenticatedLockerRoute
+  '/missed-work': typeof AuthenticatedMissedWorkRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/locker': typeof AuthenticatedLockerRoute
+  '/missed-work': typeof AuthenticatedMissedWorkRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -59,12 +67,13 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/locker': typeof AuthenticatedLockerRoute
+  '/_authenticated/missed-work': typeof AuthenticatedMissedWorkRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/dashboard' | '/locker'
+  fullPaths: '/' | '/auth' | '/dashboard' | '/locker' | '/missed-work'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/locker'
+  to: '/' | '/auth' | '/dashboard' | '/locker' | '/missed-work'
   id:
     | '__root__'
     | '/'
@@ -72,6 +81,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/dashboard'
     | '/_authenticated/locker'
+    | '/_authenticated/missed-work'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -117,17 +127,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLockerRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/missed-work': {
+      id: '/_authenticated/missed-work'
+      path: '/missed-work'
+      fullPath: '/missed-work'
+      preLoaderRoute: typeof AuthenticatedMissedWorkRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedLockerRoute: typeof AuthenticatedLockerRoute
+  AuthenticatedMissedWorkRoute: typeof AuthenticatedMissedWorkRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedLockerRoute: AuthenticatedLockerRoute,
+  AuthenticatedMissedWorkRoute: AuthenticatedMissedWorkRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
