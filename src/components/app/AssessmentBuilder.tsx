@@ -64,13 +64,23 @@ export function AssessmentBuilder({
   const totalPoints = questions.reduce((s, q) => s + (Number(q.points) || 0), 0);
 
   const submit = async () => {
-    if (!title.trim()) return toast.error("Give the assessment a title");
-    if (!classId) return toast.error("Choose a class to assign this to");
+    if (!title.trim()) {
+      toast.error("Give the assessment a title");
+      return;
+    }
+    if (!classId) {
+      toast.error("Choose a class to assign this to");
+      return;
+    }
     const clean = questions.filter((q) => q.prompt.trim());
-    if (!clean.length) return toast.error("Add at least one question");
+    if (!clean.length) {
+      toast.error("Add at least one question");
+      return;
+    }
     for (const q of clean) {
       if (q.kind === "multiple_choice" && !q.correct_answer.trim()) {
-        return toast.error("Every multiple-choice question needs a correct option selected");
+        toast.error("Every multiple-choice question needs a correct option selected");
+        return;
       }
     }
 
