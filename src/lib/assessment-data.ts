@@ -353,3 +353,39 @@ export function usePerformanceTrend(studentId?: string) {
     },
   });
 }
+
+export type ClassStat = { label: string; average: number; submissions: number };
+
+/** Average score per assessment across everything a teacher created. */
+export function useTeacherAssessmentStats(teacherId?: string) {
+  return useQuery({
+    queryKey: ["teacher-assessment-stats", teacherId],
+    enabled: !!teacherId,
+    queryFn: async (): Promise<ClassStat[]> => {
+      const { data: rows, error } = await supabase
+        .from("assessments")
+        .select("id, title, created_by, submissions:assessment_submissions(auto_score, manual_score, total_points, submitted_at)")
+        .eq("created_by", teacherId!)
+        .order("created_at");
+      if (error) throw error;
+
+      return (rows ?? []).map((a) => {
+        const subs = ((a.submissions ?? []) as Array<{
+          auto_score: number | null;
+          manual_score: number | null;
+          total_points: number | null;
+          submitted_at: string | null;
+        }>).filter((s) => s.submitted_at);
+        const percents = subs.map((s) => {
+          const score = Number(s.manual_score ?? s.auto_score ?? 0);
+          const total = Number(s.total_points || 0);
+          return total ? (score / total) * 100 : 0;
+        });
+        const average = percents.length
+          ? Math.round(percents.reduce((x, y) => x + y, 0) / percents.length)
+          : 0;
+        return { label: a.title as string, average, submissions: subs.length };
+      });
+    },
+  });
+}
