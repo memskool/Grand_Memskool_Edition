@@ -175,43 +175,293 @@ export type Database = {
           },
         ]
       }
-      locker_items: {
+      lesson_resources: {
         Row: {
+          category: string
+          class_id: string
           created_at: string
+          created_by: string | null
+          file_name: string | null
+          file_path: string | null
+          file_size: number | null
           id: string
-          kind: string
-          notes: string | null
-          owner_id: string
-          subject_id: string | null
+          lesson_date: string
+          mime_type: string | null
           title: string
           url: string | null
         }
         Insert: {
+          category?: string
+          class_id: string
           created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
           id?: string
-          kind?: string
-          notes?: string | null
-          owner_id: string
-          subject_id?: string | null
+          lesson_date?: string
+          mime_type?: string | null
           title: string
           url?: string | null
         }
         Update: {
+          category?: string
+          class_id?: string
           created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
           id?: string
-          kind?: string
-          notes?: string | null
-          owner_id?: string
-          subject_id?: string | null
+          lesson_date?: string
+          mime_type?: string | null
           title?: string
           url?: string | null
         }
         Relationships: [
           {
+            foreignKeyName: "lesson_resources_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_books: {
+        Row: {
+          author: string | null
+          category: string
+          class_level: string | null
+          created_at: string
+          description: string | null
+          file_name: string | null
+          file_path: string | null
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          subject_id: string | null
+          title: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          author?: string | null
+          category?: string
+          class_level?: string | null
+          created_at?: string
+          description?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          subject_id?: string | null
+          title: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          author?: string | null
+          category?: string
+          class_level?: string | null
+          created_at?: string
+          description?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          subject_id?: string | null
+          title?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_books_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locker_folders: {
+        Row: {
+          class_level: string | null
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          subject_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          class_level?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+          subject_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          class_level?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          subject_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locker_folders_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locker_items: {
+        Row: {
+          category: string
+          class_level: string | null
+          created_at: string
+          file_name: string | null
+          file_path: string | null
+          file_size: number | null
+          folder_id: string | null
+          from_missed_work: boolean
+          id: string
+          kind: string
+          mime_type: string | null
+          notes: string | null
+          owner_id: string
+          subject_id: string | null
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          category?: string
+          class_level?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          folder_id?: string | null
+          from_missed_work?: boolean
+          id?: string
+          kind?: string
+          mime_type?: string | null
+          notes?: string | null
+          owner_id: string
+          subject_id?: string | null
+          title: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          category?: string
+          class_level?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          folder_id?: string | null
+          from_missed_work?: boolean
+          id?: string
+          kind?: string
+          mime_type?: string | null
+          notes?: string | null
+          owner_id?: string
+          subject_id?: string | null
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locker_items_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "locker_folders"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "locker_items_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      missed_work: {
+        Row: {
+          category: string
+          class_id: string | null
+          created_at: string
+          file_name: string | null
+          file_path: string | null
+          id: string
+          lesson_date: string
+          released_to_locker: boolean
+          resource_id: string | null
+          reviewed: boolean
+          reviewed_at: string | null
+          student_id: string
+          title: string
+          url: string | null
+        }
+        Insert: {
+          category?: string
+          class_id?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          lesson_date?: string
+          released_to_locker?: boolean
+          resource_id?: string | null
+          reviewed?: boolean
+          reviewed_at?: string | null
+          student_id: string
+          title: string
+          url?: string | null
+        }
+        Update: {
+          category?: string
+          class_id?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          lesson_date?: string
+          released_to_locker?: boolean
+          resource_id?: string | null
+          reviewed?: boolean
+          reviewed_at?: string | null
+          student_id?: string
+          title?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "missed_work_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "missed_work_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_resources"
             referencedColumns: ["id"]
           },
         ]
