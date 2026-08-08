@@ -1684,11 +1684,33 @@ export type Database = {
         Returns: boolean
       }
       is_suspended: { Args: { _user_id: string }; Returns: boolean }
+      owner_assessment_questions: {
+        Args: { _assessment_id: string }
+        Returns: {
+          assessment_id: string
+          correct_answer: string
+          id: string
+          kind: string
+          options: Json
+          points: number
+          position: number
+          prompt: string
+        }[]
+      }
       owns_assessment: {
         Args: { _assessment_id: string; _user_id: string }
         Returns: boolean
       }
       session_class_id: { Args: { _session_id: string }; Returns: string }
+      submit_assessment: {
+        Args: { _answers: Json; _submission_id: string }
+        Returns: {
+          auto_score: number
+          manual_pending: boolean
+          passed: boolean
+          total_points: number
+        }[]
+      }
       teaches_class: {
         Args: { _class_id: string; _user_id: string }
         Returns: boolean

@@ -10,7 +10,8 @@ export type AssessmentQuestion = {
   kind: QuestionKind;
   prompt: string;
   options: string[];
-  correct_answer: string | null;
+  /** Only ever populated for the teacher who owns the assessment. */
+  correct_answer?: string | null;
   points: number;
 };
 
@@ -101,6 +102,7 @@ export function useAssessment(assessmentId?: string) {
   });
 }
 
+/** Student-facing read: the answer key column is not selectable by learners. */
 export function useAssessmentQuestions(assessmentId?: string) {
   return useQuery({
     queryKey: ["assessment-questions", assessmentId],
@@ -108,7 +110,7 @@ export function useAssessmentQuestions(assessmentId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("assessment_questions")
-        .select("id, assessment_id, position, kind, prompt, options, correct_answer, points")
+        .select("id, assessment_id, position, kind, prompt, options, points")
         .eq("assessment_id", assessmentId!)
         .order("position");
       if (error) throw error;
@@ -119,6 +121,25 @@ export function useAssessmentQuestions(assessmentId?: string) {
     },
   });
 }
+
+/** Owner-only read (teacher/admin) that includes the answer key. */
+export function useAssessmentAnswerKey(assessmentId?: string) {
+  return useQuery({
+    queryKey: ["assessment-questions", "owner", assessmentId],
+    enabled: !!assessmentId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("owner_assessment_questions", {
+        _assessment_id: assessmentId!,
+      });
+      if (error) throw error;
+      return (data ?? []).map((q) => ({
+        ...q,
+        options: Array.isArray(q.options) ? (q.options as string[]) : [],
+      })) as AssessmentQuestion[];
+    },
+  });
+}
+
 
 export function useMyAttempts(studentId?: string) {
   return useQuery({
@@ -239,7 +260,11 @@ export function useDeleteAssessment() {
   });
 }
 
-/** Auto-grades multiple choice instantly; short answers wait for the teacher. */
+/**
+ * Grading happens server-side (see the submit_assessment database function) so
+ * answer keys never reach the browser. Kept only for teacher-side previews
+ * where the answer key was explicitly loaded via useAssessmentAnswerKey.
+ */
 export function gradeAnswers(questions: AssessmentQuestion[], answers: Record<string, string>) {
   let autoScore = 0;
   let autoPoints = 0;
@@ -286,32 +311,24 @@ export function useSubmitAttempt() {
   return useMutation({
     mutationFn: async ({
       submissionId,
-      assessment,
-      questions,
       answers,
     }: {
       submissionId: string;
-      assessment: Assessment;
-      questions: AssessmentQuestion[];
       answers: Record<string, string>;
     }) => {
-      const { autoScore, manualPending } = gradeAnswers(questions, answers);
-      const totalPoints = questions.reduce((s, q) => s + q.points, 0) || assessment.total_points;
-      const percent = totalPoints ? (autoScore / totalPoints) * 100 : 0;
-
-      const { error } = await supabase
-        .from("assessment_submissions")
-        .update({
-          answers,
-          auto_score: autoScore,
-          total_points: totalPoints,
-          status: manualPending ? "submitted" : "graded",
-          passed: manualPending ? null : percent >= assessment.passing_score,
-          submitted_at: new Date().toISOString(),
-        })
-        .eq("id", submissionId);
+      const { data, error } = await supabase.rpc("submit_assessment", {
+        _submission_id: submissionId,
+        _answers: answers,
+      });
       if (error) throw error;
-      return { autoScore, totalPoints, manualPending };
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | { auto_score: number; total_points: number; manual_pending: boolean }
+        | undefined;
+      return {
+        autoScore: Number(row?.auto_score ?? 0),
+        totalPoints: Number(row?.total_points ?? 0),
+        manualPending: !!row?.manual_pending,
+      };
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["assessment-submissions"] }),
   });

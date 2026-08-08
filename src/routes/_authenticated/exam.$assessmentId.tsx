@@ -92,8 +92,6 @@ function ExamPage() {
       try {
         const res = await submitAttempt.mutateAsync({
           submissionId: attempt.id,
-          assessment: assessment.data,
-          questions: questions.data,
           answers,
         });
         setResult(res);
