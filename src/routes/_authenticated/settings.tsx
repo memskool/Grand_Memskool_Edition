@@ -12,6 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import {
+  useNotificationPreferences,
+  useSaveNotificationPreferences,
+} from "@/lib/notifications-data";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -36,11 +41,15 @@ function SettingsPage() {
   const { data: role } = useRole(user ?? null);
   const qc = useQueryClient();
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
   const orders = useMyOrders(user?.id);
 
   useEffect(() => {
-    if (profile) setFullName(profile.full_name ?? "");
+    if (profile) {
+      setFullName(profile.full_name ?? "");
+      setPhone((profile as { phone?: string | null }).phone ?? "");
+    }
   }, [profile]);
 
   const save = async (e: React.FormEvent) => {
@@ -49,7 +58,7 @@ function SettingsPage() {
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ full_name: fullName })
+      .update({ full_name: fullName, phone: phone.trim() || null })
       .eq("id", user.id);
     setSaving(false);
     if (error) {
@@ -69,6 +78,19 @@ function SettingsPage() {
             <div className="space-y-2">
               <Label htmlFor="st-name">Full name</Label>
               <Input id="st-name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="st-phone">Mobile number</Label>
+              <Input
+                id="st-phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+2567XXXXXXXX"
+                inputMode="tel"
+              />
+              <p className="text-xs text-muted-foreground">
+                Used for urgent SMS alerts only. Include the country code.
+              </p>
             </div>
             <Button type="submit" className="rounded-full" disabled={saving}>
               Save changes
@@ -93,6 +115,8 @@ function SettingsPage() {
           </dl>
         </Panel>
       </div>
+
+      <NotificationPreferencesPanel userId={user?.id} />
 
       <Panel
         className="mt-6"
@@ -139,5 +163,62 @@ function SettingsPage() {
         )}
       </Panel>
     </>
+  );
+}
+
+function NotificationPreferencesPanel({ userId }: { userId?: string | undefined }) {
+  const prefs = useNotificationPreferences(userId);
+  const save = useSaveNotificationPreferences(userId);
+  const value = prefs.data ?? { email_enabled: true, sms_enabled: true };
+
+  const update = (patch: { email_enabled?: boolean; sms_enabled?: boolean }) => {
+    save.mutate(
+      {
+        email_enabled: patch.email_enabled ?? value.email_enabled,
+        sms_enabled: patch.sms_enabled ?? value.sms_enabled,
+      },
+      {
+        onSuccess: () => toast.success("Notification preferences saved"),
+        onError: (error) =>
+          toast.error(error instanceof Error ? error.message : "Could not save preferences"),
+      },
+    );
+  };
+
+  return (
+    <Panel
+      className="mt-6"
+      title="Notifications"
+      description="In-app alerts are always on. Choose how else we reach you."
+    >
+      <div className="space-y-4">
+        <label className="flex items-center justify-between gap-4 text-sm">
+          <span>
+            <span className="font-medium">Email</span>
+            <span className="block text-xs text-muted-foreground">
+              Admissions, grades, payments, meetings and account notices.
+            </span>
+          </span>
+          <Switch
+            checked={value.email_enabled}
+            disabled={prefs.isLoading || save.isPending}
+            onCheckedChange={(checked) => update({ email_enabled: checked })}
+          />
+        </label>
+        <label className="flex items-center justify-between gap-4 text-sm">
+          <span>
+            <span className="font-medium">SMS</span>
+            <span className="block text-xs text-muted-foreground">
+              Only urgent items: admissions decisions, discipline, meetings and payments.
+            </span>
+          </span>
+          <Switch
+            checked={value.sms_enabled}
+            disabled={prefs.isLoading || save.isPending}
+            onCheckedChange={(checked) => update({ sms_enabled: checked })}
+          />
+        </label>
+      </div>
+    </Panel>
   );
 }

@@ -26,6 +26,7 @@ import {
 import { useSubjects } from "@/lib/content-data";
 import { WeeklyTimetable } from "@/components/app/WeeklyTimetable";
 import { ApplicationsTracker } from "@/components/app/ApplicationsTracker";
+import { AnnouncementComposer } from "@/components/app/AnnouncementComposer";
 import { PageHeader, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,6 +96,7 @@ function SchoolAdminPage() {
           <TabsTrigger value="staff">Teachers</TabsTrigger>
           <TabsTrigger value="admissions">Admissions</TabsTrigger>
           <TabsTrigger value="meetings">Meetings</TabsTrigger>
+          <TabsTrigger value="announcements">Announcements</TabsTrigger>
         </TabsList>
 
         <TabsContent value="school">
@@ -111,6 +113,9 @@ function SchoolAdminPage() {
         </TabsContent>
         <TabsContent value="meetings">
           <MeetingsSection userId={user?.id} />
+        </TabsContent>
+        <TabsContent value="announcements">
+          <AnnouncementsSection />
         </TabsContent>
       </Tabs>
     </>
@@ -631,5 +636,17 @@ function MeetingsSection({ userId }: { userId?: string | undefined }) {
         )}
       </Panel>
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+
+function AnnouncementsSection() {
+  const classes = useAllClasses(true);
+  return (
+    <AnnouncementComposer
+      canBroadcastSchoolWide
+      classes={(classes.data ?? []).map((c) => ({ id: c.id, name: c.name }))}
+    />
   );
 }

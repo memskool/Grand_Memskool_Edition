@@ -26,6 +26,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedTimetableRouteImport } from './routes/_authenticated/timetable'
 import { Route as AuthenticatedVirtualClassroomRouteImport } from './routes/_authenticated/virtual-classroom'
 import { Route as AuthenticatedExamAssessmentIdRouteImport } from './routes/_authenticated/exam.$assessmentId'
+import { Route as ApiPublicNotificationsDispatchRouteImport } from './routes/api/public/notifications/dispatch'
 import { Route as ApiPublicWebhooksFlutterwaveRouteImport } from './routes/api/public/webhooks/flutterwave'
 
 const IndexRoute = IndexRouteImport.update({
@@ -118,6 +119,12 @@ const AuthenticatedExamAssessmentIdRoute =
     path: '/exam/$assessmentId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicNotificationsDispatchRoute =
+  ApiPublicNotificationsDispatchRouteImport.update({
+    id: '/api/public/notifications/dispatch',
+    path: '/api/public/notifications/dispatch',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicWebhooksFlutterwaveRoute =
   ApiPublicWebhooksFlutterwaveRouteImport.update({
     id: '/api/public/webhooks/flutterwave',
@@ -142,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/timetable': typeof AuthenticatedTimetableRoute
   '/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
   '/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
+  '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
   '/api/public/webhooks/flutterwave': typeof ApiPublicWebhooksFlutterwaveRoute
 }
 export interface FileRoutesByTo {
@@ -161,6 +169,7 @@ export interface FileRoutesByTo {
   '/timetable': typeof AuthenticatedTimetableRoute
   '/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
   '/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
+  '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
   '/api/public/webhooks/flutterwave': typeof ApiPublicWebhooksFlutterwaveRoute
 }
 export interface FileRoutesById {
@@ -182,6 +191,7 @@ export interface FileRoutesById {
   '/_authenticated/timetable': typeof AuthenticatedTimetableRoute
   '/_authenticated/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
   '/_authenticated/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
+  '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
   '/api/public/webhooks/flutterwave': typeof ApiPublicWebhooksFlutterwaveRoute
 }
 export interface FileRouteTypes {
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
     | '/timetable'
     | '/virtual-classroom'
     | '/exam/$assessmentId'
+    | '/api/public/notifications/dispatch'
     | '/api/public/webhooks/flutterwave'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -222,6 +233,7 @@ export interface FileRouteTypes {
     | '/timetable'
     | '/virtual-classroom'
     | '/exam/$assessmentId'
+    | '/api/public/notifications/dispatch'
     | '/api/public/webhooks/flutterwave'
   id:
     | '__root__'
@@ -242,6 +254,7 @@ export interface FileRouteTypes {
     | '/_authenticated/timetable'
     | '/_authenticated/virtual-classroom'
     | '/_authenticated/exam/$assessmentId'
+    | '/api/public/notifications/dispatch'
     | '/api/public/webhooks/flutterwave'
   fileRoutesById: FileRoutesById
 }
@@ -249,6 +262,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicNotificationsDispatchRoute: typeof ApiPublicNotificationsDispatchRoute
   ApiPublicWebhooksFlutterwaveRoute: typeof ApiPublicWebhooksFlutterwaveRoute
 }
 
@@ -373,6 +387,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedExamAssessmentIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/notifications/dispatch': {
+      id: '/api/public/notifications/dispatch'
+      path: '/api/public/notifications/dispatch'
+      fullPath: '/api/public/notifications/dispatch'
+      preLoaderRoute: typeof ApiPublicNotificationsDispatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/webhooks/flutterwave': {
       id: '/api/public/webhooks/flutterwave'
       path: '/api/public/webhooks/flutterwave'
@@ -424,6 +445,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicNotificationsDispatchRoute: ApiPublicNotificationsDispatchRoute,
   ApiPublicWebhooksFlutterwaveRoute: ApiPublicWebhooksFlutterwaveRoute,
 }
 export const routeTree = rootRouteImport
