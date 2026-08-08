@@ -209,16 +209,22 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
           </Alert>
         ) : null}
 
-        {/* Main stage */}
+        {/* Main stage — the teacher's published feed, or your own preview */}
         <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-foreground/90 text-background">
+          {stageRemote?.videoTrack ? (
+            <RemoteVideo media={stageRemote} className="size-full object-cover" />
+          ) : null}
           <video
             ref={media.videoRef}
             muted
             playsInline
             autoPlay
-            className={cn("size-full object-cover", media.camOn ? "block" : "hidden")}
+            className={cn(
+              "size-full object-cover",
+              media.camOn && !stageRemote?.videoTrack ? "block" : "hidden",
+            )}
           />
-          {!media.camOn ? (
+          {!media.camOn && !stageRemote?.videoTrack ? (
             <div className="flex size-full flex-col items-center justify-center gap-3">
               <span className="flex size-20 items-center justify-center rounded-full bg-background/15 font-display text-2xl">
                 {initials(host?.profile?.full_name ?? className)}
@@ -230,9 +236,19 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
             </div>
           ) : null}
           <div className="absolute bottom-3 left-3 rounded-full bg-background/20 px-3 py-1 text-xs backdrop-blur">
-            {media.camOn ? "You (camera on)" : "Stage"}
+            {stageRemote?.videoTrack
+              ? (host?.profile?.full_name ?? "Teacher")
+              : media.camOn
+                ? "You (camera on)"
+                : "Stage"}
           </div>
         </div>
+
+        {/* Audio for everyone else in the room */}
+        {Object.values(media.remotes).map((r) => (
+          <RemoteAudio key={r.identity} media={r} />
+        ))}
+
 
         {/* Controls */}
         <div className="surface-card flex flex-wrap items-center justify-center gap-2 p-3">
