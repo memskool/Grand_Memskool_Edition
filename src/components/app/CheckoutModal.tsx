@@ -96,21 +96,14 @@ export function CheckoutModal({
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label>Payment method</Label>
-            <Select value={provider} onValueChange={(v) => setProvider(v as typeof provider)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="flutterwave">Flutterwave (mobile money / card)</SelectItem>
-                <SelectItem value="stripe">Stripe (card)</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="rounded-2xl border border-border px-4 py-3">
+            <p className="text-sm font-medium">Flutterwave secure checkout</p>
             <p className="text-xs text-muted-foreground">
-              Sandbox mode — no real money moves until live payment keys are connected.
+              Pay with MTN or Airtel mobile money, card, or bank transfer. You&apos;ll be taken to
+              Flutterwave&apos;s secure page and returned here once the payment is confirmed.
             </p>
           </div>
+
 
           <div className="space-y-2">
             <Label htmlFor="co-notes">Notes for the tutor / seller</Label>
