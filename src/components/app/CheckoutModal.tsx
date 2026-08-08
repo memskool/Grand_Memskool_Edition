@@ -34,7 +34,6 @@ export function CheckoutModal({
   const [quantity, setQuantity] = useState(1);
   const [scheduledAt, setScheduledAt] = useState("");
   const [notes, setNotes] = useState("");
-  const [provider, setProvider] = useState<"flutterwave" | "stripe">("flutterwave");
   const checkout = useCheckout(buyerId);
 
   const tutoring = item?.kind === "tutoring";
@@ -52,20 +51,17 @@ export function CheckoutModal({
         quantity: tutoring ? 1 : quantity,
         scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
         notes: notes.trim() || null,
-        provider,
       },
       {
-        onSuccess: (order) => {
-          toast.success("Payment confirmed", { description: `Receipt ${order.reference}` });
-          setQuantity(1);
-          setScheduledAt("");
-          setNotes("");
-          onOpenChange(false);
+        onSuccess: (result) => {
+          toast.success("Redirecting to secure payment…");
+          window.location.href = result.paymentLink;
         },
         onError: (e) => toast.error(e instanceof Error ? e.message : "Checkout failed"),
       },
     );
   };
+
 
   return (
     <Dialog open={!!item} onOpenChange={onOpenChange}>
