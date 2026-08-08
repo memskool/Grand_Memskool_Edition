@@ -22,7 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { useLocalMedia } from "@/hooks/useLocalMedia";
+import { useLiveKit, type RemoteMedia } from "@/hooks/useLiveKit";
 import {
   useBulkParticipantUpdate,
   useClassroomChat,
@@ -58,7 +58,7 @@ type Props = {
 };
 
 export function ClassroomRoom({ session, className, userId, isTeacher, onExit }: Props) {
-  const media = useLocalMedia();
+  const media = useLiveKit(session.id);
   const participants = useParticipants(session.id);
   const chat = useClassroomChat(session.id);
   const join = useJoinRoom();
@@ -84,12 +84,8 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id, userId, isTeacher]);
 
-  useEffect(() => {
-    if (media.stream && media.videoRef.current) {
-      media.videoRef.current.srcObject = media.stream;
-      void media.videoRef.current.play().catch(() => undefined);
-    }
-  }, [media.stream, media.videoRef]);
+  // The LiveKit hook attaches the published camera track to this element.
+
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -102,6 +98,8 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
   const me = live.find((p) => p.user_id === userId);
   const host = live.find((p) => p.is_host) ?? null;
   const learners = live.filter((p) => !p.is_host);
+  const stageRemote = host && host.user_id !== userId ? (media.remotes[host.user_id] ?? null) : null;
+
 
   // Teacher-enforced state pushed down to the local devices.
   useEffect(() => {
@@ -213,16 +211,22 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
           </Alert>
         ) : null}
 
-        {/* Main stage */}
+        {/* Main stage — the teacher's published feed, or your own preview */}
         <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-foreground/90 text-background">
+          {stageRemote?.videoTrack ? (
+            <RemoteVideo media={stageRemote} className="size-full object-cover" />
+          ) : null}
           <video
             ref={media.videoRef}
             muted
             playsInline
             autoPlay
-            className={cn("size-full object-cover", media.camOn ? "block" : "hidden")}
+            className={cn(
+              "size-full object-cover",
+              media.camOn && !stageRemote?.videoTrack ? "block" : "hidden",
+            )}
           />
-          {!media.camOn ? (
+          {!media.camOn && !stageRemote?.videoTrack ? (
             <div className="flex size-full flex-col items-center justify-center gap-3">
               <span className="flex size-20 items-center justify-center rounded-full bg-background/15 font-display text-2xl">
                 {initials(host?.profile?.full_name ?? className)}
@@ -234,9 +238,19 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
             </div>
           ) : null}
           <div className="absolute bottom-3 left-3 rounded-full bg-background/20 px-3 py-1 text-xs backdrop-blur">
-            {media.camOn ? "You (camera on)" : "Stage"}
+            {stageRemote?.videoTrack
+              ? (host?.profile?.full_name ?? "Teacher")
+              : media.camOn
+                ? "You (camera on)"
+                : "Stage"}
           </div>
         </div>
+
+        {/* Audio for everyone else in the room */}
+        {Object.values(media.remotes).map((r) => (
+          <RemoteAudio key={r.identity} media={r} />
+        ))}
+
 
         {/* Controls */}
         <div className="surface-card flex flex-wrap items-center justify-center gap-2 p-3">
@@ -349,8 +363,10 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
                 <ParticipantTile
                   key={p.id}
                   participant={p}
+                  remote={media.remotes[p.user_id] ?? null}
                   spotlighted={spotlight === p.user_id}
                   isTeacher={isTeacher}
+
                   onToggleCamera={() =>
                     patch({ camera_allowed: !p.camera_allowed, cam_on: false }, p.user_id)
                   }
@@ -424,6 +440,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
 
 function ParticipantTile({
   participant: p,
+  remote,
   spotlighted,
   isTeacher,
   onToggleCamera,
@@ -431,6 +448,7 @@ function ParticipantTile({
   onWarn,
 }: {
   participant: Participant;
+  remote: RemoteMedia | null;
   spotlighted: boolean;
   isTeacher: boolean;
   onToggleCamera: () => void;
@@ -440,14 +458,22 @@ function ParticipantTile({
   return (
     <div
       className={cn(
-        "relative flex aspect-video flex-col items-center justify-center rounded-xl bg-secondary/60 p-2 text-center",
+        "relative flex aspect-video flex-col items-center justify-center overflow-hidden rounded-xl bg-secondary/60 p-2 text-center",
         spotlighted && "ring-2 ring-primary",
+        remote?.speaking && "ring-2 ring-primary/60",
       )}
     >
-      <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-        {initials(p.profile?.full_name)}
-      </span>
-      <p className="mt-2 line-clamp-1 text-xs font-medium">{p.profile?.full_name ?? "Learner"}</p>
+      {remote?.videoTrack ? (
+        <RemoteVideo media={remote} className="absolute inset-0 size-full object-cover" />
+      ) : (
+        <>
+          <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+            {initials(p.profile?.full_name)}
+          </span>
+          <p className="mt-2 line-clamp-1 text-xs font-medium">{p.profile?.full_name ?? "Learner"}</p>
+        </>
+      )}
+
       <div className="absolute left-2 top-2 flex gap-1">
         {p.hand_raised ? <Hand className="size-4 text-warning-foreground" /> : null}
         {!p.mic_on ? <MicOff className="size-3.5 text-muted-foreground" /> : null}
@@ -474,4 +500,32 @@ function ParticipantTile({
       ) : null}
     </div>
   );
+}
+
+function RemoteVideo({ media, className }: { media: RemoteMedia; className?: string }) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    const track = media.videoTrack;
+    if (!el || !track) return;
+    track.attach(el);
+    return () => {
+      track.detach(el);
+    };
+  }, [media.videoTrack]);
+  return <video ref={ref} autoPlay playsInline muted className={className} />;
+}
+
+function RemoteAudio({ media }: { media: RemoteMedia }) {
+  const ref = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    const track = media.audioTrack;
+    if (!el || !track) return;
+    track.attach(el);
+    return () => {
+      track.detach(el);
+    };
+  }, [media.audioTrack]);
+  return <audio ref={ref} autoPlay className="hidden" />;
 }

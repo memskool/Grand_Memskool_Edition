@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import { reconcileOrder, startCheckout } from "@/lib/payments.functions";
+
 
 export const ITEM_KINDS = [
   { value: "book", label: "Book" },
@@ -109,60 +112,37 @@ export type CheckoutInput = {
   quantity: number;
   scheduledAt: string | null;
   notes: string | null;
-  provider: "flutterwave" | "stripe";
 };
 
 /**
- * Payment stub: creates a pending order then simulates the provider webhook
- * confirming the charge. Replace the settle step with a real
- * Flutterwave/Stripe webhook handler once live keys are configured.
+ * Real checkout: the server prices the order from the database, creates a
+ * pending order and returns a Flutterwave hosted-checkout link. The browser
+ * never decides the amount or the paid status.
  */
-export function useCheckout(buyerId?: string) {
-  const qc = useQueryClient();
+export function useCheckout(_buyerId?: string) {
+  const start = useServerFn(startCheckout);
   return useMutation({
-    mutationFn: async ({
-      item,
-      quantity,
-      scheduledAt,
-      notes,
-      provider,
-    }: CheckoutInput): Promise<Order> => {
-      const reference = `MSK-${Date.now().toString(36).toUpperCase()}-${Math.random()
-        .toString(36)
-        .slice(2, 6)
-        .toUpperCase()}`;
-
-      const { data, error } = await supabase
-        .from("orders")
-        .insert({
-          buyer_id: buyerId!,
-          item_id: item.id,
-          item_title: item.title,
-          item_kind: item.kind,
+    mutationFn: async ({ item, quantity, scheduledAt, notes }: CheckoutInput) =>
+      start({
+        data: {
+          itemId: item.id,
           quantity,
-          amount_cents: item.price_cents * quantity,
-          currency: item.currency,
-          status: "pending",
-          provider,
-          reference,
-          scheduled_at: scheduledAt,
-          notes,
-        })
-        .select("*")
-        .single();
-      if (error) throw error;
+          scheduledAt: scheduledAt ?? null,
+          notes: notes ?? null,
+        },
+      }),
+  });
+}
 
-      const { data: settled, error: settleError } = await supabase
-        .from("orders")
-        .update({ status: "paid" })
-        .eq("id", data.id)
-        .select("*")
-        .single();
-      if (settleError) throw settleError;
-      return settled as Order;
-    },
+/** Re-verifies with the provider after the buyer returns from checkout. */
+export function useReconcileOrder(buyerId?: string) {
+  const qc = useQueryClient();
+  const reconcile = useServerFn(reconcileOrder);
+  return useMutation({
+    mutationFn: async (reference: string) => reconcile({ data: { reference } }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["orders", buyerId] });
     },
   });
 }
+

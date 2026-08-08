@@ -13,14 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { formatPrice, useCheckout, type MarketplaceItem } from "@/lib/marketplace-data";
+
 
 export function CheckoutModal({
   item,
@@ -34,7 +28,6 @@ export function CheckoutModal({
   const [quantity, setQuantity] = useState(1);
   const [scheduledAt, setScheduledAt] = useState("");
   const [notes, setNotes] = useState("");
-  const [provider, setProvider] = useState<"flutterwave" | "stripe">("flutterwave");
   const checkout = useCheckout(buyerId);
 
   const tutoring = item?.kind === "tutoring";
@@ -52,20 +45,17 @@ export function CheckoutModal({
         quantity: tutoring ? 1 : quantity,
         scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
         notes: notes.trim() || null,
-        provider,
       },
       {
-        onSuccess: (order) => {
-          toast.success("Payment confirmed", { description: `Receipt ${order.reference}` });
-          setQuantity(1);
-          setScheduledAt("");
-          setNotes("");
-          onOpenChange(false);
+        onSuccess: (result) => {
+          toast.success("Redirecting to secure payment…");
+          window.location.href = result.paymentLink;
         },
         onError: (e) => toast.error(e instanceof Error ? e.message : "Checkout failed"),
       },
     );
   };
+
 
   return (
     <Dialog open={!!item} onOpenChange={onOpenChange}>
@@ -100,21 +90,14 @@ export function CheckoutModal({
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label>Payment method</Label>
-            <Select value={provider} onValueChange={(v) => setProvider(v as typeof provider)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="flutterwave">Flutterwave (mobile money / card)</SelectItem>
-                <SelectItem value="stripe">Stripe (card)</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="rounded-2xl border border-border px-4 py-3">
+            <p className="text-sm font-medium">Flutterwave secure checkout</p>
             <p className="text-xs text-muted-foreground">
-              Sandbox mode — no real money moves until live payment keys are connected.
+              Pay with MTN or Airtel mobile money, card, or bank transfer. You&apos;ll be taken to
+              Flutterwave&apos;s secure page and returned here once the payment is confirmed.
             </p>
           </div>
+
 
           <div className="space-y-2">
             <Label htmlFor="co-notes">Notes for the tutor / seller</Label>

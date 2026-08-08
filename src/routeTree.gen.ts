@@ -26,6 +26,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedTimetableRouteImport } from './routes/_authenticated/timetable'
 import { Route as AuthenticatedVirtualClassroomRouteImport } from './routes/_authenticated/virtual-classroom'
 import { Route as AuthenticatedExamAssessmentIdRouteImport } from './routes/_authenticated/exam.$assessmentId'
+import { Route as ApiPublicWebhooksFlutterwaveRouteImport } from './routes/api/public/webhooks/flutterwave'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -117,6 +118,12 @@ const AuthenticatedExamAssessmentIdRoute =
     path: '/exam/$assessmentId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicWebhooksFlutterwaveRoute =
+  ApiPublicWebhooksFlutterwaveRouteImport.update({
+    id: '/api/public/webhooks/flutterwave',
+    path: '/api/public/webhooks/flutterwave',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -135,6 +142,7 @@ export interface FileRoutesByFullPath {
   '/timetable': typeof AuthenticatedTimetableRoute
   '/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
   '/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
+  '/api/public/webhooks/flutterwave': typeof ApiPublicWebhooksFlutterwaveRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -153,6 +161,7 @@ export interface FileRoutesByTo {
   '/timetable': typeof AuthenticatedTimetableRoute
   '/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
   '/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
+  '/api/public/webhooks/flutterwave': typeof ApiPublicWebhooksFlutterwaveRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -173,6 +182,7 @@ export interface FileRoutesById {
   '/_authenticated/timetable': typeof AuthenticatedTimetableRoute
   '/_authenticated/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
   '/_authenticated/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
+  '/api/public/webhooks/flutterwave': typeof ApiPublicWebhooksFlutterwaveRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -193,6 +203,7 @@ export interface FileRouteTypes {
     | '/timetable'
     | '/virtual-classroom'
     | '/exam/$assessmentId'
+    | '/api/public/webhooks/flutterwave'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -211,6 +222,7 @@ export interface FileRouteTypes {
     | '/timetable'
     | '/virtual-classroom'
     | '/exam/$assessmentId'
+    | '/api/public/webhooks/flutterwave'
   id:
     | '__root__'
     | '/'
@@ -230,12 +242,14 @@ export interface FileRouteTypes {
     | '/_authenticated/timetable'
     | '/_authenticated/virtual-classroom'
     | '/_authenticated/exam/$assessmentId'
+    | '/api/public/webhooks/flutterwave'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicWebhooksFlutterwaveRoute: typeof ApiPublicWebhooksFlutterwaveRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -359,6 +373,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedExamAssessmentIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/webhooks/flutterwave': {
+      id: '/api/public/webhooks/flutterwave'
+      path: '/api/public/webhooks/flutterwave'
+      fullPath: '/api/public/webhooks/flutterwave'
+      preLoaderRoute: typeof ApiPublicWebhooksFlutterwaveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -403,17 +424,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicWebhooksFlutterwaveRoute: ApiPublicWebhooksFlutterwaveRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
