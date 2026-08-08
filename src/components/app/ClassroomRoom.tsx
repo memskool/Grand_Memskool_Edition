@@ -98,6 +98,8 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
   const me = live.find((p) => p.user_id === userId);
   const host = live.find((p) => p.is_host) ?? null;
   const learners = live.filter((p) => !p.is_host);
+  const stageRemote = host && host.user_id !== userId ? (media.remotes[host.user_id] ?? null) : null;
+
 
   // Teacher-enforced state pushed down to the local devices.
   useEffect(() => {
