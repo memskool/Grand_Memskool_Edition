@@ -111,10 +111,7 @@ function TeacherView({ userId }: { userId?: string | undefined }) {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge
-                        variant={a.published ? "default" : "outline"}
-                        className="rounded-full"
-                      >
+                      <Badge variant={a.published ? "default" : "outline"} className="rounded-full">
                         {a.published ? "Published" : "Draft"}
                       </Badge>
                       <Button

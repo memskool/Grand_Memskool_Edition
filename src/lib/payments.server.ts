@@ -21,9 +21,7 @@ export function toProviderAmount(amountCents: number, currency: string): number 
 }
 
 export function toStoredCents(providerAmount: number, currency: string): number {
-  return Math.round(
-    currency.toUpperCase() === "UGX" ? providerAmount : providerAmount * 100,
-  );
+  return Math.round(currency.toUpperCase() === "UGX" ? providerAmount : providerAmount * 100);
 }
 
 export function buildReference(): string {

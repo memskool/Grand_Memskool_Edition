@@ -24,7 +24,10 @@ export function TeacherAssessmentPanel({ teacherId }: { teacherId?: string | und
                 <span className="font-display text-sm font-semibold">{s.average}%</span>
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border">
-                <div className="h-full rounded-full bg-primary" style={{ width: `${s.average}%` }} />
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${s.average}%` }}
+                />
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
                 {s.submissions} submission{s.submissions === 1 ? "" : "s"}

@@ -168,11 +168,7 @@ function MarketplacePage() {
                   <span className="font-display text-lg font-semibold">
                     {formatPrice(item.price_cents, item.currency)}
                   </span>
-                  <Button
-                    size="sm"
-                    className="rounded-full"
-                    onClick={() => setCheckoutItem(item)}
-                  >
+                  <Button size="sm" className="rounded-full" onClick={() => setCheckoutItem(item)}>
                     {item.kind === "tutoring" ? "Book" : "Buy"}
                   </Button>
                 </div>
@@ -246,7 +242,12 @@ function NewItemDialog({ sellerId }: { sellerId?: string | undefined }) {
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="mk-title">Title</Label>
-            <Input id="mk-title" value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} />
+            <Input
+              id="mk-title"
+              value={title}
+              maxLength={120}
+              onChange={(e) => setTitle(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="mk-desc">Description</Label>

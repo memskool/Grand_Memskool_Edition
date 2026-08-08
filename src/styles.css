@@ -115,10 +115,10 @@
 
   --gradient-brand: linear-gradient(135deg, var(--primary), var(--primary-glow));
   --gradient-surface: linear-gradient(160deg, oklch(0.99 0.008 288), oklch(0.965 0.02 292));
-  --shadow-soft: 0 1px 2px oklch(0.25 0.05 285 / 0.06), 0 8px 24px -12px oklch(0.25 0.05 285 / 0.18);
+  --shadow-soft:
+    0 1px 2px oklch(0.25 0.05 285 / 0.06), 0 8px 24px -12px oklch(0.25 0.05 285 / 0.18);
   --shadow-brand: 0 12px 32px -14px oklch(0.47 0.19 285 / 0.55);
 }
-
 
 .dark {
   --background: oklch(0.17 0.028 285);
@@ -165,7 +165,6 @@
   --shadow-brand: 0 12px 32px -14px oklch(0.66 0.17 288 / 0.5);
 }
 
-
 @layer base {
   * {
     border-color: var(--color-border);
@@ -211,4 +210,3 @@
 @utility surface-gradient {
   background-image: var(--gradient-surface);
 }
-

@@ -15,7 +15,10 @@ export function PageHeader({
   return (
     <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:flex-wrap sm:justify-between">
       <div className="min-w-0">
-        <span className="mb-2 inline-block h-1 w-10 rounded-full" style={{ background: "var(--gradient-brand)" }} />
+        <span
+          className="mb-2 inline-block h-1 w-10 rounded-full"
+          style={{ background: "var(--gradient-brand)" }}
+        />
         <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
         {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
       </div>
@@ -23,7 +26,6 @@ export function PageHeader({
     </div>
   );
 }
-
 
 export function StatCard({
   label,
@@ -46,8 +48,9 @@ export function StatCard({
 
   return (
     <div className="surface-card flex items-center gap-4 p-5 transition-shadow hover:brand-shadow">
-      <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-2xl", tones[tone])}>
-
+      <span
+        className={cn("flex size-11 shrink-0 items-center justify-center rounded-2xl", tones[tone])}
+      >
         <Icon className="size-5" />
       </span>
       <div className="min-w-0">
@@ -86,7 +89,15 @@ export function Panel({
   );
 }
 
-export function EmptyState({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint?: string }) {
+export function EmptyState({
+  icon: Icon,
+  title,
+  hint,
+}: {
+  icon: LucideIcon;
+  title: string;
+  hint?: string;
+}) {
   return (
     <div className="flex flex-col items-center rounded-xl border border-dashed border-border px-6 py-10 text-center">
       <Icon className="mb-3 size-6 text-muted-foreground" />

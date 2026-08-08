@@ -96,8 +96,8 @@ function AiTutorPage() {
         </span>
         <h1 className="font-display text-2xl font-semibold">AI Tutor is locked</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          You have an examination in progress. Crane5 and all AI tools stay disabled until you submit
-          your paper.
+          You have an examination in progress. Crane5 and all AI tools stay disabled until you
+          submit your paper.
         </p>
       </div>
     );
@@ -195,8 +195,8 @@ function AiTutorPage() {
 
           <div className="rounded-3xl border border-border/60 bg-secondary/40 p-4 text-xs leading-relaxed text-muted-foreground">
             <p className="mb-1 font-medium text-foreground">Study smart</p>
-            Snap a photo of your handwritten work and upload it in the Crane5 chat — it can read your
-            steps and point out exactly where things went wrong.
+            Snap a photo of your handwritten work and upload it in the Crane5 chat — it can read
+            your steps and point out exactly where things went wrong.
           </div>
         </aside>
       </div>

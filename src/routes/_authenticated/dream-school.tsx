@@ -1,14 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Building2,
-  ExternalLink,
-  Globe2,
-  MapPin,
-  Search,
-  Sparkles,
-  Trash2,
-} from "lucide-react";
+import { Building2, ExternalLink, Globe2, MapPin, Search, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useSession, useProfile, useRole } from "@/hooks/useAuth";
 import {
@@ -26,7 +18,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/dream-school")({
   head: () => ({
@@ -152,7 +150,9 @@ function DreamSchoolPage() {
                       <Building2 className="size-5" />
                     </span>
                     <div className="min-w-0">
-                      <h2 className="truncate font-display text-base font-semibold">{school.name}</h2>
+                      <h2 className="truncate font-display text-base font-semibold">
+                        {school.name}
+                      </h2>
                       <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
                         <MapPin className="size-3" />
                         {[school.city, school.country].filter(Boolean).join(", ")}
@@ -180,7 +180,9 @@ function DreamSchoolPage() {
                   </div>
 
                   {school.description ? (
-                    <p className="line-clamp-3 text-sm text-muted-foreground">{school.description}</p>
+                    <p className="line-clamp-3 text-sm text-muted-foreground">
+                      {school.description}
+                    </p>
                   ) : null}
 
                   <div className="rounded-xl bg-secondary/50 px-3 py-2">
@@ -201,7 +203,12 @@ function DreamSchoolPage() {
                     </Button>
                     {school.website ? (
                       <Button variant="outline" size="icon" asChild>
-                        <a href={school.website} target="_blank" rel="noreferrer" aria-label="Visit website">
+                        <a
+                          href={school.website}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label="Visit website"
+                        >
                           <ExternalLink className="size-4" />
                         </a>
                       </Button>
@@ -220,11 +227,14 @@ function DreamSchoolPage() {
         </TabsContent>
 
         <TabsContent value="applications">
-          <Panel title="Application tracker" description="Live status of every application you've submitted">
+          <Panel
+            title="Application tracker"
+            description="Live status of every application you've submitted"
+          >
             <ApplicationsTracker
               applications={applications.data ?? []}
               loading={applications.isLoading}
-              action={(app) => (
+              action={(app) =>
                 app.status === "pending" ? (
                   <Button
                     variant="ghost"
@@ -238,7 +248,7 @@ function DreamSchoolPage() {
                     <Trash2 className="size-4" />
                   </Button>
                 ) : null
-              )}
+              }
             />
           </Panel>
         </TabsContent>

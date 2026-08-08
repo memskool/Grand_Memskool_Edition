@@ -59,9 +59,7 @@ function MissedWorkPage() {
 
   const items = useMemo(
     () =>
-      (missed.data ?? []).filter((item) =>
-        tab === "pending" ? !item.reviewed : item.reviewed,
-      ),
+      (missed.data ?? []).filter((item) => (tab === "pending" ? !item.reviewed : item.reviewed)),
     [missed.data, tab],
   );
 
@@ -143,7 +141,8 @@ function MissedWorkPage() {
         ) : items.length ? (
           <ul className="space-y-2">
             {items.map((item) => {
-              const Icon = CATEGORY_ICON[(item.category as keyof typeof CATEGORY_ICON) ?? "note"] ?? FileText;
+              const Icon =
+                CATEGORY_ICON[(item.category as keyof typeof CATEGORY_ICON) ?? "note"] ?? FileText;
               const working = pendingId === item.id;
               return (
                 <li
@@ -251,8 +250,8 @@ function MissedWorkPage() {
       </Panel>
 
       <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-        <AlertCircle className="size-3.5" /> Missed-work files stay locked here until you open them or
-        mark them as reviewed.
+        <AlertCircle className="size-3.5" /> Missed-work files stay locked here until you open them
+        or mark them as reviewed.
       </p>
     </>
   );

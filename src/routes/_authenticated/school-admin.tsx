@@ -35,7 +35,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DAYS, formatDateTime } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/school-admin")({
@@ -50,7 +56,8 @@ export const Route = createFileRoute("/_authenticated/school-admin")({
       { property: "og:title", content: "School Administration — Memskool" },
       {
         property: "og:description",
-        content: "The Memskool control room for school admins: classes, timetables, admissions and meetings.",
+        content:
+          "The Memskool control room for school admins: classes, timetables, admissions and meetings.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -88,7 +95,10 @@ function SchoolAdminPage() {
 
   return (
     <>
-      <PageHeader title="School Administration" subtitle="Run your digital school from one place." />
+      <PageHeader
+        title="School Administration"
+        subtitle="Run your digital school from one place."
+      />
       <Tabs defaultValue="school" className="space-y-6">
         <TabsList className="flex-wrap">
           <TabsTrigger value="school">School</TabsTrigger>
@@ -171,7 +181,10 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
 
   return (
     <div className="space-y-6">
-      <Panel title="Register a digital school" description="Publish your institution to the Dream School directory">
+      <Panel
+        title="Register a digital school"
+        description="Publish your institution to the Dream School directory"
+      >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1.5">
             <Label htmlFor="s-name">School name</Label>
@@ -202,19 +215,39 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="s-web">Website</Label>
-            <Input id="s-web" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://" />
+            <Input
+              id="s-web"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              placeholder="https://"
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="s-badges">Badges (comma separated)</Label>
-            <Input id="s-badges" value={badges} onChange={(e) => setBadges(e.target.value)} placeholder="Boarding, STEM" />
+            <Input
+              id="s-badges"
+              value={badges}
+              onChange={(e) => setBadges(e.target.value)}
+              placeholder="Boarding, STEM"
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="s-fmin">Fees from</Label>
-            <Input id="s-fmin" type="number" value={feesMin} onChange={(e) => setFeesMin(e.target.value)} />
+            <Input
+              id="s-fmin"
+              type="number"
+              value={feesMin}
+              onChange={(e) => setFeesMin(e.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="s-fmax">Fees to</Label>
-            <Input id="s-fmax" type="number" value={feesMax} onChange={(e) => setFeesMax(e.target.value)} />
+            <Input
+              id="s-fmax"
+              type="number"
+              value={feesMax}
+              onChange={(e) => setFeesMax(e.target.value)}
+            />
           </div>
           <div className="flex items-center gap-3 pt-6">
             <Switch id="s-intl" checked={international} onCheckedChange={setInternational} />
@@ -222,11 +255,20 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
           </div>
           <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
             <Label htmlFor="s-desc">Description</Label>
-            <Textarea id="s-desc" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Textarea
+              id="s-desc"
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
           </div>
         </div>
         <Button className="mt-4" onClick={submit} disabled={create.isPending}>
-          {create.isPending ? <Loader2 className="size-4 animate-spin" /> : <Building2 className="size-4" />}
+          {create.isPending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Building2 className="size-4" />
+          )}
           Register school
         </Button>
       </Panel>
@@ -237,7 +279,10 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
         ) : schools.data?.length ? (
           <ul className="space-y-2">
             {schools.data.map((s) => (
-              <li key={s.id} className="flex items-center gap-3 rounded-xl bg-secondary/50 px-4 py-3">
+              <li
+                key={s.id}
+                className="flex items-center gap-3 rounded-xl bg-secondary/50 px-4 py-3"
+              >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{s.name}</p>
                   <p className="truncate text-xs capitalize text-muted-foreground">
@@ -247,7 +292,12 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
                 <Badge variant={s.admissions_open ? "default" : "outline"}>
                   {s.admissions_open ? "Open" : "Closed"}
                 </Badge>
-                <Button variant="ghost" size="icon" aria-label="Delete school" onClick={() => remove.mutate(s.id)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Delete school"
+                  onClick={() => remove.mutate(s.id)}
+                >
                   <Trash2 className="size-4" />
                 </Button>
               </li>
@@ -327,7 +377,12 @@ function ClassesSection({ userId }: { userId?: string | undefined }) {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-1.5">
             <Label htmlFor="c-name">Class name</Label>
-            <Input id="c-name" value={className} onChange={(e) => setClassName(e.target.value)} placeholder="Form One A" />
+            <Input
+              id="c-name"
+              value={className}
+              onChange={(e) => setClassName(e.target.value)}
+              placeholder="Form One A"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Subject</Label>
@@ -373,7 +428,10 @@ function ClassesSection({ userId }: { userId?: string | undefined }) {
         </div>
       </Panel>
 
-      <Panel title="Schedule a lesson slot" description="Changes sync instantly to every affected timetable">
+      <Panel
+        title="Schedule a lesson slot"
+        description="Changes sync instantly to every affected timetable"
+      >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-1.5">
             <Label>Class</Label>
@@ -407,7 +465,12 @@ function ClassesSection({ userId }: { userId?: string | undefined }) {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="t-start">Start</Label>
-            <Input id="t-start" type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+            <Input
+              id="t-start"
+              type="time"
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="t-end">End</Label>
@@ -445,7 +508,10 @@ function StaffSection() {
       ) : rows.length ? (
         <ul className="space-y-2">
           {rows.map((r) => (
-            <li key={`${r.user_id}-${r.role}`} className="flex items-center gap-3 rounded-xl bg-secondary/50 px-4 py-3">
+            <li
+              key={`${r.user_id}-${r.role}`}
+              className="flex items-center gap-3 rounded-xl bg-secondary/50 px-4 py-3"
+            >
               <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <Users className="size-4" />
               </span>
@@ -460,7 +526,11 @@ function StaffSection() {
           ))}
         </ul>
       ) : (
-        <EmptyState icon={Users} title="No staff accounts yet" hint="Teachers appear here once they sign up." />
+        <EmptyState
+          icon={Users}
+          title="No staff accounts yet"
+          hint="Teachers appear here once they sign up."
+        />
       )}
     </Panel>
   );
@@ -568,11 +638,21 @@ function MeetingsSection({ userId }: { userId?: string | undefined }) {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="m-when">Date & time</Label>
-            <Input id="m-when" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
+            <Input
+              id="m-when"
+              type="datetime-local"
+              value={when}
+              onChange={(e) => setWhen(e.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="m-dur">Duration (min)</Label>
-            <Input id="m-dur" type="number" value={duration} onChange={(e) => setDuration(e.target.value)} />
+            <Input
+              id="m-dur"
+              type="number"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="m-loc">Location</Label>
@@ -580,7 +660,12 @@ function MeetingsSection({ userId }: { userId?: string | undefined }) {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="m-url">Meeting link</Label>
-            <Input id="m-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" />
+            <Input
+              id="m-url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Audience</Label>
@@ -600,7 +685,12 @@ function MeetingsSection({ userId }: { userId?: string | undefined }) {
           </div>
           <div className="space-y-1.5 sm:col-span-2 lg:col-span-4">
             <Label htmlFor="m-desc">Agenda</Label>
-            <Textarea id="m-desc" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Textarea
+              id="m-desc"
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
           </div>
         </div>
         <Button className="mt-4" onClick={submit} disabled={create.isPending}>
@@ -614,7 +704,10 @@ function MeetingsSection({ userId }: { userId?: string | undefined }) {
         ) : meetings.data?.length ? (
           <ul className="space-y-2">
             {meetings.data.map((m) => (
-              <li key={m.id} className="flex items-center gap-3 rounded-xl bg-secondary/50 px-4 py-3">
+              <li
+                key={m.id}
+                className="flex items-center gap-3 rounded-xl bg-secondary/50 px-4 py-3"
+              >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{m.title}</p>
                   <p className="truncate text-xs text-muted-foreground">
@@ -625,7 +718,12 @@ function MeetingsSection({ userId }: { userId?: string | undefined }) {
                 <Badge variant="outline" className="uppercase">
                   {m.kind}
                 </Badge>
-                <Button variant="ghost" size="icon" aria-label="Delete meeting" onClick={() => remove.mutate(m.id)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Delete meeting"
+                  onClick={() => remove.mutate(m.id)}
+                >
                   <Trash2 className="size-4" />
                 </Button>
               </li>

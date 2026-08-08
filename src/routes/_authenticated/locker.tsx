@@ -70,7 +70,10 @@ export const Route = createFileRoute("/_authenticated/locker")({
           "Your personal Memskool vault: organise notes, videos and audio by subject and class level, upload files and search everything instantly.",
       },
       { property: "og:title", content: "Memskool Locker" },
-      { property: "og:description", content: "A digital vault for your notes, videos and recordings." },
+      {
+        property: "og:description",
+        content: "A digital vault for your notes, videos and recordings.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -201,7 +204,10 @@ function LockerPage() {
           ) : folders.data?.length ? (
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {folders.data.map((folder) => (
-                <li key={folder.id} className="group flex items-center gap-3 rounded-xl bg-secondary/50 p-4">
+                <li
+                  key={folder.id}
+                  className="group flex items-center gap-3 rounded-xl bg-secondary/50 p-4"
+                >
                   <button
                     type="button"
                     onClick={() => setOpenFolder(folder.id)}
@@ -284,7 +290,9 @@ function LockerPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{item.title}</p>
                     {item.notes ? (
-                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.notes}</p>
+                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                        {item.notes}
+                      </p>
                     ) : null}
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       {item.subject?.name ? (
@@ -335,7 +343,9 @@ function LockerPage() {
         ) : (
           <EmptyState
             icon={Archive}
-            title={search || tab !== "all" ? "Nothing matches those filters" : "Your locker is empty"}
+            title={
+              search || tab !== "all" ? "Nothing matches those filters" : "Your locker is empty"
+            }
             hint="Upload a file or add a note to get started."
           />
         )}
@@ -440,7 +450,13 @@ function NewFolderDialog({ userId }: { userId: string | undefined }) {
   );
 }
 
-function UploadDialog({ userId, defaultFolder }: { userId: string | undefined; defaultFolder: string | null }) {
+function UploadDialog({
+  userId,
+  defaultFolder,
+}: {
+  userId: string | undefined;
+  defaultFolder: string | null;
+}) {
   const subjects = useSubjects();
   const folders = useLockerFolders(userId);
   const createItem = useCreateLockerItem(userId);

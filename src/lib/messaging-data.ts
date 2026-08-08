@@ -91,7 +91,12 @@ export function useMessages(conversationId?: string) {
       .channel(`messages-${conversationId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
         () => qc.invalidateQueries({ queryKey: ["messages", conversationId] }),
       )
       .subscribe();
@@ -108,7 +113,11 @@ export function useSendMessage() {
     mutationFn: async (input: { conversationId: string; senderId: string; body: string }) => {
       const { error } = await supabase
         .from("messages")
-        .insert({ conversation_id: input.conversationId, sender_id: input.senderId, body: input.body });
+        .insert({
+          conversation_id: input.conversationId,
+          sender_id: input.senderId,
+          body: input.body,
+        });
       if (error) throw error;
       await supabase
         .from("conversations")
@@ -152,7 +161,11 @@ export function useDirectory(userId?: string, search = "") {
     queryKey: ["directory", userId, search],
     enabled: !!userId,
     queryFn: async () => {
-      let q = supabase.from("profiles").select("id, full_name, avatar_url").neq("id", userId!).limit(25);
+      let q = supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url")
+        .neq("id", userId!)
+        .limit(25);
       if (search.trim()) q = q.ilike("full_name", `%${search.trim()}%`);
       const { data, error } = await q;
       if (error) throw error;
@@ -170,7 +183,9 @@ export function useUserRelations(userId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_relations")
-        .select("id, target_id, relation, profile:profiles!user_relations_target_id_fkey(full_name, avatar_url)")
+        .select(
+          "id, target_id, relation, profile:profiles!user_relations_target_id_fkey(full_name, avatar_url)",
+        )
         .eq("user_id", userId!);
       if (error) throw error;
       return (data ?? []) as unknown as {

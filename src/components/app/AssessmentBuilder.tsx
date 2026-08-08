@@ -270,7 +270,8 @@ export function AssessmentBuilder({
                           next[oi] = e.target.value;
                           update(i, {
                             options: next,
-                            correct_answer: q.correct_answer === old ? e.target.value : q.correct_answer,
+                            correct_answer:
+                              q.correct_answer === old ? e.target.value : q.correct_answer,
                           });
                         }}
                         placeholder={`Option ${oi + 1}`}
@@ -281,9 +282,7 @@ export function AssessmentBuilder({
                         size="icon"
                         variant="ghost"
                         className="rounded-full"
-                        onClick={() =>
-                          update(i, { options: q.options.filter((_, x) => x !== oi) })
-                        }
+                        onClick={() => update(i, { options: q.options.filter((_, x) => x !== oi) })}
                       >
                         <Trash2 className="size-4" />
                       </Button>

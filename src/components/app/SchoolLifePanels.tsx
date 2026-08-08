@@ -17,14 +17,19 @@ export function AdmissionsPanel({
   const applications = useMyApplications(studentId);
   return (
     <Panel title={title} description={description}>
-      <ApplicationsTracker applications={applications.data ?? []} loading={applications.isLoading} />
+      <ApplicationsTracker
+        applications={applications.data ?? []}
+        loading={applications.isLoading}
+      />
     </Panel>
   );
 }
 
 export function MeetingsPanel() {
   const meetings = useMeetings();
-  const upcoming = (meetings.data ?? []).filter((m) => new Date(m.scheduled_at) >= new Date()).slice(0, 5);
+  const upcoming = (meetings.data ?? [])
+    .filter((m) => new Date(m.scheduled_at) >= new Date())
+    .slice(0, 5);
 
   return (
     <Panel title="School meetings" description="PTA, AGM and parent–teacher sessions">
