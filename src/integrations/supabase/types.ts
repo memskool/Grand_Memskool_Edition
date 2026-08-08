@@ -1073,51 +1073,66 @@ export type Database = {
           buyer_id: string
           created_at: string
           currency: string
+          failure_reason: string | null
           id: string
           item_id: string | null
           item_kind: string
           item_title: string
           notes: string | null
+          paid_at: string | null
+          payment_link: string | null
           provider: string
+          provider_tx_id: string | null
           quantity: number
           reference: string
           scheduled_at: string | null
           status: string
           updated_at: string
+          verified_amount_cents: number | null
         }
         Insert: {
           amount_cents?: number
           buyer_id: string
           created_at?: string
           currency?: string
+          failure_reason?: string | null
           id?: string
           item_id?: string | null
           item_kind?: string
           item_title: string
           notes?: string | null
+          paid_at?: string | null
+          payment_link?: string | null
           provider?: string
+          provider_tx_id?: string | null
           quantity?: number
           reference: string
           scheduled_at?: string | null
           status?: string
           updated_at?: string
+          verified_amount_cents?: number | null
         }
         Update: {
           amount_cents?: number
           buyer_id?: string
           created_at?: string
           currency?: string
+          failure_reason?: string | null
           id?: string
           item_id?: string | null
           item_kind?: string
           item_title?: string
           notes?: string | null
+          paid_at?: string | null
+          payment_link?: string | null
           provider?: string
+          provider_tx_id?: string | null
           quantity?: number
           reference?: string
           scheduled_at?: string | null
           status?: string
           updated_at?: string
+          verified_amount_cents?: number | null
         }
         Relationships: [
           {
@@ -1171,6 +1186,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payment_events: {
+        Row: {
+          created_at: string
+          event_id: string
+          event_type: string | null
+          id: string
+          order_reference: string | null
+          payload: Json
+          processed_at: string | null
+          provider: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          event_type?: string | null
+          id?: string
+          order_reference?: string | null
+          payload?: Json
+          processed_at?: string | null
+          provider: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          event_type?: string | null
+          id?: string
+          order_reference?: string | null
+          payload?: Json
+          processed_at?: string | null
+          provider?: string
+          status?: string | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
