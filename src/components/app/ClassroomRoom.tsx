@@ -440,6 +440,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
 
 function ParticipantTile({
   participant: p,
+  remote,
   spotlighted,
   isTeacher,
   onToggleCamera,
@@ -447,6 +448,7 @@ function ParticipantTile({
   onWarn,
 }: {
   participant: Participant;
+  remote: RemoteMedia | null;
   spotlighted: boolean;
   isTeacher: boolean;
   onToggleCamera: () => void;
@@ -456,14 +458,22 @@ function ParticipantTile({
   return (
     <div
       className={cn(
-        "relative flex aspect-video flex-col items-center justify-center rounded-xl bg-secondary/60 p-2 text-center",
+        "relative flex aspect-video flex-col items-center justify-center overflow-hidden rounded-xl bg-secondary/60 p-2 text-center",
         spotlighted && "ring-2 ring-primary",
+        remote?.speaking && "ring-2 ring-primary/60",
       )}
     >
-      <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-        {initials(p.profile?.full_name)}
-      </span>
-      <p className="mt-2 line-clamp-1 text-xs font-medium">{p.profile?.full_name ?? "Learner"}</p>
+      {remote?.videoTrack ? (
+        <RemoteVideo media={remote} className="absolute inset-0 size-full object-cover" />
+      ) : (
+        <>
+          <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+            {initials(p.profile?.full_name)}
+          </span>
+          <p className="mt-2 line-clamp-1 text-xs font-medium">{p.profile?.full_name ?? "Learner"}</p>
+        </>
+      )}
+
       <div className="absolute left-2 top-2 flex gap-1">
         {p.hand_raised ? <Hand className="size-4 text-warning-foreground" /> : null}
         {!p.mic_on ? <MicOff className="size-3.5 text-muted-foreground" /> : null}
