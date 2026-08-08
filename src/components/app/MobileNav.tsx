@@ -32,12 +32,13 @@ export function MobileNav() {
               >
                 <span
                   className={cn(
-                    "flex h-7 w-12 items-center justify-center rounded-full transition-colors",
-                    active && "bg-primary/12",
+                    "flex h-7 w-12 items-center justify-center rounded-full transition-all",
+                    active && "brand-gradient brand-shadow",
                   )}
                 >
                   <item.icon className="size-[18px]" />
                 </span>
+
                 {item.title}
               </Link>
             </li>
