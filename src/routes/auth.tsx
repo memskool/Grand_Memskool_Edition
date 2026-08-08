@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SiteFooter } from "@/components/app/SiteFooter";
 
 export const Route = createFileRoute("/auth")({
   // Auth state only exists in the browser; rendering this shell on the server
@@ -31,7 +32,8 @@ export const Route = createFileRoute("/auth")({
       { property: "og:title", content: "Sign in to Memskool" },
       {
         property: "og:description",
-        content: "Access the Memskool digital education ecosystem for students, teachers and parents.",
+        content:
+          "Access the Memskool digital education ecosystem for students, teachers and parents.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -47,6 +49,22 @@ const ROLES = [
   { value: "admin", label: "Admin" },
 ];
 
+/** Turns raw Supabase auth errors into guidance a learner or parent can act on. */
+function friendlyAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid login credentials"))
+    return "That email and password don't match an account. Check them, or create an account first.";
+  if (m.includes("email not confirmed"))
+    return "Your email isn't confirmed yet. Open the confirmation link we emailed you, or resend it below.";
+  if (m.includes("user already registered") || m.includes("already been registered"))
+    return "An account with that email already exists. Try signing in instead.";
+  if (m.includes("password should be at least"))
+    return "Passwords must be at least 6 characters.";
+  if (m.includes("rate limit") || m.includes("after"))
+    return "Too many attempts just now. Please wait a moment and try again.";
+  return message;
+}
+
 function AuthPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -54,46 +72,103 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState("student");
+  const [awaitingConfirm, setAwaitingConfirm] = useState(false);
+  const [mode, setMode] = useState<"signin" | "forgot">("signin");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/dashboard" });
+      if (data.session) navigate({ to: "/dashboard", replace: true });
     });
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) navigate({ to: "/dashboard", replace: true });
+    });
+    return () => sub.subscription.unsubscribe();
   }, [navigate]);
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      if (error.message.toLowerCase().includes("email not confirmed")) setAwaitingConfirm(true);
+      toast.error(friendlyAuthError(error.message));
       return;
     }
-    navigate({ to: "/dashboard" });
+    if (data.session) navigate({ to: "/dashboard", replace: true });
   };
 
   const signUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password.length < 6) {
+      toast.error("Passwords must be at least 6 characters.");
+      return;
+    }
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: email.trim(),
       password,
       options: {
-        emailRedirectTo: window.location.origin,
-        data: { full_name: fullName, role },
+        emailRedirectTo: `${window.location.origin}/dashboard`,
+        data: { full_name: fullName.trim(), role },
       },
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(friendlyAuthError(error.message));
       return;
     }
     if (data.session) {
-      navigate({ to: "/dashboard" });
-    } else {
-      toast.success("Check your email to confirm your account.");
+      navigate({ to: "/dashboard", replace: true });
+      return;
     }
+    if (data.user && (data.user.identities?.length ?? 0) === 0) {
+      toast.error("An account with that email already exists. Try signing in instead.");
+      return;
+    }
+    setAwaitingConfirm(true);
+    toast.success("Account created. Check your email to confirm, then sign in.");
+  };
+
+  const resendConfirmation = async () => {
+    if (!email.trim()) {
+      toast.error("Enter your email first.");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(friendlyAuthError(error.message));
+      return;
+    }
+    toast.success("Confirmation email sent again.");
+  };
+
+  const sendReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) {
+      toast.error("Enter your email first.");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(friendlyAuthError(error.message));
+      return;
+    }
+    toast.success("Password reset link sent. Check your inbox.");
+    setMode("signin");
   };
 
   const google = async () => {
@@ -105,134 +180,202 @@ function AuthPage() {
       return;
     }
     if (result.redirected) return;
-    navigate({ to: "/dashboard" });
+    navigate({ to: "/dashboard", replace: true });
   };
 
   return (
-    <div className="surface-gradient relative flex min-h-screen items-center justify-center px-4 py-12">
+    <div className="surface-gradient relative flex min-h-screen flex-col">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-72 opacity-70 blur-3xl"
         style={{ background: "var(--gradient-brand)", opacity: 0.18 }}
       />
-      <div className="relative w-full max-w-md">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <span className="brand-gradient brand-shadow mb-4 flex size-14 items-center justify-center rounded-3xl">
-            <GraduationCap className="size-7" />
-          </span>
-          <h1 className="brand-text font-display text-4xl font-semibold tracking-tight">
-            Memskool
-          </h1>
-          <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-            One account for your classes, work and school life.
-          </p>
-        </div>
-
-
-        <div className="surface-card p-6">
-          <Tabs defaultValue="signin">
-            <TabsList className="grid w-full grid-cols-2 rounded-full">
-              <TabsTrigger value="signin" className="rounded-full">
-                Sign in
-              </TabsTrigger>
-              <TabsTrigger value="signup" className="rounded-full">
-                Create account
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="signin" className="mt-6">
-              <form onSubmit={signIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="si-email">Email</Label>
-                  <Input
-                    id="si-email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="si-pass">Password</Label>
-                  <Input
-                    id="si-pass"
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-                <Button type="submit" className="w-full rounded-full" disabled={loading}>
-                  Sign in
-                </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="signup" className="mt-6">
-              <form onSubmit={signUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="su-name">Full name</Label>
-                  <Input
-                    id="su-name"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="su-email">Email</Label>
-                  <Input
-                    id="su-email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="su-pass">Password</Label>
-                  <Input
-                    id="su-pass"
-                    type="password"
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>I am a</Label>
-                  <Select value={role} onValueChange={setRole}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ROLES.map((r) => (
-                        <SelectItem key={r.value} value={r.value}>
-                          {r.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button type="submit" className="w-full rounded-full" disabled={loading}>
-                  Create account
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-
-          <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="h-px flex-1 bg-border" />
-            OR
-            <span className="h-px flex-1 bg-border" />
+      <div className="relative flex flex-1 items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="mb-8 flex flex-col items-center text-center">
+            <span className="brand-gradient brand-shadow mb-4 flex size-14 items-center justify-center rounded-3xl">
+              <GraduationCap className="size-7" />
+            </span>
+            <h1 className="brand-text font-display text-4xl font-semibold tracking-tight">
+              Memskool
+            </h1>
+            <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+              One account for your classes, work and school life.
+            </p>
           </div>
 
-          <Button variant="outline" className="w-full rounded-full" onClick={google}>
-            Continue with Google
-          </Button>
+          <div className="surface-card p-6">
+            {mode === "forgot" ? (
+              <form onSubmit={sendReset} className="space-y-4">
+                <div className="space-y-1">
+                  <h2 className="font-display text-lg font-semibold tracking-tight">
+                    Reset your password
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    We'll email you a secure link to choose a new password.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fp-email">Email</Label>
+                  <Input
+                    id="fp-email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+                <Button type="submit" className="w-full rounded-full" disabled={loading}>
+                  {loading ? "Sending…" : "Send reset link"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full rounded-full"
+                  onClick={() => setMode("signin")}
+                >
+                  Back to sign in
+                </Button>
+              </form>
+            ) : (
+              <Tabs defaultValue="signin">
+                <TabsList className="grid w-full grid-cols-2 rounded-full">
+                  <TabsTrigger value="signin" className="rounded-full">
+                    Sign in
+                  </TabsTrigger>
+                  <TabsTrigger value="signup" className="rounded-full">
+                    Create account
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="signin" className="mt-6">
+                  <form onSubmit={signIn} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="si-email">Email</Label>
+                      <Input
+                        id="si-email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="si-pass">Password</Label>
+                      <Input
+                        id="si-pass"
+                        type="password"
+                        autoComplete="current-password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                      />
+                    </div>
+                    <Button type="submit" className="w-full rounded-full" disabled={loading}>
+                      {loading ? "Signing in…" : "Sign in"}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => setMode("forgot")}
+                      className="w-full text-center text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
+                    >
+                      Forgot your password?
+                    </button>
+                  </form>
+                </TabsContent>
+
+                <TabsContent value="signup" className="mt-6">
+                  <form onSubmit={signUp} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="su-name">Full name</Label>
+                      <Input
+                        id="su-name"
+                        required
+                        autoComplete="name"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="su-email">Email</Label>
+                      <Input
+                        id="su-email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="su-pass">Password</Label>
+                      <Input
+                        id="su-pass"
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        minLength={6}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">At least 6 characters.</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>I am a</Label>
+                      <Select value={role} onValueChange={setRole}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ROLES.map((r) => (
+                            <SelectItem key={r.value} value={r.value}>
+                              {r.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button type="submit" className="w-full rounded-full" disabled={loading}>
+                      {loading ? "Creating account…" : "Create account"}
+                    </Button>
+                  </form>
+                </TabsContent>
+              </Tabs>
+            )}
+
+            {awaitingConfirm && mode === "signin" ? (
+              <div className="mt-5 rounded-2xl border border-border/70 bg-muted/40 p-4 text-xs text-muted-foreground">
+                <p>
+                  We sent a confirmation link to <span className="font-medium">{email}</span>.
+                  Confirm it, then sign in.
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 h-8 rounded-full px-3 text-xs"
+                  onClick={resendConfirmation}
+                  disabled={loading}
+                >
+                  Resend confirmation email
+                </Button>
+              </div>
+            ) : null}
+
+            <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              OR
+              <span className="h-px flex-1 bg-border" />
+            </div>
+
+            <Button variant="outline" className="w-full rounded-full" onClick={google}>
+              Continue with Google
+            </Button>
+          </div>
         </div>
       </div>
+      <SiteFooter className="relative" />
     </div>
   );
 }
