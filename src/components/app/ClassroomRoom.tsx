@@ -22,7 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { useLocalMedia } from "@/hooks/useLocalMedia";
+import { useLiveKit, type RemoteMedia } from "@/hooks/useLiveKit";
 import {
   useBulkParticipantUpdate,
   useClassroomChat,
