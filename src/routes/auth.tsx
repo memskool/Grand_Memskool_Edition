@@ -17,6 +17,9 @@ import {
 } from "@/components/ui/select";
 
 export const Route = createFileRoute("/auth")({
+  // Auth state only exists in the browser; rendering this shell on the server
+  // produced a hydration mismatch.
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Sign in to Memskool — eSchool platform" },
