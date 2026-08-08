@@ -489,3 +489,31 @@ function ParticipantTile({
     </div>
   );
 }
+
+function RemoteVideo({ media, className }: { media: RemoteMedia; className?: string }) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    const track = media.videoTrack;
+    if (!el || !track) return;
+    track.attach(el);
+    return () => {
+      track.detach(el);
+    };
+  }, [media.videoTrack]);
+  return <video ref={ref} autoPlay playsInline muted className={className} />;
+}
+
+function RemoteAudio({ media }: { media: RemoteMedia }) {
+  const ref = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    const track = media.audioTrack;
+    if (!el || !track) return;
+    track.attach(el);
+    return () => {
+      track.detach(el);
+    };
+  }, [media.audioTrack]);
+  return <audio ref={ref} autoPlay className="hidden" />;
+}
