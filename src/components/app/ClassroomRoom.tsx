@@ -363,8 +363,10 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
                 <ParticipantTile
                   key={p.id}
                   participant={p}
+                  remote={media.remotes[p.user_id] ?? null}
                   spotlighted={spotlight === p.user_id}
                   isTeacher={isTeacher}
+
                   onToggleCamera={() =>
                     patch({ camera_allowed: !p.camera_allowed, cam_on: false }, p.user_id)
                   }
