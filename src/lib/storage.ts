@@ -37,7 +37,7 @@ export function validateFile(file: File): string | null {
 }
 
 export function buildObjectPath(prefix: string, fileName: string): string {
-  const safe = fileName.replace(/[^\w.\-]+/g, "_").slice(-120);
+  const safe = fileName.replace(/[^\w.-]+/g, "_").slice(-120);
   return `${prefix}/${crypto.randomUUID()}-${safe}`;
 }
 
