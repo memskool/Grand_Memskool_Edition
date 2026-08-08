@@ -47,7 +47,7 @@ export const Route = createFileRoute("/api/public/webhooks/flutterwave")({
           event_type: payload.event ?? null,
           order_reference: txRef,
           status: payload.data?.status ?? null,
-          payload: payload as unknown as Record<string, unknown>,
+          payload: JSON.parse(raw) as never,
         });
         if (dupe) {
           // Already seen this exact event — acknowledge without reprocessing.
