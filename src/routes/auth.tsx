@@ -58,8 +58,7 @@ function friendlyAuthError(message: string): string {
     return "Your email isn't confirmed yet. Open the confirmation link we emailed you, or resend it below.";
   if (m.includes("user already registered") || m.includes("already been registered"))
     return "An account with that email already exists. Try signing in instead.";
-  if (m.includes("password should be at least"))
-    return "Passwords must be at least 6 characters.";
+  if (m.includes("password should be at least")) return "Passwords must be at least 6 characters.";
   if (m.includes("rate limit") || m.includes("after"))
     return "Too many attempts just now. Please wait a moment and try again.";
   return message;

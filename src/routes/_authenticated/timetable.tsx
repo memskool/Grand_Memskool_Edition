@@ -17,7 +17,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DAYS, formatTime } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/timetable")({
@@ -137,7 +143,12 @@ function TimetablePage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="rm-start">Start</Label>
-              <Input id="rm-start" type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+              <Input
+                id="rm-start"
+                type="time"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="rm-end">End</Label>
@@ -166,7 +177,10 @@ function TimetablePage() {
             ) : reminders.data?.length ? (
               <ul className="space-y-2">
                 {reminders.data.map((r) => (
-                  <li key={r.id} className="flex items-center gap-3 rounded-xl bg-secondary/50 px-4 py-3">
+                  <li
+                    key={r.id}
+                    className="flex items-center gap-3 rounded-xl bg-secondary/50 px-4 py-3"
+                  >
                     <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
                       <AlarmClock className="size-4" />
                     </span>

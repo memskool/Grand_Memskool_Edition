@@ -141,7 +141,6 @@ export function StudentDashboard({ user }: { user: User }) {
         <MeetingsPanel />
       </div>
       <PerformanceAnalytics studentId={user.id} />
-
     </div>
   );
 }

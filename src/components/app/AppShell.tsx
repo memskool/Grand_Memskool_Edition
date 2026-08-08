@@ -26,7 +26,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
         <SiteFooter className="pb-24 md:pb-8" />
         <MobileNav />
-
       </SidebarInset>
     </SidebarProvider>
   );

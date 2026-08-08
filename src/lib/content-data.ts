@@ -86,7 +86,10 @@ export function useSubjects() {
   return useQuery({
     queryKey: ["subjects"],
     queryFn: async (): Promise<SubjectRow[]> => {
-      const { data, error } = await supabase.from("subjects").select("id, name, code").order("name");
+      const { data, error } = await supabase
+        .from("subjects")
+        .select("id, name, code")
+        .order("name");
       if (error) throw error;
       return data ?? [];
     },
@@ -134,8 +137,14 @@ export function useLockerItems(userId?: string) {
 export function useCreateFolder(userId?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { name: string; subject_id: string | null; class_level: string | null }) => {
-      const { error } = await supabase.from("locker_folders").insert({ ...input, owner_id: userId! });
+    mutationFn: async (input: {
+      name: string;
+      subject_id: string | null;
+      class_level: string | null;
+    }) => {
+      const { error } = await supabase
+        .from("locker_folders")
+        .insert({ ...input, owner_id: userId! });
       if (error) throw error;
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["locker-folders"] }),
@@ -243,7 +252,9 @@ export function useCreateLibraryBook(userId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: NewLibraryBook) => {
-      const { error } = await supabase.from("library_books").insert({ ...input, uploaded_by: userId! });
+      const { error } = await supabase
+        .from("library_books")
+        .insert({ ...input, uploaded_by: userId! });
       if (error) throw error;
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["library-books"] }),

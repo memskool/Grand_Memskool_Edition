@@ -53,9 +53,11 @@ function ExamPage() {
   const [attempt, setAttempt] = useState<AssessmentSubmission | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [remaining, setRemaining] = useState<number | null>(null);
-  const [result, setResult] = useState<{ autoScore: number; totalPoints: number; manualPending: boolean } | null>(
-    null,
-  );
+  const [result, setResult] = useState<{
+    autoScore: number;
+    totalPoints: number;
+    manualPending: boolean;
+  } | null>(null);
   const submittedRef = useRef(false);
 
   // Lock AI surfaces for the whole session.
@@ -160,7 +162,11 @@ function ExamPage() {
             Submit
           </Button>
         ) : (
-          <Button variant="outline" className="rounded-full" onClick={() => navigate({ to: "/assessments" })}>
+          <Button
+            variant="outline"
+            className="rounded-full"
+            onClick={() => navigate({ to: "/assessments" })}
+          >
             Back to assessments
           </Button>
         )}

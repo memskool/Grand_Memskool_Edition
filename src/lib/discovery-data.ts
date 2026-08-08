@@ -243,7 +243,15 @@ export function useWithdrawApplication() {
 export function useUpdateApplicationStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, status, notes }: { id: string; status: ApplicationStatus; notes?: string }) => {
+    mutationFn: async ({
+      id,
+      status,
+      notes,
+    }: {
+      id: string;
+      status: ApplicationStatus;
+      notes?: string;
+    }) => {
       const { error } = await supabase
         .from("school_applications")
         .update({ status, review_notes: notes ?? null })
@@ -355,7 +363,9 @@ export function useCreateStudyReminder(userId?: string) {
       end_time: string | null;
       remind_minutes_before: number;
     }) => {
-      const { error } = await supabase.from("study_reminders").insert({ ...values, user_id: userId! });
+      const { error } = await supabase
+        .from("study_reminders")
+        .insert({ ...values, user_id: userId! });
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["study-reminders"] }),
@@ -417,7 +427,9 @@ export function useCreateMeeting(userId?: string) {
       meeting_url: string | null;
       class_id: string | null;
     }) => {
-      const { error } = await supabase.from("school_meetings").insert({ ...values, created_by: userId! });
+      const { error } = await supabase
+        .from("school_meetings")
+        .insert({ ...values, created_by: userId! });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -535,7 +547,12 @@ export function useAllClasses(enabled: boolean) {
 export function useCreateClass() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (values: { name: string; subject_id: string | null; teacher_id: string | null; room: string | null }) => {
+    mutationFn: async (values: {
+      name: string;
+      subject_id: string | null;
+      teacher_id: string | null;
+      room: string | null;
+    }) => {
       const { error } = await supabase.from("classes").insert(values);
       if (error) throw error;
     },

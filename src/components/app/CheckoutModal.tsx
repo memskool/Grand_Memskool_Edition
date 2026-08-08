@@ -15,7 +15,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatPrice, useCheckout, type MarketplaceItem } from "@/lib/marketplace-data";
 
-
 export function CheckoutModal({
   item,
   buyerId,
@@ -56,7 +55,6 @@ export function CheckoutModal({
     );
   };
 
-
   return (
     <Dialog open={!!item} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -85,7 +83,9 @@ export function CheckoutModal({
                 min={1}
                 max={20}
                 value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                onChange={(e) =>
+                  setQuantity(Math.max(1, Math.min(20, Number(e.target.value) || 1)))
+                }
               />
             </div>
           )}
@@ -97,7 +97,6 @@ export function CheckoutModal({
               Flutterwave&apos;s secure page and returned here once the payment is confirmed.
             </p>
           </div>
-
 
           <div className="space-y-2">
             <Label htmlFor="co-notes">Notes for the tutor / seller</Label>

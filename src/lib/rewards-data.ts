@@ -74,17 +74,48 @@ export function summarise(events: RewardEvent[]) {
   }).length;
 
   const badges: Badge[] = [
-    badge("top-contributor", "Top Contributor", "Join 10 live classes", count("class_participation"), 10),
-    badge("comeback-kid", "Comeback Kid", "Review 5 missed lessons", count("missed_work_reviewed"), 5),
+    badge(
+      "top-contributor",
+      "Top Contributor",
+      "Join 10 live classes",
+      count("class_participation"),
+      10,
+    ),
+    badge(
+      "comeback-kid",
+      "Comeback Kid",
+      "Review 5 missed lessons",
+      count("missed_work_reviewed"),
+      5,
+    ),
     badge("night-owl", "Night Owl", "Study 5 times after 9pm", nightOwl, 5),
-    badge("flawless-attendance", "Flawless Attendance", "Check in on 7 different days", days.size, 7),
+    badge(
+      "flawless-attendance",
+      "Flawless Attendance",
+      "Check in on 7 different days",
+      days.size,
+      7,
+    ),
     badge("exam-ace", "Exam Ace", "Submit 5 assessments", count("assessment"), 5),
   ];
 
-  return { total, badges, level: levelFor(total), checkedInToday: events.some((e) => e.kind === "daily_checkin" && e.created_at.slice(0, 10) === todayUtc()) };
+  return {
+    total,
+    badges,
+    level: levelFor(total),
+    checkedInToday: events.some(
+      (e) => e.kind === "daily_checkin" && e.created_at.slice(0, 10) === todayUtc(),
+    ),
+  };
 }
 
-function badge(id: string, name: string, description: string, current: number, target: number): Badge {
+function badge(
+  id: string,
+  name: string,
+  description: string,
+  current: number,
+  target: number,
+): Badge {
   const capped = Math.min(current, target);
   return {
     id,

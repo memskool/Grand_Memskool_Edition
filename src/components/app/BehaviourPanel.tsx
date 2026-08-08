@@ -53,7 +53,8 @@ export function BehaviourPanel({ staffId }: { staffId?: string | undefined }) {
           setReason("");
           setStudentId("");
         },
-        onError: (err) => toast.error(err instanceof Error ? err.message : "Could not issue action"),
+        onError: (err) =>
+          toast.error(err instanceof Error ? err.message : "Could not issue action"),
       },
     );
   };
@@ -134,7 +135,11 @@ export function BehaviourPanel({ staffId }: { staffId?: string | undefined }) {
         {actions.isLoading ? (
           <ListSkeleton rows={3} />
         ) : (actions.data ?? []).length === 0 ? (
-          <EmptyState icon={ShieldAlert} title="No behaviour actions" hint="A clean record so far." />
+          <EmptyState
+            icon={ShieldAlert}
+            title="No behaviour actions"
+            hint="A clean record so far."
+          />
         ) : (
           <ul className="space-y-3">
             {(actions.data ?? []).map((a) => {
@@ -146,7 +151,9 @@ export function BehaviourPanel({ staffId }: { staffId?: string | undefined }) {
                       <p className="truncate text-sm font-medium">
                         {a.student?.full_name || "Student"}
                       </p>
-                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{a.reason}</p>
+                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                        {a.reason}
+                      </p>
                       <p className="mt-1 text-[11px] text-muted-foreground">
                         {formatDateTime(a.created_at)}
                         {a.ends_at ? ` · until ${formatDateTime(a.ends_at)}` : ""}

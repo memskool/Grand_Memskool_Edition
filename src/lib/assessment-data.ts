@@ -141,7 +141,6 @@ export function useAssessmentAnswerKey(assessmentId?: string) {
   });
 }
 
-
 export function useMyAttempts(studentId?: string) {
   return useQuery({
     queryKey: ["assessment-submissions", "student", studentId],
@@ -286,7 +285,13 @@ export function gradeAnswers(questions: AssessmentQuestion[], answers: Record<st
 export function useStartAttempt() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ assessmentId, studentId }: { assessmentId: string; studentId: string }) => {
+    mutationFn: async ({
+      assessmentId,
+      studentId,
+    }: {
+      assessmentId: string;
+      studentId: string;
+    }) => {
       const { data: existing } = await supabase
         .from("assessment_submissions")
         .select("*")
@@ -326,8 +331,7 @@ export function useSubmitAttempt() {
       });
       if (error) throw error;
       const row = (Array.isArray(data) ? data[0] : data) as
-        | { auto_score: number; total_points: number; manual_pending: boolean }
-        | undefined;
+        { auto_score: number; total_points: number; manual_pending: boolean } | undefined;
       return {
         autoScore: Number(row?.auto_score ?? 0),
         totalPoints: Number(row?.total_points ?? 0),
@@ -363,9 +367,10 @@ export function usePerformanceTrend(studentId?: string) {
       if (error) throw error;
 
       return (data ?? []).map((row) => {
-        const a = row.assessment as unknown as
-          | { title: string; subject: { name: string } | null }
-          | null;
+        const a = row.assessment as unknown as {
+          title: string;
+          subject: { name: string } | null;
+        } | null;
         const score = Number(row.manual_score ?? row.auto_score ?? 0);
         const total = Number(row.total_points || 0);
         return {
@@ -388,18 +393,22 @@ export function useTeacherAssessmentStats(teacherId?: string) {
     queryFn: async (): Promise<ClassStat[]> => {
       const { data: rows, error } = await supabase
         .from("assessments")
-        .select("id, title, created_by, submissions:assessment_submissions(auto_score, manual_score, total_points, submitted_at)")
+        .select(
+          "id, title, created_by, submissions:assessment_submissions(auto_score, manual_score, total_points, submitted_at)",
+        )
         .eq("created_by", teacherId!)
         .order("created_at");
       if (error) throw error;
 
       return (rows ?? []).map((a) => {
-        const subs = ((a.submissions ?? []) as Array<{
-          auto_score: number | null;
-          manual_score: number | null;
-          total_points: number | null;
-          submitted_at: string | null;
-        }>).filter((s) => s.submitted_at);
+        const subs = (
+          (a.submissions ?? []) as Array<{
+            auto_score: number | null;
+            manual_score: number | null;
+            total_points: number | null;
+            submitted_at: string | null;
+          }>
+        ).filter((s) => s.submitted_at);
         const percents = subs.map((s) => {
           const score = Number(s.manual_score ?? s.auto_score ?? 0);
           const total = Number(s.total_points || 0);

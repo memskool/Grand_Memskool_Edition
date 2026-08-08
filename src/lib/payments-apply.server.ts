@@ -5,9 +5,7 @@ import type { FlutterwaveVerification } from "./payments.server";
  * already reached a terminal state is never rewritten, so webhook retries and
  * the redirect-return reconcile can both run safely.
  */
-export async function applyPaymentResult(
-  verification: FlutterwaveVerification,
-): Promise<string> {
+export async function applyPaymentResult(verification: FlutterwaveVerification): Promise<string> {
   const { toStoredCents } = await import("./payments.server");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 

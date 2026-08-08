@@ -14,7 +14,6 @@ import {
   CalendarDays,
   Building2,
   ShoppingBag,
-
 } from "lucide-react";
 import { useExamMode } from "@/lib/exam-mode";
 import { useSession, useRole } from "@/hooks/useAuth";
@@ -113,6 +112,5 @@ export function AppSidebar() {
         </p>
       </SidebarFooter>
     </Sidebar>
-
   );
 }

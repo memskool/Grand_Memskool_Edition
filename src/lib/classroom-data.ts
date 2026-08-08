@@ -121,7 +121,12 @@ export function useParticipants(sessionId?: string) {
       .channel(`participants-${sessionId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "classroom_participants", filter: `session_id=eq.${sessionId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "classroom_participants",
+          filter: `session_id=eq.${sessionId}`,
+        },
         () => qc.invalidateQueries({ queryKey: ["classroom-participants", sessionId] }),
       )
       .subscribe();
@@ -155,7 +160,8 @@ export function useJoinRoom() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] }),
+    onSuccess: (_d, v) =>
+      qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] }),
   });
 }
 
@@ -165,12 +171,18 @@ export function useLeaveRoom() {
     mutationFn: async (input: { sessionId: string; userId: string }) => {
       const { error } = await supabase
         .from("classroom_participants")
-        .update({ left_at: new Date().toISOString(), hand_raised: false, mic_on: false, cam_on: false })
+        .update({
+          left_at: new Date().toISOString(),
+          hand_raised: false,
+          mic_on: false,
+          cam_on: false,
+        })
         .eq("session_id", input.sessionId)
         .eq("user_id", input.userId);
       if (error) throw error;
     },
-    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] }),
+    onSuccess: (_d, v) =>
+      qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] }),
   });
 }
 
@@ -189,7 +201,8 @@ export function useUpdateParticipant() {
         .eq("user_id", input.userId);
       if (error) throw error;
     },
-    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] }),
+    onSuccess: (_d, v) =>
+      qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] }),
   });
 }
 
@@ -197,7 +210,11 @@ export function useUpdateParticipant() {
 export function useBulkParticipantUpdate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { sessionId: string; patch: ParticipantPatch; exceptUserId?: string }) => {
+    mutationFn: async (input: {
+      sessionId: string;
+      patch: ParticipantPatch;
+      exceptUserId?: string;
+    }) => {
       let q = supabase
         .from("classroom_participants")
         .update(input.patch)
@@ -207,7 +224,8 @@ export function useBulkParticipantUpdate() {
       const { error } = await q;
       if (error) throw error;
     },
-    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] }),
+    onSuccess: (_d, v) =>
+      qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] }),
   });
 }
 
@@ -237,7 +255,12 @@ export function useClassroomChat(sessionId?: string) {
       .channel(`classroom-chat-${sessionId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "classroom_messages", filter: `session_id=eq.${sessionId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "classroom_messages",
+          filter: `session_id=eq.${sessionId}`,
+        },
         () => qc.invalidateQueries({ queryKey: ["classroom-chat", sessionId] }),
       )
       .subscribe();

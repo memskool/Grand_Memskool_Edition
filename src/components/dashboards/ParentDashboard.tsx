@@ -135,7 +135,11 @@ export function ParentDashboard({ user }: { user: User }) {
         </Panel>
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
-        <AdmissionsPanel studentId={childId} title="Child's applications" description="Admission progress for your child" />
+        <AdmissionsPanel
+          studentId={childId}
+          title="Child's applications"
+          description="Admission progress for your child"
+        />
         <MeetingsPanel />
       </div>
       <PerformanceAnalytics
@@ -143,7 +147,6 @@ export function ParentDashboard({ user }: { user: User }) {
         title="Progress report"
         description="Assessment grade trend for your child."
       />
-
     </div>
   );
 }

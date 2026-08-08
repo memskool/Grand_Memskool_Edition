@@ -3,7 +3,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { reconcileOrder, startCheckout } from "@/lib/payments.functions";
 
-
 export const ITEM_KINDS = [
   { value: "book", label: "Book" },
   { value: "resource", label: "Revision resource" },
@@ -145,4 +144,3 @@ export function useReconcileOrder(buyerId?: string) {
     },
   });
 }
-

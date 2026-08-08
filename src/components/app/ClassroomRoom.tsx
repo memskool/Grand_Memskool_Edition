@@ -86,7 +86,6 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
 
   // The LiveKit hook attaches the published camera track to this element.
 
-
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chat.data?.length, chatOpen]);
@@ -98,8 +97,8 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
   const me = live.find((p) => p.user_id === userId);
   const host = live.find((p) => p.is_host) ?? null;
   const learners = live.filter((p) => !p.is_host);
-  const stageRemote = host && host.user_id !== userId ? (media.remotes[host.user_id] ?? null) : null;
-
+  const stageRemote =
+    host && host.user_id !== userId ? (media.remotes[host.user_id] ?? null) : null;
 
   // Teacher-enforced state pushed down to the local devices.
   useEffect(() => {
@@ -232,7 +231,9 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
                 {initials(host?.profile?.full_name ?? className)}
               </span>
               <p className="text-sm opacity-80">
-                {host ? `${host.profile?.full_name ?? "Teacher"} is broadcasting` : "Waiting for the teacher…"}
+                {host
+                  ? `${host.profile?.full_name ?? "Teacher"} is broadcasting`
+                  : "Waiting for the teacher…"}
               </p>
               {media.starting ? <Loader2 className="size-4 animate-spin opacity-70" /> : null}
             </div>
@@ -250,7 +251,6 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
         {Object.values(media.remotes).map((r) => (
           <RemoteAudio key={r.identity} media={r} />
         ))}
-
 
         {/* Controls */}
         <div className="surface-card flex flex-wrap items-center justify-center gap-2 p-3">
@@ -288,13 +288,20 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
             title="Keep listening while you browse other tabs"
           >
             <PictureInPicture2 className="size-4" />
-            <span className="hidden sm:inline">{media.pipActive ? "Exit mini player" : "Mini player"}</span>
+            <span className="hidden sm:inline">
+              {media.pipActive ? "Exit mini player" : "Mini player"}
+            </span>
           </Button>
           <Button variant="destructive" className="rounded-full" onClick={handleLeave}>
             <PhoneOff className="size-4" /> Leave
           </Button>
           {isTeacher ? (
-            <Button variant="outline" className="rounded-full" onClick={handleEnd} disabled={endSession.isPending}>
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={handleEnd}
+              disabled={endSession.isPending}
+            >
               End session
             </Button>
           ) : null}
@@ -395,7 +402,12 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
       >
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold">Live chat</h2>
-          <Button size="icon" variant="ghost" className="lg:hidden" onClick={() => setChatOpen(false)}>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="lg:hidden"
+            onClick={() => setChatOpen(false)}
+          >
             <X className="size-4" />
           </Button>
         </header>
@@ -470,7 +482,9 @@ function ParticipantTile({
           <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
             {initials(p.profile?.full_name)}
           </span>
-          <p className="mt-2 line-clamp-1 text-xs font-medium">{p.profile?.full_name ?? "Learner"}</p>
+          <p className="mt-2 line-clamp-1 text-xs font-medium">
+            {p.profile?.full_name ?? "Learner"}
+          </p>
         </>
       )}
 
@@ -481,7 +495,13 @@ function ParticipantTile({
       </div>
       {isTeacher ? (
         <div className="absolute inset-x-1 bottom-1 flex justify-center gap-1 opacity-0 transition-opacity hover:opacity-100 focus-within:opacity-100">
-          <Button size="icon" variant="secondary" className="size-7 rounded-full" onClick={onMute} title="Mute">
+          <Button
+            size="icon"
+            variant="secondary"
+            className="size-7 rounded-full"
+            onClick={onMute}
+            title="Mute"
+          >
             <MicOff className="size-3.5" />
           </Button>
           <Button
@@ -491,9 +511,19 @@ function ParticipantTile({
             onClick={onToggleCamera}
             title={p.camera_allowed ? "Turn camera off" : "Allow camera"}
           >
-            {p.camera_allowed ? <VideoOff className="size-3.5" /> : <VideoIcon className="size-3.5" />}
+            {p.camera_allowed ? (
+              <VideoOff className="size-3.5" />
+            ) : (
+              <VideoIcon className="size-3.5" />
+            )}
           </Button>
-          <Button size="icon" variant="secondary" className="size-7 rounded-full" onClick={onWarn} title="Nudge">
+          <Button
+            size="icon"
+            variant="secondary"
+            className="size-7 rounded-full"
+            onClick={onWarn}
+            title="Nudge"
+          >
             <BellRing className="size-3.5" />
           </Button>
         </div>

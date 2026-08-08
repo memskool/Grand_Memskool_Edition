@@ -74,11 +74,13 @@ function MessagesPage() {
   const [filter, setFilter] = useState<"all" | ConversationKind>("all");
 
   const blocked = useMemo(
-    () => new Set((relations.data ?? []).filter((r) => r.relation === "block").map((r) => r.target_id)),
+    () =>
+      new Set((relations.data ?? []).filter((r) => r.relation === "block").map((r) => r.target_id)),
     [relations.data],
   );
   const muted = useMemo(
-    () => new Set((relations.data ?? []).filter((r) => r.relation === "mute").map((r) => r.target_id)),
+    () =>
+      new Set((relations.data ?? []).filter((r) => r.relation === "mute").map((r) => r.target_id)),
     [relations.data],
   );
 
@@ -101,7 +103,10 @@ function MessagesPage() {
         subtitle="Direct chats, class groups and teacher consultation clinics."
         action={
           userId ? (
-            <NewConversationDialog userId={userId} isStaff={role === "teacher" || role === "admin"} />
+            <NewConversationDialog
+              userId={userId}
+              isStaff={role === "teacher" || role === "admin"}
+            />
           ) : undefined
         }
       />
@@ -110,10 +115,18 @@ function MessagesPage() {
         <Panel title="Conversations" className="p-4">
           <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
             <TabsList className="mb-3 w-full">
-              <TabsTrigger value="all" className="flex-1">All</TabsTrigger>
-              <TabsTrigger value="direct" className="flex-1">Direct</TabsTrigger>
-              <TabsTrigger value="group" className="flex-1">Groups</TabsTrigger>
-              <TabsTrigger value="clinic" className="flex-1">Clinics</TabsTrigger>
+              <TabsTrigger value="all" className="flex-1">
+                All
+              </TabsTrigger>
+              <TabsTrigger value="direct" className="flex-1">
+                Direct
+              </TabsTrigger>
+              <TabsTrigger value="group" className="flex-1">
+                Groups
+              </TabsTrigger>
+              <TabsTrigger value="clinic" className="flex-1">
+                Clinics
+              </TabsTrigger>
             </TabsList>
           </Tabs>
           {conversations.isLoading ? (
@@ -143,7 +156,9 @@ function MessagesPage() {
                       <span className="block truncate text-sm font-medium">
                         {conversationLabel(c, userId ?? "")}
                       </span>
-                      <span className="block text-xs capitalize text-muted-foreground">{c.kind}</span>
+                      <span className="block text-xs capitalize text-muted-foreground">
+                        {c.kind}
+                      </span>
                     </span>
                   </button>
                 </li>
@@ -168,15 +183,23 @@ function MessagesPage() {
               setRelation.mutate(
                 { userId, targetId, relation, enabled },
                 {
-                  onSuccess: () => toast.success(enabled ? `User ${relation}ed` : `User un${relation}ed`),
+                  onSuccess: () =>
+                    toast.success(enabled ? `User ${relation}ed` : `User un${relation}ed`),
                   onError: (e) => toast.error((e as Error).message),
                 },
               )
             }
           />
         ) : (
-          <Panel title="Select a conversation" description="Messages appear instantly, no refresh needed">
-            <EmptyState icon={MessageSquare} title="Nothing open" hint="Pick a conversation on the left." />
+          <Panel
+            title="Select a conversation"
+            description="Messages appear instantly, no refresh needed"
+          >
+            <EmptyState
+              icon={MessageSquare}
+              title="Nothing open"
+              hint="Pick a conversation on the left."
+            />
           </Panel>
         )}
       </div>
@@ -208,14 +231,19 @@ function ChatPane({
     <section className="surface-card flex min-h-[28rem] flex-col p-0">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
         <div>
-          <h2 className="font-display text-base font-semibold">{conversationLabel(conversation, userId)}</h2>
+          <h2 className="font-display text-base font-semibold">
+            {conversationLabel(conversation, userId)}
+          </h2>
           <p className="text-xs capitalize text-muted-foreground">
             {conversation.kind} · {conversation.members.length} members
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {others.map((m) => (
-            <div key={m.user_id} className="flex items-center gap-1 rounded-full bg-secondary/60 px-2 py-1">
+            <div
+              key={m.user_id}
+              className="flex items-center gap-1 rounded-full bg-secondary/60 px-2 py-1"
+            >
               <span className="max-w-24 truncate text-xs">{m.profile?.full_name ?? "Member"}</span>
               <Button
                 size="icon"
@@ -224,7 +252,9 @@ function ChatPane({
                 title={muted.has(m.user_id) ? "Unmute" : "Mute"}
                 onClick={() => onRelation(m.user_id, "mute", !muted.has(m.user_id))}
               >
-                <BellOff className={cn("size-3.5", muted.has(m.user_id) && "text-warning-foreground")} />
+                <BellOff
+                  className={cn("size-3.5", muted.has(m.user_id) && "text-warning-foreground")}
+                />
               </Button>
               <Button
                 size="icon"
@@ -273,7 +303,11 @@ function ChatPane({
             })}
           </ul>
         ) : (
-          <EmptyState icon={MessageSquare} title="No messages yet" hint="Say hello to get the conversation going." />
+          <EmptyState
+            icon={MessageSquare}
+            title="No messages yet"
+            hint="Say hello to get the conversation going."
+          />
         )}
       </ScrollArea>
 
@@ -331,8 +365,12 @@ function NewConversationDialog({ userId, isStaff }: { userId: string; isStaff: b
         </DialogHeader>
         <Tabs value={kind} onValueChange={(v) => setKind(v as ConversationKind)}>
           <TabsList className="w-full">
-            <TabsTrigger value="direct" className="flex-1">Direct</TabsTrigger>
-            <TabsTrigger value="group" className="flex-1">Group</TabsTrigger>
+            <TabsTrigger value="direct" className="flex-1">
+              Direct
+            </TabsTrigger>
+            <TabsTrigger value="group" className="flex-1">
+              Group
+            </TabsTrigger>
             <TabsTrigger value="clinic" className="flex-1" disabled={!isStaff}>
               Clinic
             </TabsTrigger>
@@ -342,7 +380,9 @@ function NewConversationDialog({ userId, isStaff }: { userId: string; isStaff: b
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder={kind === "clinic" ? "Clinic name, e.g. Physics consultations" : "Group name"}
+            placeholder={
+              kind === "clinic" ? "Clinic name, e.g. Physics consultations" : "Group name"
+            }
           />
         ) : null}
         <div className="relative">
@@ -389,7 +429,12 @@ function NewConversationDialog({ userId, isStaff }: { userId: string; isStaff: b
             disabled={!selected.length || create.isPending || (kind !== "direct" && !title.trim())}
             onClick={() =>
               create.mutate(
-                { creatorId: userId, kind, title: kind === "direct" ? null : title.trim(), memberIds: selected },
+                {
+                  creatorId: userId,
+                  kind,
+                  title: kind === "direct" ? null : title.trim(),
+                  memberIds: selected,
+                },
                 {
                   onSuccess: () => {
                     toast.success("Conversation created");

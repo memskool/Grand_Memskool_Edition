@@ -106,11 +106,7 @@ function ResetPasswordPage() {
                   onChange={(e) => setConfirm(e.target.value)}
                 />
               </div>
-              <Button
-                type="submit"
-                className="w-full rounded-full"
-                disabled={loading || !ready}
-              >
+              <Button type="submit" className="w-full rounded-full" disabled={loading || !ready}>
                 {loading ? "Updating…" : "Update password"}
               </Button>
             </form>

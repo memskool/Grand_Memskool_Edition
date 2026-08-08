@@ -21,7 +21,9 @@ const SELECT =
 export function isActiveSuspension(a: DisciplinaryAction) {
   if (a.kind !== "suspension" || !a.active) return false;
   const now = Date.now();
-  return new Date(a.starts_at).getTime() <= now && (!a.ends_at || new Date(a.ends_at).getTime() > now);
+  return (
+    new Date(a.starts_at).getTime() <= now && (!a.ends_at || new Date(a.ends_at).getTime() > now)
+  );
 }
 
 /** Actions issued to the signed-in student (or any user). */

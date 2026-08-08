@@ -51,11 +51,8 @@ export const startCheckout = createServerFn({ method: "POST" })
     const quantity = item.kind === "tutoring" ? 1 : data.quantity;
     const amountCents = item.price_cents * quantity;
 
-    const {
-      buildReference,
-      createFlutterwaveCheckout,
-      toProviderAmount,
-    } = await import("./payments.server");
+    const { buildReference, createFlutterwaveCheckout, toProviderAmount } =
+      await import("./payments.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const reference = buildReference();
@@ -87,7 +84,10 @@ export const startCheckout = createServerFn({ method: "POST" })
       redirectUrl: `${origin}/marketplace?ref=${reference}`,
     });
 
-    await supabaseAdmin.from("orders").update({ payment_link: paymentLink }).eq("reference", reference);
+    await supabaseAdmin
+      .from("orders")
+      .update({ payment_link: paymentLink })
+      .eq("reference", reference);
 
     return { reference, paymentLink, amountCents, currency: item.currency };
   });

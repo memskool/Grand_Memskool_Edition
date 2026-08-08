@@ -57,7 +57,10 @@ export const Route = createFileRoute("/_authenticated/library")({
           "Browse and download course materials, books and research projects shared across your school on Memskool.",
       },
       { property: "og:title", content: "Library — Memskool" },
-      { property: "og:description", content: "Course materials, books and research projects in one shelf." },
+      {
+        property: "og:description",
+        content: "Course materials, books and research projects in one shelf.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -190,7 +193,9 @@ function LibraryPage() {
                     <p className="text-xs text-muted-foreground">{book.author}</p>
                   ) : null}
                   {book.description ? (
-                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{book.description}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                      {book.description}
+                    </p>
                   ) : null}
                   <div className="mt-3 flex flex-wrap items-center gap-1.5">
                     {book.subject?.name ? (
@@ -229,7 +234,9 @@ function LibraryPage() {
         ) : (
           <EmptyState
             icon={Library}
-            title={search || tab !== "all" ? "Nothing matches those filters" : "The library is empty"}
+            title={
+              search || tab !== "all" ? "Nothing matches those filters" : "The library is empty"
+            }
             hint={
               canManage
                 ? "Upload a course material, book or research project to get the shelf started."

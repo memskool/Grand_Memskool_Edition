@@ -114,7 +114,6 @@ export function TeacherDashboard({ user }: { user: User }) {
       <MeetingsPanel />
       <TeacherAssessmentPanel teacherId={user.id} />
       <BehaviourPanel staffId={user.id} />
-
     </div>
   );
 }

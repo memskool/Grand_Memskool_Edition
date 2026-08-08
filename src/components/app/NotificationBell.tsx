@@ -19,7 +19,12 @@ export function NotificationBell() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative rounded-full" aria-label="Notifications">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative rounded-full"
+          aria-label="Notifications"
+        >
           <Bell className="size-[18px]" />
           {unread > 0 ? (
             <span className="absolute right-1.5 top-1.5 flex size-2 rounded-full bg-primary" />
@@ -48,13 +53,17 @@ export function NotificationBell() {
                   >
                     <p className="text-sm font-medium capitalize">{n.title}</p>
                     {n.body ? <p className="text-xs text-muted-foreground">{n.body}</p> : null}
-                    <p className="mt-1 text-[11px] text-muted-foreground">{formatDateTime(n.created_at)}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {formatDateTime(n.created_at)}
+                    </p>
                   </Link>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="px-4 py-8 text-center text-xs text-muted-foreground">No notifications yet</p>
+            <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+              No notifications yet
+            </p>
           )}
         </ScrollArea>
       </PopoverContent>

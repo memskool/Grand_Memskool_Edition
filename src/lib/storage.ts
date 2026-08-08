@@ -37,12 +37,12 @@ export function validateFile(file: File): string | null {
 }
 
 export function buildObjectPath(prefix: string, fileName: string): string {
-  const safe = fileName.replace(/[^\w.\-]+/g, "_").slice(-120);
+  const safe = fileName.replace(/[^\w.-]+/g, "_").slice(-120);
   return `${prefix}/${crypto.randomUUID()}-${safe}`;
 }
 
-const SUPABASE_URL = import.meta.env['VITE_SUPABASE_URL'] as string;
-const SUPABASE_KEY = import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'] as string;
+const SUPABASE_URL = import.meta.env["VITE_SUPABASE_URL"] as string;
+const SUPABASE_KEY = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string;
 
 /**
  * Uploads through the Storage REST endpoint with XHR so we can report
@@ -91,7 +91,11 @@ export async function uploadWithProgress(
   });
 }
 
-export async function getSignedUrl(bucket: string, path: string, expiresIn = 3600): Promise<string> {
+export async function getSignedUrl(
+  bucket: string,
+  path: string,
+  expiresIn = 3600,
+): Promise<string> {
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn);
   if (error || !data) throw error ?? new Error("Could not create a download link.");
   return data.signedUrl;

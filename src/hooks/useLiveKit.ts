@@ -3,7 +3,10 @@ import { Room, RoomEvent, Track, type RemoteTrack, type RemoteParticipant } from
 import { useServerFn } from "@tanstack/react-start";
 import { issueClassroomToken } from "@/lib/livekit.functions";
 
-export type MediaError = { kind: "permission" | "config" | "unsupported" | "unknown"; message: string };
+export type MediaError = {
+  kind: "permission" | "config" | "unsupported" | "unknown";
+  message: string;
+};
 
 function toMediaError(err: unknown): MediaError {
   const name = (err as { name?: string } | null)?.name ?? "";
@@ -13,8 +16,7 @@ function toMediaError(err: unknown): MediaError {
       kind: "permission",
       message: "Camera and microphone access was blocked. Allow it in your browser settings.",
     };
-  if (message.includes("not configured"))
-    return { kind: "config", message };
+  if (message.includes("not configured")) return { kind: "config", message };
   return { kind: "unknown", message };
 }
 
@@ -158,7 +160,10 @@ export function useLiveKit(sessionId: string, enabled = true) {
   const togglePictureInPicture = useCallback(async () => {
     const el = localVideoRef.current;
     if (!el || !("pictureInPictureEnabled" in document)) {
-      setError({ kind: "unsupported", message: "Picture-in-Picture is not available in this browser." });
+      setError({
+        kind: "unsupported",
+        message: "Picture-in-Picture is not available in this browser.",
+      });
       return;
     }
     try {

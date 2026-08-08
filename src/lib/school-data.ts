@@ -167,7 +167,9 @@ export function useMyChildren(parentId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("parent_students")
-        .select("student_id, student:profiles!parent_students_student_profile_fkey(id, full_name, email)")
+        .select(
+          "student_id, student:profiles!parent_students_student_profile_fkey(id, full_name, email)",
+        )
         .eq("parent_id", parentId!);
       if (error) throw error;
       return data ?? [];
@@ -182,7 +184,9 @@ export function useChildPerformance(studentId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("submissions")
-        .select("id, grade, status, graded_at, assignment:assignments(title, points, class:classes(name))")
+        .select(
+          "id, grade, status, graded_at, assignment:assignments(title, points, class:classes(name))",
+        )
         .eq("student_id", studentId!)
         .order("graded_at", { ascending: false })
         .limit(20);

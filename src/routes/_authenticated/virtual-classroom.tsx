@@ -17,10 +17,14 @@ export const Route = createFileRoute("/_authenticated/virtual-classroom")({
       { title: "Virtual Classroom — Memskool" },
       {
         name: "description",
-        content: "Join live lessons with video, chat, raise-hand and automatic attendance in the Memskool virtual classroom.",
+        content:
+          "Join live lessons with video, chat, raise-hand and automatic attendance in the Memskool virtual classroom.",
       },
       { property: "og:title", content: "Virtual Classroom — Memskool" },
-      { property: "og:description", content: "Live lessons with video, chat and automatic attendance." },
+      {
+        property: "og:description",
+        content: "Live lessons with video, chat and automatic attendance.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

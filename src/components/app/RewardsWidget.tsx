@@ -5,14 +5,15 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Panel } from "@/components/app/primitives";
-import {
-  REWARD_LABELS,
-  summarise,
-  useDailyCheckIn,
-  useRewardEvents,
-} from "@/lib/rewards-data";
+import { REWARD_LABELS, summarise, useDailyCheckIn, useRewardEvents } from "@/lib/rewards-data";
 
-export function RewardsWidget({ studentId, compact }: { studentId?: string | undefined; compact?: boolean | undefined }) {
+export function RewardsWidget({
+  studentId,
+  compact,
+}: {
+  studentId?: string | undefined;
+  compact?: boolean | undefined;
+}) {
   const { data: events, isLoading } = useRewardEvents(studentId);
   const checkIn = useDailyCheckIn(studentId);
 
@@ -85,7 +86,9 @@ export function RewardsWidget({ studentId, compact }: { studentId?: string | und
               <span
                 className={cn(
                   "grid size-8 shrink-0 place-items-center rounded-xl",
-                  b.earned ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+                  b.earned
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground",
                 )}
               >
                 {b.earned ? <Award className="size-4" /> : <Sparkles className="size-4" />}
