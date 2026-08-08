@@ -260,7 +260,11 @@ export function useDeleteAssessment() {
   });
 }
 
-/** Auto-grades multiple choice instantly; short answers wait for the teacher. */
+/**
+ * Grading happens server-side (see the submit_assessment database function) so
+ * answer keys never reach the browser. Kept only for teacher-side previews
+ * where the answer key was explicitly loaded via useAssessmentAnswerKey.
+ */
 export function gradeAnswers(questions: AssessmentQuestion[], answers: Record<string, string>) {
   let autoScore = 0;
   let autoPoints = 0;
