@@ -111,13 +111,11 @@ export function useMessages(conversationId?: string) {
 export function useSendMessage() {
   return useMutation({
     mutationFn: async (input: { conversationId: string; senderId: string; body: string }) => {
-      const { error } = await supabase
-        .from("messages")
-        .insert({
-          conversation_id: input.conversationId,
-          sender_id: input.senderId,
-          body: input.body,
-        });
+      const { error } = await supabase.from("messages").insert({
+        conversation_id: input.conversationId,
+        sender_id: input.senderId,
+        body: input.body,
+      });
       if (error) throw error;
       await supabase
         .from("conversations")
