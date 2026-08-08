@@ -10,12 +10,16 @@ export function AppShell({ children }: { children: ReactNode }) {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset className="bg-background">
-        <header className="sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-border/70 bg-background/85 px-4 backdrop-blur-md sm:px-6">
+        <header className="sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-border/60 bg-background/80 px-4 backdrop-blur-xl sm:px-6">
           <SidebarTrigger className="rounded-full" />
+          <span className="hidden font-display text-sm font-semibold tracking-tight text-muted-foreground sm:inline">
+            Memskool
+          </span>
           <div className="flex-1" />
           <NotificationBell />
           <UserMenu />
         </header>
+
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-24 sm:px-6 sm:py-8 md:pb-8">
           {children}
         </main>

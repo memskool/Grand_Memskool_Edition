@@ -13,15 +13,17 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 className="font-display text-2xl font-semibold sm:text-3xl">{title}</h1>
+    <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:flex-wrap sm:justify-between">
+      <div className="min-w-0">
+        <span className="mb-2 inline-block h-1 w-10 rounded-full" style={{ background: "var(--gradient-brand)" }} />
+        <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
         {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
       </div>
       {action}
     </div>
   );
 }
+
 
 export function StatCard({
   label,
@@ -37,14 +39,15 @@ export function StatCard({
   loading?: boolean;
 }) {
   const tones = {
-    primary: "bg-primary/10 text-primary",
-    success: "bg-success/12 text-success",
-    warning: "bg-warning/15 text-warning-foreground",
+    primary: "bg-primary/12 text-primary",
+    success: "bg-success/14 text-success",
+    warning: "bg-warning/18 text-warning-foreground",
   } as const;
 
   return (
-    <div className="surface-card flex items-center gap-4 p-5">
-      <span className={cn("flex size-11 items-center justify-center rounded-2xl", tones[tone])}>
+    <div className="surface-card flex items-center gap-4 p-5 transition-shadow hover:brand-shadow">
+      <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-2xl", tones[tone])}>
+
         <Icon className="size-5" />
       </span>
       <div className="min-w-0">

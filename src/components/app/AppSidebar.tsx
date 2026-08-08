@@ -59,14 +59,19 @@ export function AppSidebar() {
   );
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="px-3 py-4">
         <Link to="/dashboard" className="flex items-center gap-2.5">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+          <span className="brand-gradient brand-shadow flex size-9 shrink-0 items-center justify-center rounded-2xl">
             <GraduationCap className="size-5" />
           </span>
-          <span className="font-display text-lg font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
-            Memskool
+          <span className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
+            <span className="font-display text-lg font-semibold leading-tight tracking-tight">
+              Memskool
+            </span>
+            <span className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              eSchool
+            </span>
           </span>
         </Link>
       </SidebarHeader>
@@ -75,29 +80,39 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.url}
-                    tooltip={item.title}
-                    className="h-11 rounded-full data-[active=true]:bg-sidebar-primary data-[active=true]:font-medium"
-                  >
-                    <Link to={item.url}>
-                      <item.icon className="size-[18px]" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {items.map((item) => {
+                const active = pathname === item.url;
+                return (
+                  <SidebarMenuItem key={item.url}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      tooltip={item.title}
+                      className="h-11 rounded-full transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:font-semibold data-[active=true]:text-sidebar-primary-foreground"
+                    >
+                      <Link to={item.url}>
+                        <item.icon
+                          className={active ? "size-[18px] text-primary" : "size-[18px]"}
+                        />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="px-4 py-3 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-        Memskool eSchool
+      <SidebarFooter className="px-4 py-3 group-data-[collapsible=icon]:hidden">
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          Memskool eSchool
+          <br />
+          Learn. Track. Grow.
+        </p>
       </SidebarFooter>
     </Sidebar>
+
   );
 }
