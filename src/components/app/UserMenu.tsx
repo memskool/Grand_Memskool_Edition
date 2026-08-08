@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { LogOut, User as UserIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, useProfile, useRole } from "@/hooks/useAuth";
@@ -15,6 +16,7 @@ import {
 
 export function UserMenu() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useSession();
   const { data: profile } = useProfile(user);
   const { data: role } = useRole(user);
@@ -29,8 +31,10 @@ export function UserMenu() {
     .toUpperCase();
 
   const signOut = async () => {
+    await queryClient.cancelQueries();
+    queryClient.clear();
     await supabase.auth.signOut();
-    navigate({ to: "/auth" });
+    navigate({ to: "/auth", replace: true });
   };
 
   return (
