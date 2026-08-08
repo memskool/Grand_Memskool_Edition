@@ -102,6 +102,7 @@ export function useAssessment(assessmentId?: string) {
   });
 }
 
+/** Student-facing read: the answer key column is not selectable by learners. */
 export function useAssessmentQuestions(assessmentId?: string) {
   return useQuery({
     queryKey: ["assessment-questions", assessmentId],
@@ -109,7 +110,7 @@ export function useAssessmentQuestions(assessmentId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("assessment_questions")
-        .select("id, assessment_id, position, kind, prompt, options, correct_answer, points")
+        .select("id, assessment_id, position, kind, prompt, options, points")
         .eq("assessment_id", assessmentId!)
         .order("position");
       if (error) throw error;
@@ -120,6 +121,25 @@ export function useAssessmentQuestions(assessmentId?: string) {
     },
   });
 }
+
+/** Owner-only read (teacher/admin) that includes the answer key. */
+export function useAssessmentAnswerKey(assessmentId?: string) {
+  return useQuery({
+    queryKey: ["assessment-questions", "owner", assessmentId],
+    enabled: !!assessmentId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("owner_assessment_questions", {
+        _assessment_id: assessmentId!,
+      });
+      if (error) throw error;
+      return (data ?? []).map((q) => ({
+        ...q,
+        options: Array.isArray(q.options) ? (q.options as string[]) : [],
+      })) as AssessmentQuestion[];
+    },
+  });
+}
+
 
 export function useMyAttempts(studentId?: string) {
   return useQuery({
