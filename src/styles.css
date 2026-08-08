@@ -71,8 +71,8 @@
 
 :root {
   --radius: 1.25rem;
-  --font-display: "Roboto Flex", "Roboto", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Roboto", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
 
   /* Memskool brand: deep violet + teal */
   --background: oklch(0.985 0.006 285);
