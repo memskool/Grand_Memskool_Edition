@@ -39,14 +39,15 @@ export function StatCard({
   loading?: boolean;
 }) {
   const tones = {
-    primary: "bg-primary/10 text-primary",
-    success: "bg-success/12 text-success",
-    warning: "bg-warning/15 text-warning-foreground",
+    primary: "bg-primary/12 text-primary",
+    success: "bg-success/14 text-success",
+    warning: "bg-warning/18 text-warning-foreground",
   } as const;
 
   return (
-    <div className="surface-card flex items-center gap-4 p-5">
-      <span className={cn("flex size-11 items-center justify-center rounded-2xl", tones[tone])}>
+    <div className="surface-card flex items-center gap-4 p-5 transition-shadow hover:brand-shadow">
+      <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-2xl", tones[tone])}>
+
         <Icon className="size-5" />
       </span>
       <div className="min-w-0">
