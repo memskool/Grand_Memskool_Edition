@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { triggerNotificationDelivery } from "@/lib/notifications-data";
 
 export type DisciplinaryAction = {
   id: string;
@@ -114,6 +115,7 @@ export function useIssueAction(issuedBy?: string) {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["discipline"] });
+      triggerNotificationDelivery();
     },
   });
 }

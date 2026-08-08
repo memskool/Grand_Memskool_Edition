@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { triggerNotificationDelivery } from "@/lib/notifications-data";
 
 export type QuestionKind = "multiple_choice" | "short_answer";
 
@@ -302,7 +303,10 @@ export function useStartAttempt() {
       if (error) throw error;
       return data as unknown as AssessmentSubmission;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["assessment-submissions"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["assessment-submissions"] });
+      triggerNotificationDelivery();
+    },
   });
 }
 
@@ -330,7 +334,10 @@ export function useSubmitAttempt() {
         manualPending: !!row?.manual_pending,
       };
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["assessment-submissions"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["assessment-submissions"] });
+      triggerNotificationDelivery();
+    },
   });
 }
 

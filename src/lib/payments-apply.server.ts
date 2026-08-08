@@ -55,5 +55,10 @@ export async function applyPaymentResult(
     link: "/marketplace",
   });
 
+  // Email/SMS receipt. Fire-and-forget: a provider outage must never affect
+  // the money state we just recorded.
+  const { dispatchNotifications } = await import("./notifications.server");
+  void dispatchNotifications();
+
   return status;
 }

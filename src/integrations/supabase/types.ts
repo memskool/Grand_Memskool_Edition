@@ -1034,6 +1034,94 @@ export type Database = {
           },
         ]
       }
+      notification_deliveries: {
+        Row: {
+          attempts: number
+          channel: string
+          created_at: string
+          destination: string
+          error: string | null
+          id: string
+          next_attempt_at: string
+          notification_id: string
+          provider_message_id: string | null
+          sent_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          channel: string
+          created_at?: string
+          destination: string
+          error?: string | null
+          id?: string
+          next_attempt_at?: string
+          notification_id: string
+          provider_message_id?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          channel?: string
+          created_at?: string
+          destination?: string
+          error?: string | null
+          id?: string
+          next_attempt_at?: string
+          notification_id?: string
+          provider_message_id?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_deliveries_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          email_enabled: boolean
+          sms_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_enabled?: boolean
+          sms_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_enabled?: boolean
+          sms_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
@@ -1230,6 +1318,7 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          phone: string | null
           updated_at: string
         }
         Insert: {
@@ -1238,6 +1327,7 @@ export type Database = {
           email?: string | null
           full_name?: string
           id: string
+          phone?: string | null
           updated_at?: string
         }
         Update: {
@@ -1246,6 +1336,7 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          phone?: string | null
           updated_at?: string
         }
         Relationships: []

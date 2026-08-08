@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { triggerNotificationDelivery } from "@/lib/notifications-data";
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                           */
@@ -252,6 +253,7 @@ export function useUpdateApplicationStatus() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["all-applications"] });
       qc.invalidateQueries({ queryKey: ["applications"] });
+      triggerNotificationDelivery();
     },
   });
 }
@@ -418,7 +420,10 @@ export function useCreateMeeting(userId?: string) {
       const { error } = await supabase.from("school_meetings").insert({ ...values, created_by: userId! });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["school-meetings"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["school-meetings"] });
+      triggerNotificationDelivery();
+    },
   });
 }
 
