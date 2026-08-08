@@ -58,7 +58,7 @@ type Props = {
 };
 
 export function ClassroomRoom({ session, className, userId, isTeacher, onExit }: Props) {
-  const media = useLocalMedia();
+  const media = useLiveKit(session.id);
   const participants = useParticipants(session.id);
   const chat = useClassroomChat(session.id);
   const join = useJoinRoom();
