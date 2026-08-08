@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/app/AppSidebar";
 import { UserMenu } from "@/components/app/UserMenu";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { MobileNav } from "@/components/app/MobileNav";
+import { SiteFooter } from "@/components/app/SiteFooter";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
