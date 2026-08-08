@@ -84,12 +84,8 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id, userId, isTeacher]);
 
-  useEffect(() => {
-    if (media.stream && media.videoRef.current) {
-      media.videoRef.current.srcObject = media.stream;
-      void media.videoRef.current.play().catch(() => undefined);
-    }
-  }, [media.stream, media.videoRef]);
+  // The LiveKit hook attaches the published camera track to this element.
+
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
