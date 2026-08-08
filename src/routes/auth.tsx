@@ -106,17 +106,25 @@ function AuthPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-secondary/40 px-4 py-12">
-      <div className="w-full max-w-md">
+    <div className="surface-gradient relative flex min-h-screen items-center justify-center px-4 py-12">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-72 opacity-70 blur-3xl"
+        style={{ background: "var(--gradient-brand)", opacity: 0.18 }}
+      />
+      <div className="relative w-full max-w-md">
         <div className="mb-8 flex flex-col items-center text-center">
-          <span className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-            <GraduationCap className="size-6" />
+          <span className="brand-gradient brand-shadow mb-4 flex size-14 items-center justify-center rounded-3xl">
+            <GraduationCap className="size-7" />
           </span>
-          <h1 className="font-display text-3xl font-semibold">Memskool</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="brand-text font-display text-4xl font-semibold tracking-tight">
+            Memskool
+          </h1>
+          <p className="mt-2 max-w-xs text-sm text-muted-foreground">
             One account for your classes, work and school life.
           </p>
         </div>
+
 
         <div className="surface-card p-6">
           <Tabs defaultValue="signin">
