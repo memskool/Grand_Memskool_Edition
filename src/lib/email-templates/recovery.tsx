@@ -34,6 +34,9 @@ export const RecoveryEmail = ({ siteName, confirmationUrl }: RecoveryEmailProps)
           If you didn't request a password reset, you can safely ignore this email. Your password
           will not be changed.
         </Text>
+        <Text style={brandFooter}>
+          Memskool — a product of Mem-Industries in partnership with Altrastate Technologies Ltd.
+        </Text>
       </Container>
     </Body>
   </Html>
@@ -71,3 +74,12 @@ const button = {
   textDecoration: "none",
 };
 const footer = { fontSize: "12px", color: "#8b87a3", margin: "30px 0 0" };
+
+const brandFooter = {
+  fontSize: "11px",
+  color: "#8b87a3",
+  lineHeight: "1.6",
+  margin: "28px 0 0",
+  borderTop: "1px solid #ece9f8",
+  paddingTop: "14px",
+};
