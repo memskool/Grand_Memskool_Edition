@@ -10,7 +10,8 @@ export type AssessmentQuestion = {
   kind: QuestionKind;
   prompt: string;
   options: string[];
-  correct_answer: string | null;
+  /** Only ever populated for the teacher who owns the assessment. */
+  correct_answer?: string | null;
   points: number;
 };
 
