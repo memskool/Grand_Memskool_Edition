@@ -89,9 +89,16 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState("student");
+  const [role, setRole] = useState<AccountType>("student");
+  const [schoolCode, setSchoolCode] = useState("");
+  const [studentCode, setStudentCode] = useState("");
+  const [schoolName, setSchoolName] = useState("");
+  const [foundSchool, setFoundSchool] = useState<SchoolSummary | null>(null);
+  const [checkingSchool, setCheckingSchool] = useState(false);
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
   const [mode, setMode] = useState<"signin" | "forgot">("signin");
+
+  const needsSchoolCode = role === "student" || role === "teacher";
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -102,6 +109,32 @@ function AuthPage() {
     });
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
+
+  // Live School-ID verification while typing.
+  useEffect(() => {
+    if (!needsSchoolCode || schoolCode.trim().length < 3) {
+      setFoundSchool(null);
+      return;
+    }
+    let cancelled = false;
+    setCheckingSchool(true);
+    const timer = setTimeout(() => {
+      lookupSchool(schoolCode)
+        .then((s) => {
+          if (!cancelled) setFoundSchool(s);
+        })
+        .catch(() => {
+          if (!cancelled) setFoundSchool(null);
+        })
+        .finally(() => {
+          if (!cancelled) setCheckingSchool(false);
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [schoolCode, needsSchoolCode]);
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,15 +158,34 @@ function AuthPage() {
       toast.error("Passwords must be at least 6 characters.");
       return;
     }
+    if (needsSchoolCode && !foundSchool) {
+      toast.error("That School ID isn't on Memskool yet. Check it with your school.");
+      return;
+    }
+    if (role === "student" && !studentCode.trim()) {
+      toast.error("Enter the student ID your school gave you.");
+      return;
+    }
+    if (role === "institution" && !schoolName.trim()) {
+      toast.error("Enter your school's name.");
+      return;
+    }
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: { full_name: fullName.trim(), role },
+        data: {
+          full_name: fullName.trim(),
+          role,
+          school_code: needsSchoolCode ? schoolCode.trim() : null,
+          student_code: role === "student" ? studentCode.trim() : null,
+          school_name: role === "institution" ? schoolName.trim() : null,
+        },
       },
     });
+
     setLoading(false);
     if (error) {
       toast.error(friendlyAuthError(error.message));
