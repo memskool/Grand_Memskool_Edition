@@ -1319,6 +1319,8 @@ export type Database = {
           full_name: string
           id: string
           phone: string | null
+          school_id: string | null
+          student_code: string | null
           updated_at: string
         }
         Insert: {
@@ -1328,6 +1330,8 @@ export type Database = {
           full_name?: string
           id: string
           phone?: string | null
+          school_id?: string | null
+          student_code?: string | null
           updated_at?: string
         }
         Update: {
@@ -1337,9 +1341,19 @@ export type Database = {
           full_name?: string
           id?: string
           phone?: string | null
+          school_id?: string | null
+          student_code?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reward_events: {
         Row: {
@@ -1504,12 +1518,98 @@ export type Database = {
           },
         ]
       }
+      school_members: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          school_id: string
+          status: string
+          student_code: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          school_id: string
+          status?: string
+          student_code?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          school_id?: string
+          status?: string
+          student_code?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_members_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      school_roster: {
+        Row: {
+          claimed_by: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          school_id: string
+          student_code: string | null
+        }
+        Insert: {
+          claimed_by?: string | null
+          created_at?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          school_id: string
+          student_code?: string | null
+        }
+        Update: {
+          claimed_by?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          school_id?: string
+          student_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_roster_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schools: {
         Row: {
           admissions_open: boolean
           badges: string[]
           category: string
           city: string | null
+          code: string
           contact_email: string | null
           country: string
           created_at: string
@@ -1523,6 +1623,7 @@ export type Database = {
           is_international: boolean
           logo_url: string | null
           name: string
+          owner_id: string | null
           updated_at: string
           website: string | null
         }
@@ -1531,6 +1632,7 @@ export type Database = {
           badges?: string[]
           category?: string
           city?: string | null
+          code: string
           contact_email?: string | null
           country?: string
           created_at?: string
@@ -1544,6 +1646,7 @@ export type Database = {
           is_international?: boolean
           logo_url?: string | null
           name: string
+          owner_id?: string | null
           updated_at?: string
           website?: string | null
         }
@@ -1552,6 +1655,7 @@ export type Database = {
           badges?: string[]
           category?: string
           city?: string | null
+          code?: string
           contact_email?: string | null
           country?: string
           created_at?: string
@@ -1565,6 +1669,7 @@ export type Database = {
           is_international?: boolean
           logo_url?: string | null
           name?: string
+          owner_id?: string | null
           updated_at?: string
           website?: string | null
         }
@@ -1826,6 +1931,16 @@ export type Database = {
         Returns: boolean
       }
       is_suspended: { Args: { _user_id: string }; Returns: boolean }
+      lookup_school: {
+        Args: { _code: string }
+        Returns: {
+          city: string
+          country: string
+          id: string
+          name: string
+        }[]
+      }
+      my_school_id: { Args: { _user: string }; Returns: string }
       owner_assessment_questions: {
         Args: { _assessment_id: string }
         Returns: {
@@ -1843,7 +1958,15 @@ export type Database = {
         Args: { _assessment_id: string; _user_id: string }
         Returns: boolean
       }
+      owns_school: {
+        Args: { _school: string; _user: string }
+        Returns: boolean
+      }
       session_class_id: { Args: { _session_id: string }; Returns: string }
+      shares_school: {
+        Args: { _school: string; _user: string }
+        Returns: boolean
+      }
       submit_assessment: {
         Args: { _answers: Json; _submission_id: string }
         Returns: {
