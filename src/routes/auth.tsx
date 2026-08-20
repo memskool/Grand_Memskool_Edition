@@ -42,12 +42,31 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-const ROLES = [
-  { value: "student", label: "Student" },
-  { value: "teacher", label: "Teacher" },
-  { value: "parent", label: "Parent" },
-  { value: "admin", label: "Admin" },
-];
+const ACCOUNT_TYPES = [
+  {
+    value: "student",
+    label: "Student",
+    blurb: "Classes, locker, library, AI tutor, Dream School and the book store.",
+  },
+  {
+    value: "parent",
+    label: "Parent",
+    blurb: "Follow attendance, performance and school communication for your child.",
+  },
+  {
+    value: "teacher",
+    label: "Teacher",
+    blurb: "Request to join your school, then teach, grade and run live classes.",
+  },
+  {
+    value: "institution",
+    label: "School / Institution",
+    blurb: "Register your school, upload students and teachers, publish books.",
+  },
+] as const;
+
+type AccountType = (typeof ACCOUNT_TYPES)[number]["value"];
+
 
 /** Turns raw Supabase auth errors into guidance a learner or parent can act on. */
 function friendlyAuthError(message: string): string {
@@ -70,9 +89,16 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState("student");
+  const [role, setRole] = useState<AccountType>("student");
+  const [schoolCode, setSchoolCode] = useState("");
+  const [studentCode, setStudentCode] = useState("");
+  const [schoolName, setSchoolName] = useState("");
+  const [foundSchool, setFoundSchool] = useState<SchoolSummary | null>(null);
+  const [checkingSchool, setCheckingSchool] = useState(false);
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
   const [mode, setMode] = useState<"signin" | "forgot">("signin");
+
+  const needsSchoolCode = role === "student" || role === "teacher";
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -83,6 +109,32 @@ function AuthPage() {
     });
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
+
+  // Live School-ID verification while typing.
+  useEffect(() => {
+    if (!needsSchoolCode || schoolCode.trim().length < 3) {
+      setFoundSchool(null);
+      return;
+    }
+    let cancelled = false;
+    setCheckingSchool(true);
+    const timer = setTimeout(() => {
+      lookupSchool(schoolCode)
+        .then((s) => {
+          if (!cancelled) setFoundSchool(s);
+        })
+        .catch(() => {
+          if (!cancelled) setFoundSchool(null);
+        })
+        .finally(() => {
+          if (!cancelled) setCheckingSchool(false);
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [schoolCode, needsSchoolCode]);
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,15 +158,34 @@ function AuthPage() {
       toast.error("Passwords must be at least 6 characters.");
       return;
     }
+    if (needsSchoolCode && !foundSchool) {
+      toast.error("That School ID isn't on Memskool yet. Check it with your school.");
+      return;
+    }
+    if (role === "student" && !studentCode.trim()) {
+      toast.error("Enter the student ID your school gave you.");
+      return;
+    }
+    if (role === "institution" && !schoolName.trim()) {
+      toast.error("Enter your school's name.");
+      return;
+    }
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: { full_name: fullName.trim(), role },
+        data: {
+          full_name: fullName.trim(),
+          role,
+          school_code: needsSchoolCode ? schoolCode.trim() : null,
+          student_code: role === "student" ? studentCode.trim() : null,
+          school_name: role === "institution" ? schoolName.trim() : null,
+        },
       },
     });
+
     setLoading(false);
     if (error) {
       toast.error(friendlyAuthError(error.message));
@@ -129,7 +200,12 @@ function AuthPage() {
       return;
     }
     setAwaitingConfirm(true);
-    toast.success("Account created. Check your email to confirm, then sign in.");
+    toast.success(
+      role === "teacher"
+        ? "Account created. Confirm your email — your school still needs to approve your request."
+        : "Account created. Check your email to confirm, then sign in.",
+    );
+
   };
 
   const resendConfirmation = async () => {
@@ -287,7 +363,33 @@ function AuthPage() {
                 <TabsContent value="signup" className="mt-6">
                   <form onSubmit={signUp} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="su-name">Full name</Label>
+                      <Label>I am joining as</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {ACCOUNT_TYPES.map((t) => (
+                          <button
+                            key={t.value}
+                            type="button"
+                            onClick={() => setRole(t.value)}
+                            aria-pressed={role === t.value}
+                            className={`rounded-2xl border px-3 py-2 text-left text-xs font-medium transition-colors ${
+                              role === t.value
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border/70 text-muted-foreground hover:border-primary/40"
+                            }`}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {ACCOUNT_TYPES.find((t) => t.value === role)?.blurb}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="su-name">
+                        {role === "institution" ? "Contact person's name" : "Full name"}
+                      </Label>
                       <Input
                         id="su-name"
                         required
@@ -296,6 +398,59 @@ function AuthPage() {
                         onChange={(e) => setFullName(e.target.value)}
                       />
                     </div>
+
+                    {role === "institution" ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="su-school-name">School name</Label>
+                        <Input
+                          id="su-school-name"
+                          required
+                          placeholder="e.g. Kampala모dern High School"
+                          value={schoolName}
+                          onChange={(e) => setSchoolName(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          We generate your School ID once your account is created — share it with
+                          your students and teachers.
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {needsSchoolCode ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="su-school-code">School ID</Label>
+                        <Input
+                          id="su-school-code"
+                          required
+                          placeholder="e.g. MS-4F91A2"
+                          value={schoolCode}
+                          onChange={(e) => setSchoolCode(e.target.value)}
+                        />
+                        <p
+                          className={`text-xs ${foundSchool ? "text-primary" : "text-muted-foreground"}`}
+                        >
+                          {checkingSchool
+                            ? "Checking School ID…"
+                            : foundSchool
+                              ? `Matched ${foundSchool.name}${foundSchool.city ? ` · ${foundSchool.city}` : ""}`
+                              : "Enter the School ID your school gave you."}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {role === "student" ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="su-student-code">Student ID</Label>
+                        <Input
+                          id="su-student-code"
+                          required
+                          placeholder="e.g. STU-2026-0142"
+                          value={studentCode}
+                          onChange={(e) => setStudentCode(e.target.value)}
+                        />
+                      </div>
+                    ) : null}
+
                     <div className="space-y-2">
                       <Label htmlFor="su-email">Email</Label>
                       <Input
@@ -318,23 +473,18 @@ function AuthPage() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                       />
-                      <p className="text-xs text-muted-foreground">At least 6 characters.</p>
+                      <p className="text-xs text-muted-foreground">
+                        At least 6 characters. You can change it any time in Settings.
+                      </p>
                     </div>
-                    <div className="space-y-2">
-                      <Label>I am a</Label>
-                      <Select value={role} onValueChange={setRole}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ROLES.map((r) => (
-                            <SelectItem key={r.value} value={r.value}>
-                              {r.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+
+                    {role === "teacher" ? (
+                      <p className="rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
+                        Your school approves teacher accounts. Until then you can sign in, but
+                        teaching tools stay locked.
+                      </p>
+                    ) : null}
+
                     <Button type="submit" className="w-full rounded-full" disabled={loading}>
                       {loading ? "Creating account…" : "Create account"}
                     </Button>
