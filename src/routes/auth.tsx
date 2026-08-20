@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SiteFooter } from "@/components/app/SiteFooter";
+import { lookupSchool, type SchoolSummary } from "@/lib/school-membership";
 
 export const Route = createFileRoute("/auth")({
   // Auth state only exists in the browser; rendering this shell on the server
