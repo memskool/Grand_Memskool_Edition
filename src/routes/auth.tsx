@@ -363,7 +363,33 @@ function AuthPage() {
                 <TabsContent value="signup" className="mt-6">
                   <form onSubmit={signUp} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="su-name">Full name</Label>
+                      <Label>I am joining as</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {ACCOUNT_TYPES.map((t) => (
+                          <button
+                            key={t.value}
+                            type="button"
+                            onClick={() => setRole(t.value)}
+                            aria-pressed={role === t.value}
+                            className={`rounded-2xl border px-3 py-2 text-left text-xs font-medium transition-colors ${
+                              role === t.value
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border/70 text-muted-foreground hover:border-primary/40"
+                            }`}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {ACCOUNT_TYPES.find((t) => t.value === role)?.blurb}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="su-name">
+                        {role === "institution" ? "Contact person's name" : "Full name"}
+                      </Label>
                       <Input
                         id="su-name"
                         required
@@ -372,6 +398,59 @@ function AuthPage() {
                         onChange={(e) => setFullName(e.target.value)}
                       />
                     </div>
+
+                    {role === "institution" ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="su-school-name">School name</Label>
+                        <Input
+                          id="su-school-name"
+                          required
+                          placeholder="e.g. Kampala모dern High School"
+                          value={schoolName}
+                          onChange={(e) => setSchoolName(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          We generate your School ID once your account is created — share it with
+                          your students and teachers.
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {needsSchoolCode ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="su-school-code">School ID</Label>
+                        <Input
+                          id="su-school-code"
+                          required
+                          placeholder="e.g. MS-4F91A2"
+                          value={schoolCode}
+                          onChange={(e) => setSchoolCode(e.target.value)}
+                        />
+                        <p
+                          className={`text-xs ${foundSchool ? "text-primary" : "text-muted-foreground"}`}
+                        >
+                          {checkingSchool
+                            ? "Checking School ID…"
+                            : foundSchool
+                              ? `Matched ${foundSchool.name}${foundSchool.city ? ` · ${foundSchool.city}` : ""}`
+                              : "Enter the School ID your school gave you."}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {role === "student" ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="su-student-code">Student ID</Label>
+                        <Input
+                          id="su-student-code"
+                          required
+                          placeholder="e.g. STU-2026-0142"
+                          value={studentCode}
+                          onChange={(e) => setStudentCode(e.target.value)}
+                        />
+                      </div>
+                    ) : null}
+
                     <div className="space-y-2">
                       <Label htmlFor="su-email">Email</Label>
                       <Input
@@ -394,23 +473,18 @@ function AuthPage() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                       />
-                      <p className="text-xs text-muted-foreground">At least 6 characters.</p>
+                      <p className="text-xs text-muted-foreground">
+                        At least 6 characters. You can change it any time in Settings.
+                      </p>
                     </div>
-                    <div className="space-y-2">
-                      <Label>I am a</Label>
-                      <Select value={role} onValueChange={setRole}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ROLES.map((r) => (
-                            <SelectItem key={r.value} value={r.value}>
-                              {r.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+
+                    {role === "teacher" ? (
+                      <p className="rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
+                        Your school approves teacher accounts. Until then you can sign in, but
+                        teaching tools stay locked.
+                      </p>
+                    ) : null}
+
                     <Button type="submit" className="w-full rounded-full" disabled={loading}>
                       {loading ? "Creating account…" : "Create account"}
                     </Button>
