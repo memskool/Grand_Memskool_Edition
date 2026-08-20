@@ -143,8 +143,12 @@ export function useSchools() {
 export function useCreateSchool(userId?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (values: Partial<School> & { name: string }) => {
-      const { error } = await supabase.from("schools").insert({ ...values, created_by: userId! });
+    mutationFn: async (values: Partial<School> & { name: string; code?: string }) => {
+      const code =
+        values.code ?? `MS-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+      const { error } = await supabase
+        .from("schools")
+        .insert({ ...values, code, created_by: userId! });
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["schools"] }),
