@@ -200,7 +200,12 @@ function AuthPage() {
       return;
     }
     setAwaitingConfirm(true);
-    toast.success("Account created. Check your email to confirm, then sign in.");
+    toast.success(
+      role === "teacher"
+        ? "Account created. Confirm your email — your school still needs to approve your request."
+        : "Account created. Check your email to confirm, then sign in.",
+    );
+
   };
 
   const resendConfirmation = async () => {
