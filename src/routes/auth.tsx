@@ -42,12 +42,31 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-const ROLES = [
-  { value: "student", label: "Student" },
-  { value: "teacher", label: "Teacher" },
-  { value: "parent", label: "Parent" },
-  { value: "admin", label: "Admin" },
-];
+const ACCOUNT_TYPES = [
+  {
+    value: "student",
+    label: "Student",
+    blurb: "Classes, locker, library, AI tutor, Dream School and the book store.",
+  },
+  {
+    value: "parent",
+    label: "Parent",
+    blurb: "Follow attendance, performance and school communication for your child.",
+  },
+  {
+    value: "teacher",
+    label: "Teacher",
+    blurb: "Request to join your school, then teach, grade and run live classes.",
+  },
+  {
+    value: "institution",
+    label: "School / Institution",
+    blurb: "Register your school, upload students and teachers, publish books.",
+  },
+] as const;
+
+type AccountType = (typeof ACCOUNT_TYPES)[number]["value"];
+
 
 /** Turns raw Supabase auth errors into guidance a learner or parent can act on. */
 function friendlyAuthError(message: string): string {
