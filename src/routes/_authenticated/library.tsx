@@ -88,6 +88,7 @@ function LibraryPage() {
   const [search, setSearch] = useState("");
   const [subjectFilter, setSubjectFilter] = useState("all");
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [active, setActive] = useState<LibraryBook | null>(null);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
