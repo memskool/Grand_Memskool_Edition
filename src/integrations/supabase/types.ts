@@ -359,6 +359,7 @@ export type Database = {
           id: string
           name: string
           room: string | null
+          school_id: string | null
           subject_id: string | null
           teacher_id: string | null
         }
@@ -367,6 +368,7 @@ export type Database = {
           id?: string
           name: string
           room?: string | null
+          school_id?: string | null
           subject_id?: string | null
           teacher_id?: string | null
         }
@@ -375,10 +377,18 @@ export type Database = {
           id?: string
           name?: string
           room?: string | null
+          school_id?: string | null
           subject_id?: string | null
           teacher_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "classes_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "classes_subject_id_fkey"
             columns: ["subject_id"]
@@ -2062,6 +2072,10 @@ export type Database = {
       }
       owns_assessment: {
         Args: { _assessment_id: string; _user_id: string }
+        Returns: boolean
+      }
+      owns_class_school: {
+        Args: { _class_id: string; _user: string }
         Returns: boolean
       }
       owns_school: {
