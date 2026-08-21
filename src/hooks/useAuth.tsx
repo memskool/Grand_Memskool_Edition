@@ -51,7 +51,7 @@ export function useRole(user: User | null) {
         .eq("user_id", user!.id);
       if (error) throw error;
       const roles = (data ?? []).map((r) => r.role as AppRole);
-      const priority: AppRole[] = ["admin", "teacher", "parent", "student"];
+      const priority: AppRole[] = ["admin", "institution", "teacher", "parent", "student"];
       return priority.find((p) => roles.includes(p)) ?? "student";
     },
   });
