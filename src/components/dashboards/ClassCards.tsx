@@ -63,7 +63,7 @@ export function ClassCardGrid({
 }) {
   if (loading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {[0, 1].map((i) => (
           <Skeleton key={i} className="h-[148px] rounded-3xl" />
         ))}
@@ -82,7 +82,7 @@ export function ClassCardGrid({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {classes.slice(0, 6).map((c) => (
         <ClassCard key={c.id} klass={c} />
       ))}
