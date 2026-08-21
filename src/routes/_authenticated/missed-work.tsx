@@ -12,7 +12,7 @@ import {
   ArrowRightLeft,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useSession } from "@/hooks/useAuth";
+import { useSession, useRole } from "@/hooks/useAuth";
 import { useMyAssignments } from "@/lib/school-data";
 import {
   useMissedWork,
@@ -134,7 +134,7 @@ function MissedWorkPage() {
         title={tab === "pending" ? "Waiting for you" : "Reviewed catch-up"}
         description={
           tab === "pending"
-            ? "Locked to this folder until you review them"
+            ? "Locked to this folder until your teacher reviews them"
             : "Ready to move into your main locker"
         }
         className="mb-5"
