@@ -15,8 +15,23 @@ export function TeacherDashboard({ user }: { user: User }) {
   const today = useTeacherTimetable(user.id);
   const grading = usePendingGrading(user.id);
 
+  if (pendingApproval) {
+    return (
+      <EmptyState
+        icon={Clock}
+        title="Waiting for school approval"
+        hint={
+          schoolName
+            ? `${schoolName} still needs to approve your teacher account. Classes, live lessons and grading unlock the moment they do.`
+            : "Add your School ID in Settings so your school can approve your teacher account."
+        }
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label="Active classes"
