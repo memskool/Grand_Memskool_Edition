@@ -230,3 +230,28 @@
 @utility surface-gradient {
   background-image: var(--gradient-surface);
 }
+
+@utility accent-gradient {
+  background-image: var(--gradient-accent);
+  color: var(--color-brand-accent-foreground);
+}
+
+@utility live-dot {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background-color: currentColor;
+    animation: live-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+}
+
+@keyframes live-ping {
+  75%,
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
