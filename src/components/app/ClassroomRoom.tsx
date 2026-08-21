@@ -417,15 +417,21 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
           chatOpen ? "flex" : "hidden lg:flex",
         )}
       >
-        <div className="rounded-[20px] border border-border bg-white p-4 text-black">
-          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-500">
-            Slides
-          </p>
-          <p className="mt-1 font-display text-base font-bold">{className}</p>
-          <p className="mt-1 text-xs text-neutral-500">
-            Lesson materials shared by your teacher appear in the Locker.
-          </p>
+        <div className="accent-gradient rounded-[20px] p-4 shadow-[0_18px_40px_-20px_var(--brand-accent)]">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] opacity-80">Slides</p>
+            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+              Live
+            </span>
+          </div>
+          <div className="mt-3 rounded-[14px] bg-white p-4 text-black">
+            <p className="font-display text-base font-bold">{className}</p>
+            <p className="mt-1 text-xs text-neutral-500">
+              Lesson materials shared by your teacher appear in the Locker.
+            </p>
+          </div>
         </div>
+
       <aside
         className={cn(
           "flex min-h-0 flex-1 flex-col rounded-[20px] border border-border bg-card p-0",
