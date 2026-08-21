@@ -163,7 +163,12 @@ function MessagesPage() {
                       <span className="block truncate text-sm font-medium">
                         {conversationLabel(c, userId ?? "")}
                       </span>
-                      <span className="block text-xs capitalize text-muted-foreground">
+                      <span
+                        className={cn(
+                          "block text-xs capitalize",
+                          activeId === c.id ? "text-ink-muted" : "text-muted-foreground",
+                        )}
+                      >
                         {c.kind}
                       </span>
                     </span>
