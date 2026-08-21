@@ -221,8 +221,8 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
         {/* Main stage — the teacher's published feed, or your own preview */}
         <div className="relative aspect-video w-full overflow-hidden rounded-[20px] border border-border bg-black text-white">
           <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-full bg-destructive px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-destructive-foreground">
-              <span className="size-1.5 rounded-full bg-current" /> Live
+            <span className="flex items-center gap-2 rounded-full bg-destructive px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-destructive-foreground">
+              <span className="live-dot size-1.5 rounded-full bg-current" /> Live
             </span>
             <span className="flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-[11px] font-medium text-white backdrop-blur">
               <Users className="size-3.5" /> {live.length}
@@ -417,15 +417,21 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
           chatOpen ? "flex" : "hidden lg:flex",
         )}
       >
-        <div className="rounded-[20px] border border-border bg-white p-4 text-black">
-          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-500">
-            Slides
-          </p>
-          <p className="mt-1 font-display text-base font-bold">{className}</p>
-          <p className="mt-1 text-xs text-neutral-500">
-            Lesson materials shared by your teacher appear in the Locker.
-          </p>
+        <div className="accent-gradient rounded-[20px] p-4 shadow-[0_18px_40px_-20px_var(--brand-accent)]">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] opacity-80">Slides</p>
+            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+              Live
+            </span>
+          </div>
+          <div className="mt-3 rounded-[14px] bg-white p-4 text-black">
+            <p className="font-display text-base font-bold">{className}</p>
+            <p className="mt-1 text-xs text-neutral-500">
+              Lesson materials shared by your teacher appear in the Locker.
+            </p>
+          </div>
         </div>
+
       <aside
         className={cn(
           "flex min-h-0 flex-1 flex-col rounded-[20px] border border-border bg-card p-0",
@@ -467,7 +473,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
                       className={cn(
                         "max-w-[85%] break-words rounded-3xl px-3.5 py-2 text-sm",
                         mine
-                          ? "rounded-br-md bg-primary text-primary-foreground"
+                          ? "accent-gradient rounded-br-md"
                           : "rounded-bl-md bg-secondary text-secondary-foreground",
                       )}
                     >

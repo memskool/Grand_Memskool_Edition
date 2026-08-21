@@ -174,12 +174,12 @@ function LibraryPage() {
                     className="group w-full text-left"
                   >
                     <span
-                      className="relative flex aspect-[3/4] w-full flex-col justify-between overflow-hidden rounded-2xl bg-ink p-4 text-ink-foreground transition-transform group-hover:-translate-y-1"
+                      className="relative flex aspect-[3/4] w-full flex-col justify-between overflow-hidden rounded-2xl bg-ink p-4 text-ink-foreground transition-all group-hover:-translate-y-1 group-hover:shadow-[0_18px_36px_-18px_var(--brand-accent)]"
                       style={{ boxShadow: "var(--shadow-soft)" }}
                     >
                       <span
                         aria-hidden
-                        className="absolute inset-y-0 left-0 w-1.5 bg-ink-foreground/15"
+                        className="absolute inset-y-0 left-0 w-1.5 bg-brand-accent"
                       />
                       <Icon className="size-5 opacity-70" />
                       <span className="min-w-0">
