@@ -5,6 +5,8 @@ import { UserMenu } from "@/components/app/UserMenu";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { MobileNav } from "@/components/app/MobileNav";
 import { SiteFooter } from "@/components/app/SiteFooter";
+import { BrandMark } from "@/components/app/BrandMark";
+import { ThemeToggle } from "@/components/app/ThemeToggle";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -13,10 +15,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       <SidebarInset className="bg-background">
         <header className="sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-border/60 bg-background/80 px-4 backdrop-blur-xl sm:px-6">
           <SidebarTrigger className="rounded-full" />
-          <span className="hidden font-display text-sm font-semibold tracking-tight text-muted-foreground sm:inline">
+          <BrandMark size={40} />
+          <span className="hidden font-display text-sm font-bold tracking-tight text-foreground sm:inline">
             Memskool
           </span>
           <div className="flex-1" />
+          <ThemeToggle />
           <NotificationBell />
           <UserMenu />
         </header>

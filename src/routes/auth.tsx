@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { GraduationCap } from "lucide-react";
+import { BrandMark } from "@/components/app/BrandMark";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
@@ -269,11 +269,9 @@ function AuthPage() {
       <div className="relative flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="mb-8 flex flex-col items-center text-center">
-            <span className="brand-gradient brand-shadow mb-4 flex size-14 items-center justify-center rounded-3xl">
-              <GraduationCap className="size-7" />
-            </span>
-            <h1 className="brand-text font-display text-4xl font-semibold tracking-tight">
-              Memskool
+            <BrandMark size={64} className="mb-4" />
+            <h1 className="font-display text-4xl font-bold tracking-tight text-foreground">
+              Welcome to Memskool
             </h1>
             <p className="mt-2 max-w-xs text-sm text-muted-foreground">
               One account for your classes, work and school life.
