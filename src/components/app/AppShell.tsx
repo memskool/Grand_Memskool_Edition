@@ -26,8 +26,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-24 sm:px-6 sm:py-8 md:pb-8">
-          {children}
+          <RouteGuard>{children}</RouteGuard>
         </main>
+
         <SiteFooter className="pb-24 md:pb-8" />
         <MobileNav />
       </SidebarInset>
