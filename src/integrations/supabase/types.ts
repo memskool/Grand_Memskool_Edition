@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_insights: {
+        Row: {
+          action_label: string | null
+          action_link: string | null
+          body: string
+          created_at: string
+          dismissed: boolean
+          id: string
+          scope: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          action_label?: string | null
+          action_link?: string | null
+          body: string
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          scope?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          action_label?: string | null
+          action_link?: string | null
+          body?: string
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          scope?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_insights_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessment_questions: {
         Row: {
           assessment_id: string
@@ -633,6 +677,56 @@ export type Database = {
             foreignKeyName: "disciplinary_actions_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learning_profiles: {
+        Row: {
+          created_at: string
+          data_points: number
+          focus_topic: string | null
+          generated_at: string
+          learning_style: string | null
+          recent_pattern: string | null
+          strong_topics: string[]
+          student_id: string
+          summary: string | null
+          updated_at: string
+          weak_topics: string[]
+        }
+        Insert: {
+          created_at?: string
+          data_points?: number
+          focus_topic?: string | null
+          generated_at?: string
+          learning_style?: string | null
+          recent_pattern?: string | null
+          strong_topics?: string[]
+          student_id: string
+          summary?: string | null
+          updated_at?: string
+          weak_topics?: string[]
+        }
+        Update: {
+          created_at?: string
+          data_points?: number
+          focus_topic?: string | null
+          generated_at?: string
+          learning_style?: string | null
+          recent_pattern?: string | null
+          strong_topics?: string[]
+          student_id?: string
+          summary?: string | null
+          updated_at?: string
+          weak_topics?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_profiles_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
