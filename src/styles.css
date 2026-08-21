@@ -122,7 +122,11 @@
   --ink: oklch(0.14 0 0);
   --ink-foreground: oklch(0.99 0 0);
   --ink-muted: oklch(0.72 0 0);
+  --brand-accent: oklch(0.51 0.23 277); /* indigo #4F46E5 */
+  --brand-accent-foreground: oklch(1 0 0);
+  --brand-accent-soft: oklch(0.95 0.03 277);
   --gradient-brand: linear-gradient(135deg, oklch(0 0 0), oklch(0.28 0 0));
+  --gradient-accent: linear-gradient(135deg, oklch(0.51 0.23 277), oklch(0.62 0.19 268));
   --gradient-surface: linear-gradient(160deg, oklch(1 0 0), oklch(0.978 0.002 90));
   --shadow-soft: 0 4px 24px rgb(0 0 0 / 0.06);
   --shadow-brand: 0 4px 24px rgb(0 0 0 / 0.12);
