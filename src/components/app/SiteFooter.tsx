@@ -1,4 +1,5 @@
 import { Mail, Globe, Phone } from "lucide-react";
+import { BrandMark } from "@/components/app/BrandMark";
 
 export function SiteFooter({ className = "" }: { className?: string }) {
   return (
@@ -6,6 +7,10 @@ export function SiteFooter({ className = "" }: { className?: string }) {
       className={`border-t border-border/60 px-4 py-8 text-sm text-muted-foreground sm:px-6 ${className}`}
     >
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+        <div className="flex items-center gap-3">
+          <BrandMark size={40} />
+          <span className="font-display text-lg font-bold tracking-tight text-foreground">Memskool</span>
+        </div>
         <p className="font-display text-sm font-semibold tracking-tight text-foreground">
           Memskool is a product of Mem-Industries in Partnership with Altrastate Technologies Ltd
         </p>

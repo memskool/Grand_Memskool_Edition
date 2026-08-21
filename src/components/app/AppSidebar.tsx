@@ -9,7 +9,6 @@ import {
   ClipboardCheck,
   Sparkles,
   Settings,
-  GraduationCap,
   Bot,
   CalendarDays,
   Building2,
@@ -28,6 +27,7 @@ import {
   SidebarMenuItem,
   SidebarFooter,
 } from "@/components/ui/sidebar";
+import { BrandMark } from "@/components/app/BrandMark";
 
 const NAV = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -61,14 +61,12 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="px-3 py-4">
         <Link to="/dashboard" className="flex items-center gap-2.5">
-          <span className="brand-gradient brand-shadow flex size-9 shrink-0 items-center justify-center rounded-2xl">
-            <GraduationCap className="size-5" />
-          </span>
+          <BrandMark size={40} className="invert dark:invert-0" />
           <span className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
-            <span className="font-display text-lg font-semibold leading-tight tracking-tight">
+            <span className="font-display text-lg font-bold leading-tight tracking-tight text-sidebar-foreground">
               Memskool
             </span>
-            <span className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            <span className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-sidebar-foreground/60">
               eSchool
             </span>
           </span>
