@@ -18,9 +18,9 @@ import { BrandMark } from "@/components/app/BrandMark";
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const examActive = useExamMode();
-  const { user } = useSession();
-  const role = useRole(user);
-  const items = navForRole(role.data, examActive);
+  const { role, pendingApproval } = useAccess();
+  const items = navForRole(role, examActive, pendingApproval);
+
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
