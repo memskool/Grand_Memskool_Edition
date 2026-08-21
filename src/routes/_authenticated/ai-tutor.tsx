@@ -18,6 +18,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useExamMode } from "@/lib/exam-mode";
+import { useSession } from "@/hooks/useAuth";
+import { useLearningProfile, useRefreshAiInsights } from "@/lib/learning-memory";
+import { RefreshCw as Refresh2 } from "lucide-react";
 
 const CRANE5_URL = "https://crane5.com";
 
@@ -54,6 +57,36 @@ const QUICK_PROMPTS = [
   },
 ] as const;
 
+/** How the tutor should respond — mirrors the Memskool tutoring modes. */
+const TUTOR_MODES = [
+  {
+    value: "guided",
+    label: "Guided",
+    instruction:
+      "Act as my tutor in GUIDED LEARNING MODE: walk me through this step by step, asking me one question at a time and waiting for my answer before moving on. Do not give the full answer up front.",
+  },
+  {
+    value: "hint",
+    label: "Hint only",
+    instruction:
+      "Act as my tutor in HINT MODE: give me only the smallest hint I need to continue on my own. No full solutions.",
+  },
+  {
+    value: "direct",
+    label: "Direct answer",
+    instruction:
+      "Act as my tutor in DIRECT ANSWER MODE: give the answer, then a clear explanation of how you got there.",
+  },
+  {
+    value: "exam",
+    label: "Exam prep",
+    instruction:
+      "Act as my tutor in EXAM PREPARATION MODE: show me how to approach questions like this under exam conditions — marking points, common traps and timing — without doing my work for me.",
+  },
+] as const;
+
+type TutorMode = (typeof TUTOR_MODES)[number]["value"];
+
 export const Route = createFileRoute("/_authenticated/ai-tutor")({
   head: () => ({
     meta: [
@@ -78,10 +111,27 @@ export const Route = createFileRoute("/_authenticated/ai-tutor")({
 function AiTutorPage() {
   const examActive = useExamMode();
   const [frameKey, setFrameKey] = useState(0);
+  const [mode, setMode] = useState<TutorMode>("guided");
+  const { user } = useSession();
+  const profile = useLearningProfile(user?.id);
+  const refresh = useRefreshAiInsights("student");
+
+  const buildPrompt = (text: string) => {
+    const instruction = TUTOR_MODES.find((m) => m.value === mode)!.instruction;
+    const weak = profile.data?.weak_topics ?? [];
+    const style = profile.data?.learning_style;
+    const memory = [
+      weak.length ? `Topics I currently struggle with: ${weak.join(", ")}.` : "",
+      style ? `My preferred explanation style: ${style}.` : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return `${instruction}${memory ? `\n\n${memory}` : ""}\n\n${text}`;
+  };
 
   const copyPrompt = async (text: string, label: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(buildPrompt(text));
       toast.success(`"${label}" copied`, { description: "Paste it into the Crane5 chat." });
     } catch {
       toast.error("Clipboard blocked by your browser");
@@ -171,10 +221,87 @@ function AiTutorPage() {
         {/* Toolkit */}
         <aside className="space-y-4">
           <div className="rounded-3xl border border-white/15 bg-card/60 p-4 backdrop-blur-xl">
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <div>
+                <h2 className="font-display text-sm font-semibold">Learning memory</h2>
+                <p className="text-xs text-muted-foreground">
+                  Memskool adds this to every prompt you copy.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="size-8 shrink-0 rounded-full p-0"
+                aria-label="Refresh learning memory"
+                disabled={refresh.isPending}
+                onClick={() => refresh.mutate()}
+              >
+                <Refresh2 className={`size-4 ${refresh.isPending ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+            {profile.data?.weak_topics?.length || profile.data?.strong_topics?.length ? (
+              <div className="space-y-3 text-xs">
+                {profile.data.strong_topics.length ? (
+                  <div>
+                    <p className="mb-1 font-medium text-foreground">Strong areas</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {profile.data.strong_topics.map((t) => (
+                        <Badge key={t} variant="outline" className="rounded-full font-normal">
+                          {t}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {profile.data.weak_topics.length ? (
+                  <div>
+                    <p className="mb-1 font-medium text-foreground">Needs improvement</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {profile.data.weak_topics.map((t) => (
+                        <Badge
+                          key={t}
+                          className="rounded-full bg-warning/15 font-normal text-warning hover:bg-warning/15"
+                        >
+                          {t}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {profile.data.learning_style ? (
+                  <p className="text-muted-foreground">{profile.data.learning_style}</p>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                No learning memory yet. Refresh once you have classwork and results, and your
+                prompts will carry your weak topics automatically.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-white/15 bg-card/60 p-4 backdrop-blur-xl">
             <h2 className="mb-1 font-display text-sm font-semibold">AI Toolkit</h2>
             <p className="mb-3 text-xs text-muted-foreground">
-              Tap a prompt to copy it, then paste into the chat.
+              Choose how the tutor should answer, then tap a prompt to copy it.
             </p>
+            <div className="mb-3 grid grid-cols-2 gap-1.5">
+              {TUTOR_MODES.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setMode(m.value)}
+                  aria-pressed={mode === m.value}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    mode === m.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border/70 text-muted-foreground hover:border-primary/40"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
             <div className="space-y-2">
               {QUICK_PROMPTS.map((p) => (
                 <button
