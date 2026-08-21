@@ -1,7 +1,10 @@
 import { MeetingsPanel } from "@/components/app/SchoolLifePanels";
 import { TeacherAssessmentPanel } from "@/components/app/TeacherAssessmentPanel";
-import { CalendarClock, ClipboardCheck, BookOpen, Clock } from "lucide-react";
+import { CalendarClock, ClipboardCheck, BookOpen, Clock, BellRing } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { useAccess } from "@/lib/access";
+import { useRemindSchool } from "@/lib/school-membership";
 
 import { ClassCardGrid } from "@/components/dashboards/ClassCards";
 import { ScheduleRail } from "@/components/app/ScheduleRail";
