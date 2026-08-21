@@ -1,50 +1,173 @@
+import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Archive, AlarmClock, Video, ShoppingBag } from "lucide-react";
+import {
+  LayoutDashboard,
+  Archive,
+  AlarmClock,
+  Video,
+  Menu,
+  MessageSquare,
+  BookOpen,
+  ClipboardCheck,
+  Sparkles,
+  Settings,
+  Bot,
+  CalendarDays,
+  Building2,
+  ShoppingBag,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useExamMode } from "@/lib/exam-mode";
+import { useSession, useRole, useProfile } from "@/hooks/useAuth";
+import { BrandMark } from "@/components/app/BrandMark";
 
 const ITEMS = [
   { title: "Home", url: "/dashboard", icon: LayoutDashboard },
   { title: "Locker", url: "/locker", icon: Archive },
   { title: "Missed", url: "/missed-work", icon: AlarmClock },
   { title: "Live", url: "/virtual-classroom", icon: Video },
-  { title: "Shop", url: "/marketplace", icon: ShoppingBag },
+] as const;
+
+const ALL_LINKS = [
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Locker", url: "/locker", icon: Archive },
+  { title: "Missed Work", url: "/missed-work", icon: AlarmClock },
+  { title: "Virtual Classroom", url: "/virtual-classroom", icon: Video },
+  { title: "Timetable", url: "/timetable", icon: CalendarDays },
+  { title: "Messages", url: "/messages", icon: MessageSquare },
+  { title: "Library", url: "/library", icon: BookOpen },
+  { title: "AI Tutor", url: "/ai-tutor", icon: Bot },
+  { title: "Assessments", url: "/assessments", icon: ClipboardCheck },
+  { title: "Dream School", url: "/dream-school", icon: Sparkles },
+  { title: "Marketplace", url: "/marketplace", icon: ShoppingBag },
+  { title: "School Admin", url: "/school-admin", icon: Building2 },
+  { title: "Settings", url: "/settings", icon: Settings },
 ] as const;
 
 export function MobileNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [open, setOpen] = useState(false);
+  const examActive = useExamMode();
+  const { user } = useSession();
+  const { data: role } = useRole(user);
+  const { data: profile } = useProfile(user);
+
+  const links = ALL_LINKS.filter(
+    (i) => !(examActive && i.url === "/ai-tutor") && !(i.url === "/school-admin" && role !== "admin"),
+  );
 
   return (
-    <nav
-      aria-label="Primary"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-background/95 backdrop-blur-md md:hidden"
-    >
-      <ul className="mx-auto flex max-w-lg items-stretch justify-between px-2 pb-[env(safe-area-inset-bottom)]">
-        {ITEMS.map((item) => {
-          const active = pathname === item.url;
-          return (
-            <li key={item.url} className="flex-1">
-              <Link
-                to={item.url}
-                className={cn(
-                  "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
-                  active ? "text-primary" : "text-muted-foreground",
-                )}
+    <>
+      {open ? (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={() => setOpen(false)}
+            className="absolute inset-0 bg-background/70 backdrop-blur-xl"
+          />
+          <div className="absolute inset-x-3 bottom-24 top-6 flex flex-col overflow-hidden rounded-3xl bg-ink text-ink-foreground shadow-2xl">
+            <div className="flex items-center gap-3 border-b border-ink-foreground/10 px-5 py-4">
+              <BrandMark size={40} className="dark:invert-0" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-display text-base font-bold">
+                  {profile?.full_name || "Memskool"}
+                </p>
+                <p className="truncate text-xs capitalize text-ink-muted">
+                  {role ?? "student"} · {user?.email}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close menu"
+                onClick={() => setOpen(false)}
+                className="flex size-9 items-center justify-center rounded-full bg-ink-foreground/10"
               >
-                <span
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <nav className="flex-1 overflow-y-auto p-3">
+              <ul className="space-y-1">
+                {links.map((item) => {
+                  const active = pathname === item.url;
+                  return (
+                    <li key={item.url}>
+                      <Link
+                        to={item.url}
+                        onClick={() => setOpen(false)}
+                        className={cn(
+                          "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors",
+                          active
+                            ? "bg-ink-foreground text-ink"
+                            : "text-ink-foreground/85 hover:bg-ink-foreground/10",
+                        )}
+                      >
+                        <item.icon className="size-[18px]" />
+                        {item.title}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+          </div>
+        </div>
+      ) : null}
+
+      <nav
+        aria-label="Primary"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-background/95 backdrop-blur-md md:hidden"
+      >
+        <ul className="mx-auto flex max-w-lg items-stretch justify-between px-2 pb-[env(safe-area-inset-bottom)]">
+          {ITEMS.map((item) => {
+            const active = pathname === item.url;
+            return (
+              <li key={item.url} className="flex-1">
+                <Link
+                  to={item.url}
                   className={cn(
-                    "flex h-7 w-12 items-center justify-center rounded-full transition-all",
-                    active && "brand-gradient brand-shadow",
+                    "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
+                    active ? "text-primary" : "text-muted-foreground",
                   )}
                 >
-                  <item.icon className="size-[18px]" />
-                </span>
-
-                {item.title}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
+                  <span
+                    className={cn(
+                      "flex h-7 w-12 items-center justify-center rounded-full transition-all",
+                      active && "bg-primary text-primary-foreground",
+                    )}
+                  >
+                    <item.icon className="size-[18px]" />
+                  </span>
+                  {item.title}
+                </Link>
+              </li>
+            );
+          })}
+          <li className="flex-1">
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+              className={cn(
+                "flex w-full flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
+                open ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-7 w-12 items-center justify-center rounded-full transition-all",
+                  open && "bg-primary text-primary-foreground",
+                )}
+              >
+                <Menu className="size-[18px]" />
+              </span>
+              Menu
+            </button>
+          </li>
+        </ul>
+      </nav>
+    </>
   );
 }

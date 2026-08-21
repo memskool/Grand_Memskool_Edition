@@ -3,7 +3,9 @@ import { AiInsightPanel } from "@/components/app/AiInsightPanel";
 import { RewardsWidget } from "@/components/app/RewardsWidget";
 import { MyBehaviourPanel } from "@/components/app/MyBehaviourPanel";
 import { PerformanceAnalytics } from "@/components/app/PerformanceAnalytics";
-import { CalendarClock, ClipboardList, Archive, BookOpen } from "lucide-react";
+import { ClipboardList, Archive, BookOpen } from "lucide-react";
+import { ClassCardGrid } from "@/components/dashboards/ClassCards";
+import { ScheduleRail } from "@/components/app/ScheduleRail";
 import type { User } from "@supabase/supabase-js";
 import {
   useMyEnrolledClasses,
@@ -12,8 +14,7 @@ import {
   useMyLocker,
 } from "@/lib/school-data";
 import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
-import { Badge } from "@/components/ui/badge";
-import { DAYS, formatTime, formatDate } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 
 export function StudentDashboard({ user }: { user: User }) {
   const classes = useMyEnrolledClasses(user.id);
@@ -52,69 +53,53 @@ export function StudentDashboard({ user }: { user: User }) {
 
       <AiInsightPanel userId={user.id} scope="student" />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <RewardsWidget studentId={user.id} />
-        <MyBehaviourPanel userId={user.id} />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-6">
+          <Panel title="My classes" description="Jump straight into a live session">
+            <ClassCardGrid
+              classes={classes.data ?? []}
+              loading={classes.isLoading}
+              emptyHint="Once your school enrols you in a class it shows up here."
+            />
+          </Panel>
+
+          <Panel title="Pending assignments" description="Work that still needs handing in">
+            {assignments.isLoading ? (
+              <ListSkeleton />
+            ) : pending.length ? (
+              <ul className="space-y-2">
+                {pending.slice(0, 6).map((a) => (
+                  <li
+                    key={a.id}
+                    className="flex items-center justify-between rounded-2xl bg-secondary/60 px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{a.title}</p>
+                      <p className="text-xs text-muted-foreground">{a.class?.name}</p>
+                    </div>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {a.due_at ? formatDate(a.due_at) : "No due date"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState icon={ClipboardList} title="You're all caught up" />
+            )}
+          </Panel>
+        </div>
+
+        <ScheduleRail
+          slots={slots.data ?? []}
+          loading={slots.isLoading}
+          title="Upcoming classes"
+          description="Your next sessions"
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title="Upcoming classes" description="Your next scheduled sessions">
-          {slots.isLoading ? (
-            <ListSkeleton />
-          ) : slots.data?.length ? (
-            <ul className="space-y-2">
-              {slots.data.map((s) => (
-                <li
-                  key={s.id}
-                  className="flex items-center justify-between rounded-xl bg-secondary/50 px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{s.class?.name ?? "Class"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {DAYS[s.day_of_week]} · {formatTime(s.start_time)}–{formatTime(s.end_time)}
-                    </p>
-                  </div>
-                  {s.class?.room ? (
-                    <Badge variant="outline" className="rounded-full">
-                      {s.class.room}
-                    </Badge>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState
-              icon={CalendarClock}
-              title="No classes scheduled yet"
-              hint="Once your school adds you to a class timetable, your sessions appear here."
-            />
-          )}
-        </Panel>
-
-        <Panel title="Pending assignments" description="Work that still needs handing in">
-          {assignments.isLoading ? (
-            <ListSkeleton />
-          ) : pending.length ? (
-            <ul className="space-y-2">
-              {pending.slice(0, 6).map((a) => (
-                <li
-                  key={a.id}
-                  className="flex items-center justify-between rounded-xl bg-secondary/50 px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{a.title}</p>
-                    <p className="text-xs text-muted-foreground">{a.class?.name}</p>
-                  </div>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {a.due_at ? formatDate(a.due_at) : "No due date"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState icon={ClipboardList} title="You're all caught up" />
-          )}
-        </Panel>
+        <RewardsWidget studentId={user.id} />
+        <MyBehaviourPanel userId={user.id} />
       </div>
 
       <Panel title="Recent locker additions" description="Latest files, notes and links you saved">

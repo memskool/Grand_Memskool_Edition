@@ -26,6 +26,9 @@
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-primary-glow: var(--primary-glow);
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
+  --color-ink-muted: var(--ink-muted);
   --radius-sm: calc(var(--radius) - 4px);
 
   --radius-md: calc(var(--radius) - 2px);
@@ -113,6 +116,9 @@
   --sidebar-border: oklch(0.26 0 0);
   --sidebar-ring: oklch(1 0 0);
 
+  --ink: oklch(0.14 0 0);
+  --ink-foreground: oklch(0.99 0 0);
+  --ink-muted: oklch(0.72 0 0);
   --gradient-brand: linear-gradient(135deg, oklch(0 0 0), oklch(0.28 0 0));
   --gradient-surface: linear-gradient(160deg, oklch(1 0 0), oklch(0.978 0.002 90));
   --shadow-soft: 0 4px 24px rgb(0 0 0 / 0.06);
@@ -158,6 +164,9 @@
   --sidebar-border: oklch(0.28 0 0);
   --sidebar-ring: oklch(1 0 0);
 
+  --ink: oklch(0.2 0 0);
+  --ink-foreground: oklch(0.99 0 0);
+  --ink-muted: oklch(0.74 0 0);
   --gradient-brand: linear-gradient(135deg, oklch(1 0 0), oklch(0.82 0 0));
   --gradient-surface: linear-gradient(160deg, oklch(0.1 0 0), oklch(0.05 0 0));
   --shadow-soft: 0 4px 24px rgb(0 0 0 / 0.5);
