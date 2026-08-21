@@ -13,7 +13,8 @@ import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/prim
 import { formatDateTime } from "@/lib/format";
 
 export function TeacherDashboard({ user }: { user: User }) {
-  const { pendingApproval, schoolName } = useAccess();
+  const { pendingApproval, schoolName, schoolId } = useAccess();
+  const remind = useRemindSchool();
   const classes = useTeachingClasses(user.id);
   const today = useTeacherTimetable(user.id);
   const grading = usePendingGrading(user.id);
