@@ -93,19 +93,23 @@ export function EmptyState({
   icon: Icon,
   title,
   hint,
+  action,
 }: {
   icon: LucideIcon;
   title: string;
   hint?: string;
+  action?: ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center rounded-xl border border-dashed border-border px-6 py-10 text-center">
       <Icon className="mb-3 size-6 text-muted-foreground" />
       <p className="text-sm font-medium">{title}</p>
       {hint ? <p className="mt-1 max-w-sm text-xs text-muted-foreground">{hint}</p> : null}
+      {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
 }
+
 
 export function ListSkeleton({ rows = 3 }: { rows?: number }) {
   return (
