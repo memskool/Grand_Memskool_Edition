@@ -19,8 +19,8 @@ export function useAccess() {
   const r = role.data as AppRole | undefined;
   const needsApproval = r === "teacher";
   const membership = school.data?.membership;
-  const approved =
-    !needsApproval || membership === "owner" || membership === "approved" || r === "admin";
+  const approved = !needsApproval || membership === "owner" || membership === "approved";
+
 
   return {
     user,
