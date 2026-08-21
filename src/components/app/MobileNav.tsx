@@ -36,7 +36,7 @@ export function MobileNav() {
           />
           <div className="absolute inset-x-3 bottom-24 top-6 flex flex-col overflow-hidden rounded-3xl bg-ink text-ink-foreground shadow-2xl">
             <div className="flex items-center gap-3 border-b border-ink-foreground/10 px-5 py-4">
-              <BrandMark size={40} className="dark:invert-0" />
+              <BrandMark size={40} />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-display text-base font-bold">
                   {profile?.full_name || "Memskool"}
