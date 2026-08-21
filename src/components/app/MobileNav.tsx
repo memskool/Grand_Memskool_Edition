@@ -1,49 +1,11 @@
 import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  LayoutDashboard,
-  Archive,
-  AlarmClock,
-  Video,
-  Menu,
-  MessageSquare,
-  BookOpen,
-  ClipboardCheck,
-  Sparkles,
-  Settings,
-  Bot,
-  CalendarDays,
-  Building2,
-  ShoppingBag,
-  X,
-} from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useExamMode } from "@/lib/exam-mode";
 import { useSession, useRole, useProfile } from "@/hooks/useAuth";
+import { navForRole, mobileTabsForRole } from "@/lib/nav";
 import { BrandMark } from "@/components/app/BrandMark";
-
-const ITEMS = [
-  { title: "Home", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Locker", url: "/locker", icon: Archive },
-  { title: "Missed", url: "/missed-work", icon: AlarmClock },
-  { title: "Live", url: "/virtual-classroom", icon: Video },
-] as const;
-
-const ALL_LINKS = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Locker", url: "/locker", icon: Archive },
-  { title: "Missed Work", url: "/missed-work", icon: AlarmClock },
-  { title: "Virtual Classroom", url: "/virtual-classroom", icon: Video },
-  { title: "Timetable", url: "/timetable", icon: CalendarDays },
-  { title: "Messages", url: "/messages", icon: MessageSquare },
-  { title: "Library", url: "/library", icon: BookOpen },
-  { title: "AI Tutor", url: "/ai-tutor", icon: Bot },
-  { title: "Assessments", url: "/assessments", icon: ClipboardCheck },
-  { title: "Dream School", url: "/dream-school", icon: Sparkles },
-  { title: "Marketplace", url: "/marketplace", icon: ShoppingBag },
-  { title: "School Admin", url: "/school-admin", icon: Building2 },
-  { title: "Settings", url: "/settings", icon: Settings },
-] as const;
 
 export function MobileNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -53,9 +15,8 @@ export function MobileNav() {
   const { data: role } = useRole(user);
   const { data: profile } = useProfile(user);
 
-  const links = ALL_LINKS.filter(
-    (i) => !(examActive && i.url === "/ai-tutor") && !(i.url === "/school-admin" && role !== "admin"),
-  );
+  const links = navForRole(role, examActive);
+  const tabs = mobileTabsForRole(role, examActive);
 
   return (
     <>
@@ -121,7 +82,7 @@ export function MobileNav() {
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-background/95 backdrop-blur-md md:hidden"
       >
         <ul className="mx-auto flex max-w-lg items-stretch justify-between px-2 pb-[env(safe-area-inset-bottom)]">
-          {ITEMS.map((item) => {
+          {tabs.map((item) => {
             const active = pathname === item.url;
             return (
               <li key={item.url} className="flex-1">
@@ -140,7 +101,7 @@ export function MobileNav() {
                   >
                     <item.icon className="size-[18px]" />
                   </span>
-                  {item.title}
+                  {item.short ?? item.title}
                 </Link>
               </li>
             );

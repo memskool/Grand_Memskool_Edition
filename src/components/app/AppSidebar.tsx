@@ -1,21 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  LayoutDashboard,
-  Archive,
-  AlarmClock,
-  Video,
-  MessageSquare,
-  BookOpen,
-  ClipboardCheck,
-  Sparkles,
-  Settings,
-  Bot,
-  CalendarDays,
-  Building2,
-  ShoppingBag,
-} from "lucide-react";
 import { useExamMode } from "@/lib/exam-mode";
 import { useSession, useRole } from "@/hooks/useAuth";
+import { navForRole } from "@/lib/nav";
 import {
   Sidebar,
   SidebarContent,
@@ -29,33 +15,12 @@ import {
 } from "@/components/ui/sidebar";
 import { BrandMark } from "@/components/app/BrandMark";
 
-const NAV = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Locker", url: "/locker", icon: Archive },
-  { title: "Missed Work", url: "/missed-work", icon: AlarmClock },
-  { title: "Virtual Classroom", url: "/virtual-classroom", icon: Video },
-  { title: "Timetable", url: "/timetable", icon: CalendarDays },
-  { title: "Messages", url: "/messages", icon: MessageSquare },
-
-  { title: "Library", url: "/library", icon: BookOpen },
-  { title: "AI Tutor", url: "/ai-tutor", icon: Bot },
-  { title: "Assessments", url: "/assessments", icon: ClipboardCheck },
-  { title: "Dream School", url: "/dream-school", icon: Sparkles },
-  { title: "Marketplace", url: "/marketplace", icon: ShoppingBag },
-  { title: "School Admin", url: "/school-admin", icon: Building2 },
-  { title: "Settings", url: "/settings", icon: Settings },
-] as const;
-
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const examActive = useExamMode();
   const { user } = useSession();
   const role = useRole(user);
-  const items = NAV.filter(
-    (i) =>
-      !(examActive && i.url === "/ai-tutor") &&
-      !(i.url === "/school-admin" && role.data !== "admin"),
-  );
+  const items = navForRole(role.data, examActive);
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
