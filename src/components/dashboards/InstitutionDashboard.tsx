@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import type { User } from "@supabase/supabase-js";
 import { Users, GraduationCap, ClipboardList, Building2, Copy } from "lucide-react";
 import { toast } from "sonner";
