@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useExamMode } from "@/lib/exam-mode";
-import { useSession, useRole } from "@/hooks/useAuth";
+import { useAccess } from "@/lib/access";
 import { navForRole } from "@/lib/nav";
 import {
   Sidebar,

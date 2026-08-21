@@ -3,7 +3,8 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useExamMode } from "@/lib/exam-mode";
-import { useSession, useRole, useProfile } from "@/hooks/useAuth";
+import { useSession, useProfile } from "@/hooks/useAuth";
+import { useAccess } from "@/lib/access";
 import { navForRole, mobileTabsForRole } from "@/lib/nav";
 import { BrandMark } from "@/components/app/BrandMark";
 
@@ -12,11 +13,12 @@ export function MobileNav() {
   const [open, setOpen] = useState(false);
   const examActive = useExamMode();
   const { user } = useSession();
-  const { data: role } = useRole(user);
+  const { role, pendingApproval } = useAccess();
   const { data: profile } = useProfile(user);
 
-  const links = navForRole(role, examActive);
-  const tabs = mobileTabsForRole(role, examActive);
+  const links = navForRole(role, examActive, pendingApproval);
+  const tabs = mobileTabsForRole(role, examActive, pendingApproval);
+
 
   return (
     <>
