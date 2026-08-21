@@ -1,4 +1,5 @@
 import { AdmissionsPanel, MeetingsPanel } from "@/components/app/SchoolLifePanels";
+import { AiInsightPanel } from "@/components/app/AiInsightPanel";
 import { RewardsWidget } from "@/components/app/RewardsWidget";
 import { MyBehaviourPanel } from "@/components/app/MyBehaviourPanel";
 import { PerformanceAnalytics } from "@/components/app/PerformanceAnalytics";
@@ -48,6 +49,8 @@ export function StudentDashboard({ user }: { user: User }) {
           loading={locker.isLoading}
         />
       </div>
+
+      <AiInsightPanel userId={user.id} scope="student" />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <RewardsWidget studentId={user.id} />
