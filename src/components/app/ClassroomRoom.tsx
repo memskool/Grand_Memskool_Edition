@@ -11,6 +11,8 @@ import {
   Shuffle,
   BellRing,
   VolumeX,
+  Users,
+  SendHorizonal,
   Loader2,
   X,
 } from "lucide-react";
