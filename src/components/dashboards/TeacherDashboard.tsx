@@ -2,6 +2,7 @@ import { MeetingsPanel } from "@/components/app/SchoolLifePanels";
 import { TeacherAssessmentPanel } from "@/components/app/TeacherAssessmentPanel";
 import { CalendarClock, ClipboardCheck, Users, BookOpen } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
+import { AiInsightPanel } from "@/components/app/AiInsightPanel";
 import { BehaviourPanel } from "@/components/app/BehaviourPanel";
 import { useTeachingClasses, useTeacherTimetable, usePendingGrading } from "@/lib/school-data";
 import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
@@ -37,6 +38,8 @@ export function TeacherDashboard({ user }: { user: User }) {
           loading={grading.isLoading}
         />
       </div>
+
+      <AiInsightPanel userId={user.id} scope="teacher" />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Today's timetable" description="Your sessions for today">
