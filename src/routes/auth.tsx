@@ -260,12 +260,7 @@ function AuthPage() {
   };
 
   return (
-    <div className="surface-gradient relative flex min-h-screen flex-col">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-72 opacity-70 blur-3xl"
-        style={{ background: "var(--gradient-brand)", opacity: 0.18 }}
-      />
+    <div className="relative flex min-h-screen flex-col bg-background">
       <div className="relative flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="mb-8 flex flex-col items-center text-center">
