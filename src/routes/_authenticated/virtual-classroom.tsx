@@ -4,7 +4,7 @@ import { Video, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useSession, useRole } from "@/hooks/useAuth";
 import { useMyEnrolledClasses, useTeachingClasses } from "@/lib/school-data";
-import { useActiveSession, useStartSession } from "@/lib/classroom-data";
+import { useActiveSession, useStartSession, useLiveSessions } from "@/lib/classroom-data";
 import { ClassroomRoom } from "@/components/app/ClassroomRoom";
 import { PageHeader, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
 import { SuspensionNotice } from "@/components/app/SuspensionNotice";
@@ -41,8 +41,12 @@ function VirtualClassroomPage() {
   const source = isTeacher ? teaching : enrolled;
 
   const { suspension } = useSuspensionStatus(user?.id);
+  const classIds = (source.data ?? []).map((c) => c.id);
+  const liveSessions = useLiveSessions(classIds);
+  const liveIds = new Set((liveSessions.data ?? []).map((s) => s.class_id));
 
   const [openClass, setOpenClass] = useState<{ id: string; name: string } | null>(null);
+
 
   if (suspension && !isTeacher) {
     return (
