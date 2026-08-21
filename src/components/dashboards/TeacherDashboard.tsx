@@ -1,5 +1,7 @@
 import { MeetingsPanel } from "@/components/app/SchoolLifePanels";
 import { TeacherAssessmentPanel } from "@/components/app/TeacherAssessmentPanel";
+import { TeacherAssignmentPanel } from "@/components/app/TeacherAssignmentPanel";
+
 import { CalendarClock, ClipboardCheck, BookOpen, Clock, BellRing } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -120,8 +122,13 @@ export function TeacherDashboard({ user }: { user: User }) {
         />
       </div>
       <MeetingsPanel />
+      <TeacherAssignmentPanel
+        teacherId={user.id}
+        classes={(classes.data ?? []).map((c) => ({ id: c.id, name: c.name }))}
+      />
       <TeacherAssessmentPanel teacherId={user.id} />
       <BehaviourPanel staffId={user.id} />
+
     </div>
   );
 }
