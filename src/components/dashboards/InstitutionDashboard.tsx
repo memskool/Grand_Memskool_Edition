@@ -1,14 +1,17 @@
+import { useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { Users, GraduationCap, ClipboardList, Building2, Copy } from "lucide-react";
+import { Users, GraduationCap, ClipboardList, Building2, Copy, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import {
   useMySchool,
   useSchoolMembers,
   useSchoolRoster,
   useSetMemberStatus,
+  useUpdateSchoolCode,
 } from "@/lib/school-membership";
 import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
 type MemberUser = { full_name?: string | null; email?: string | null } | null;
