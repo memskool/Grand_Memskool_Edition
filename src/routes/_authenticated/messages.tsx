@@ -303,7 +303,7 @@ function ChatPane({
                     className={cn(
                       "max-w-[75%] px-4 py-2.5 text-sm",
                       mine
-                        ? "rounded-3xl rounded-br-md bg-ink text-ink-foreground"
+                        ? "accent-gradient rounded-3xl rounded-br-md shadow-[0_10px_24px_-14px_var(--brand-accent)]"
                         : "rounded-3xl rounded-bl-md bg-secondary text-foreground",
                     )}
                   >
