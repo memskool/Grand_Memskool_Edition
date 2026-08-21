@@ -144,23 +144,25 @@ function DreamSchoolPage() {
           ) : filtered.length ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filtered.map((school) => (
-                <article key={school.id} className="surface-card flex flex-col gap-3 p-5">
-                  <div className="flex items-start gap-3">
-                    <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <article key={school.id} className="surface-card flex flex-col gap-3 overflow-hidden p-0">
+                  <div className="relative flex items-end gap-3 bg-ink p-5 pt-10 text-ink-foreground">
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute -right-8 -top-10 size-32 rounded-full bg-ink-foreground/5"
+                    />
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-ink-foreground/10">
                       <Building2 className="size-5" />
                     </span>
                     <div className="min-w-0">
-                      <h2 className="truncate font-display text-base font-semibold">
-                        {school.name}
-                      </h2>
-                      <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                      <h2 className="truncate font-display text-base font-bold">{school.name}</h2>
+                      <p className="flex items-center gap-1 truncate text-xs text-ink-muted">
                         <MapPin className="size-3" />
                         {[school.city, school.country].filter(Boolean).join(", ")}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5 px-5">
                     <Badge variant="secondary" className="capitalize">
                       {school.category}
                     </Badge>
