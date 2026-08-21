@@ -182,12 +182,12 @@ function DreamSchoolPage() {
                   </div>
 
                   {school.description ? (
-                    <p className="line-clamp-3 text-sm text-muted-foreground">
+                    <p className="line-clamp-3 px-5 text-sm text-muted-foreground">
                       {school.description}
                     </p>
                   ) : null}
 
-                  <div className="rounded-xl bg-secondary/50 px-3 py-2">
+                  <div className="mx-5 rounded-2xl bg-secondary/60 px-3 py-2">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">Fees</p>
                     <p className="text-sm font-medium">{feeLabel(school)}</p>
                     {school.fees_notes ? (
@@ -195,16 +195,16 @@ function DreamSchoolPage() {
                     ) : null}
                   </div>
 
-                  <div className="mt-auto flex items-center gap-2">
+                  <div className="mt-auto flex items-center gap-2 px-5 pb-5">
                     <Button
-                      className="flex-1"
+                      className="flex-1 rounded-full"
                       disabled={!school.admissions_open || appliedIds.has(school.id) || !canApply}
                       onClick={() => setTarget(school)}
                     >
                       {appliedIds.has(school.id) ? "Applied" : "Apply online"}
                     </Button>
                     {school.website ? (
-                      <Button variant="outline" size="icon" asChild>
+                      <Button variant="outline" size="icon" className="rounded-full" asChild>
                         <a
                           href={school.website}
                           target="_blank"
