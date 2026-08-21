@@ -171,6 +171,17 @@ function AuthPage() {
       toast.error("Enter your school's name.");
       return;
     }
+    const wantedCode = schoolCode.trim().toUpperCase();
+    if (role === "institution" && wantedCode) {
+      if (!/^[A-Z0-9-]{3,24}$/.test(wantedCode)) {
+        toast.error("School ID must be 3–24 letters, numbers or dashes.");
+        return;
+      }
+      if (foundSchool) {
+        toast.error("That School ID is already taken. Pick another one.");
+        return;
+      }
+    }
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
@@ -180,7 +191,11 @@ function AuthPage() {
         data: {
           full_name: fullName.trim(),
           role,
-          school_code: needsSchoolCode ? schoolCode.trim() : null,
+          school_code: needsSchoolCode
+            ? schoolCode.trim()
+            : role === "institution" && wantedCode
+              ? wantedCode
+              : null,
           student_code: role === "student" ? studentCode.trim() : null,
           school_name: role === "institution" ? schoolName.trim() : null,
         },
