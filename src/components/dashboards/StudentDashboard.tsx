@@ -3,7 +3,9 @@ import { AiInsightPanel } from "@/components/app/AiInsightPanel";
 import { RewardsWidget } from "@/components/app/RewardsWidget";
 import { MyBehaviourPanel } from "@/components/app/MyBehaviourPanel";
 import { PerformanceAnalytics } from "@/components/app/PerformanceAnalytics";
-import { CalendarClock, ClipboardList, Archive, BookOpen } from "lucide-react";
+import { ClipboardList, Archive, BookOpen } from "lucide-react";
+import { ClassCardGrid } from "@/components/dashboards/ClassCards";
+import { ScheduleRail } from "@/components/app/ScheduleRail";
 import type { User } from "@supabase/supabase-js";
 import {
   useMyEnrolledClasses,
