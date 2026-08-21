@@ -1,6 +1,8 @@
 import { MeetingsPanel } from "@/components/app/SchoolLifePanels";
 import { TeacherAssessmentPanel } from "@/components/app/TeacherAssessmentPanel";
-import { CalendarClock, ClipboardCheck, BookOpen } from "lucide-react";
+import { CalendarClock, ClipboardCheck, BookOpen, Clock } from "lucide-react";
+import { useAccess } from "@/lib/access";
+
 import { ClassCardGrid } from "@/components/dashboards/ClassCards";
 import { ScheduleRail } from "@/components/app/ScheduleRail";
 import type { User } from "@supabase/supabase-js";
@@ -11,9 +13,11 @@ import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/prim
 import { formatDateTime } from "@/lib/format";
 
 export function TeacherDashboard({ user }: { user: User }) {
+  const { pendingApproval, schoolName } = useAccess();
   const classes = useTeachingClasses(user.id);
   const today = useTeacherTimetable(user.id);
   const grading = usePendingGrading(user.id);
+
 
   if (pendingApproval) {
     return (
