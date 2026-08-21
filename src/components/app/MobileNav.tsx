@@ -116,13 +116,13 @@ export function MobileNav() {
                   to={item.url}
                   className={cn(
                     "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
-                    active ? "text-primary" : "text-muted-foreground",
+                    active ? "text-brand-accent" : "text-muted-foreground",
                   )}
                 >
                   <span
                     className={cn(
                       "flex h-7 w-12 items-center justify-center rounded-full transition-all",
-                      active && "bg-primary text-primary-foreground",
+                      active && "accent-gradient",
                     )}
                   >
                     <item.icon className="size-[18px]" />
@@ -139,13 +139,13 @@ export function MobileNav() {
               aria-expanded={open}
               className={cn(
                 "flex w-full flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
-                open ? "text-primary" : "text-muted-foreground",
+                open ? "text-brand-accent" : "text-muted-foreground",
               )}
             >
               <span
                 className={cn(
                   "flex h-7 w-12 items-center justify-center rounded-full transition-all",
-                  open && "bg-primary text-primary-foreground",
+                  open && "accent-gradient",
                 )}
               >
                 <Menu className="size-[18px]" />
