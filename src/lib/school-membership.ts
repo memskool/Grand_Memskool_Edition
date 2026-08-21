@@ -15,11 +15,10 @@ export type SchoolSummary = {
 export async function lookupSchool(code: string): Promise<SchoolSummary | null> {
   const trimmed = code.trim();
   if (!trimmed) return null;
-  const { data, error } = await supabase.rpc("lookup_school", { _code: trimmed });
-  if (error) throw error;
-  const row = (data ?? [])[0];
+  const row = await lookupSchoolByCode({ data: { code: trimmed } });
   return row ? (row as SchoolSummary) : null;
 }
+
 
 /** The school this account belongs to (owned school for institutions). */
 export function useMySchool(userId: string | undefined) {
