@@ -1,7 +1,10 @@
 import { MeetingsPanel } from "@/components/app/SchoolLifePanels";
 import { TeacherAssessmentPanel } from "@/components/app/TeacherAssessmentPanel";
-import { CalendarClock, ClipboardCheck, BookOpen, Clock } from "lucide-react";
+import { CalendarClock, ClipboardCheck, BookOpen, Clock, BellRing } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { useAccess } from "@/lib/access";
+import { useRemindSchool } from "@/lib/school-membership";
 
 import { ClassCardGrid } from "@/components/dashboards/ClassCards";
 import { ScheduleRail } from "@/components/app/ScheduleRail";
@@ -13,7 +16,8 @@ import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/prim
 import { formatDateTime } from "@/lib/format";
 
 export function TeacherDashboard({ user }: { user: User }) {
-  const { pendingApproval, schoolName } = useAccess();
+  const { pendingApproval, schoolName, schoolId } = useAccess();
+  const remind = useRemindSchool();
   const classes = useTeachingClasses(user.id);
   const today = useTeacherTimetable(user.id);
   const grading = usePendingGrading(user.id);
@@ -28,6 +32,23 @@ export function TeacherDashboard({ user }: { user: User }) {
           schoolName
             ? `${schoolName} still needs to approve your teacher account. Classes, live lessons and grading unlock the moment they do.`
             : "Add your School ID in Settings so your school can approve your teacher account."
+        }
+        action={
+          schoolId ? (
+            <Button
+              className="rounded-full"
+              disabled={remind.isPending}
+              onClick={() =>
+                remind.mutate(schoolId, {
+                  onSuccess: () => toast.success(`Reminder sent to ${schoolName ?? "your school"}`),
+                  onError: (e: Error) => toast.error(e.message),
+                })
+              }
+            >
+              <BellRing className="mr-2 size-4" />
+              Remind {schoolName ?? "school"}
+            </Button>
+          ) : undefined
         }
       />
     );

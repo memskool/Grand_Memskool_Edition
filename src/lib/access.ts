@@ -27,6 +27,7 @@ export function useAccess() {
     role: r,
     loading: loading || role.isLoading || (needsApproval && school.isLoading),
     schoolName: school.data?.name ?? null,
+    schoolId: school.data?.id ?? null,
     hasSchool: !!school.data,
     pendingApproval: needsApproval && !approved,
     approved,
