@@ -116,6 +116,8 @@ function SettingsPage() {
         </Panel>
       </div>
 
+      <PasswordPanel />
+
       <NotificationPreferencesPanel userId={user?.id} />
 
       <Panel
