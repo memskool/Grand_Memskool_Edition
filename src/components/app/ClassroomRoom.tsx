@@ -408,10 +408,26 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
         </div>
       </div>
 
-      {/* Chat sidebar */}
+      {/* Slides + chat rail */}
+      <div
+        className={cn(
+          "w-full shrink-0 flex-col gap-4 lg:flex lg:w-[22rem]",
+          chatOpen ? "flex" : "hidden lg:flex",
+        )}
+      >
+        <div className="rounded-[20px] border border-border bg-white p-4 text-black">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-500">
+            Slides
+          </p>
+          <p className="mt-1 font-display text-base font-bold">{className}</p>
+          <p className="mt-1 text-xs text-neutral-500">
+            Lesson materials shared by your teacher appear in the Locker.
+          </p>
+        </div>
       <aside
         className={cn(
-          "surface-card flex w-full shrink-0 flex-col p-0 lg:w-80",
+          "flex min-h-0 flex-1 flex-col rounded-[20px] border border-border bg-card p-0",
+
           chatOpen ? "flex" : "hidden lg:flex",
         )}
       >
