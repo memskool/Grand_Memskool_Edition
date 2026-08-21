@@ -1,25 +1,22 @@
-import logoAsset from "@/assets/memskool-logo.png.asset.json";
+import logoAsset from "@/assets/memskool-crest.png.asset.json";
 import { cn } from "@/lib/utils";
 
 /**
- * Memskool logo: black circle, white icon.
- * In dark mode it inverts to a white circle with a black icon.
+ * Memskool crest logo (navy + gold shield with laurels), transparent background.
+ * Rendered at a fixed height with automatic width so the crest never gets cropped.
  */
 export function BrandMark({ size = 40, className }: { size?: number; className?: string }) {
   return (
     <img
       src={logoAsset.url}
-      alt="Memskool"
-      width={size}
+      alt="Memskool Institute"
       height={size}
-      className={cn(
-        "shrink-0 rounded-full object-contain object-center dark:invert",
-        className,
-      )}
-      style={{ width: size, height: size }}
+      className={cn("block w-auto shrink-0 object-contain object-center", className)}
+      style={{ height: size, width: "auto" }}
     />
   );
 }
+
 
 export function BrandLockup({
   size = 40,
