@@ -27,6 +27,9 @@ export function InstitutionDashboard({ user }: { user: User }) {
   const members = useSchoolMembers(schoolId);
   const roster = useSchoolRoster(schoolId);
   const setStatus = useSetMemberStatus(schoolId);
+  const updateCode = useUpdateSchoolCode(user.id);
+  const [editing, setEditing] = useState(false);
+  const [draftCode, setDraftCode] = useState("");
 
   const rows = members.data ?? [];
   const pending = rows.filter((r) => r.status === "pending");
