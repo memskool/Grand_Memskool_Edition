@@ -11,6 +11,8 @@ import {
   Shuffle,
   BellRing,
   VolumeX,
+  Users,
+  SendHorizonal,
   Loader2,
   X,
 } from "lucide-react";
@@ -175,16 +177,22 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
   };
 
   return (
-    <div className="flex flex-col gap-4 lg:h-[calc(100vh-8rem)] lg:flex-row">
+    <div className="dark -mx-1 rounded-[24px] bg-background p-3 text-foreground sm:p-5">
+    <div className="flex flex-col gap-4 lg:h-[calc(100vh-9rem)] lg:flex-row">
       {/* Stage + grid */}
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="font-display truncate text-xl font-semibold sm:text-2xl">{className}</h1>
+            <p className="truncate text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              Classes <span className="opacity-40">/</span> Live <span className="opacity-40">/</span>{" "}
+              {className}
+            </p>
+            <h1 className="font-display truncate text-xl font-bold sm:text-2xl">{className}</h1>
             <p className="text-xs text-muted-foreground">
               Live since {time(session.started_at)} · {live.length} in the room
             </p>
           </div>
+
           <div className="flex items-center gap-2">
             <Badge className="bg-destructive/10 text-destructive">● Live</Badge>
             <Button
@@ -211,7 +219,16 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
         ) : null}
 
         {/* Main stage — the teacher's published feed, or your own preview */}
-        <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-foreground/90 text-background">
+        <div className="relative aspect-video w-full overflow-hidden rounded-[20px] border border-border bg-black text-white">
+          <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-2">
+            <span className="flex items-center gap-1.5 rounded-full bg-destructive px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-destructive-foreground">
+              <span className="size-1.5 rounded-full bg-current" /> Live
+            </span>
+            <span className="flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-[11px] font-medium text-white backdrop-blur">
+              <Users className="size-3.5" /> {live.length}
+            </span>
+          </div>
+
           {stageRemote?.videoTrack ? (
             <RemoteVideo media={stageRemote} className="size-full object-cover" />
           ) : null}
@@ -393,10 +410,26 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
         </div>
       </div>
 
-      {/* Chat sidebar */}
+      {/* Slides + chat rail */}
+      <div
+        className={cn(
+          "w-full shrink-0 flex-col gap-4 lg:flex lg:w-[22rem]",
+          chatOpen ? "flex" : "hidden lg:flex",
+        )}
+      >
+        <div className="rounded-[20px] border border-border bg-white p-4 text-black">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-500">
+            Slides
+          </p>
+          <p className="mt-1 font-display text-base font-bold">{className}</p>
+          <p className="mt-1 text-xs text-neutral-500">
+            Lesson materials shared by your teacher appear in the Locker.
+          </p>
+        </div>
       <aside
         className={cn(
-          "surface-card flex w-full shrink-0 flex-col p-0 lg:w-80",
+          "flex min-h-0 flex-1 flex-col rounded-[20px] border border-border bg-card p-0",
+
           chatOpen ? "flex" : "hidden lg:flex",
         )}
       >
@@ -420,14 +453,29 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
             </div>
           ) : chat.data?.length ? (
             <ul className="space-y-3">
-              {chat.data.map((m) => (
-                <li key={m.id} className="text-sm">
-                  <p className="text-xs text-muted-foreground">
-                    {m.sender?.full_name ?? "Someone"} · {time(m.created_at)}
-                  </p>
-                  <p className="break-words">{m.body}</p>
-                </li>
-              ))}
+              {chat.data.map((m) => {
+                const mine = m.sender_id === userId;
+                return (
+                  <li
+                    key={m.id}
+                    className={cn("flex flex-col gap-1", mine ? "items-end" : "items-start")}
+                  >
+                    <span className="text-[11px] text-muted-foreground">
+                      {mine ? "You" : (m.sender?.full_name ?? "Someone")} · {time(m.created_at)}
+                    </span>
+                    <span
+                      className={cn(
+                        "max-w-[85%] break-words rounded-3xl px-3.5 py-2 text-sm",
+                        mine
+                          ? "rounded-br-md bg-primary text-primary-foreground"
+                          : "rounded-bl-md bg-secondary text-secondary-foreground",
+                      )}
+                    >
+                      {m.body}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="py-8 text-center text-xs text-muted-foreground">No messages yet.</p>
@@ -438,17 +486,26 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
           <Input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Message the class"
+            placeholder="Type here"
             className="rounded-full"
           />
-          <Button type="submit" size="sm" className="rounded-full" disabled={!draft.trim()}>
-            Send
+          <Button
+            type="submit"
+            size="icon"
+            className="size-10 shrink-0 rounded-full"
+            disabled={!draft.trim()}
+            aria-label="Send message"
+          >
+            <SendHorizonal className="size-4" />
           </Button>
         </form>
       </aside>
+      </div>
+    </div>
     </div>
   );
 }
+
 
 function ParticipantTile({
   participant: p,

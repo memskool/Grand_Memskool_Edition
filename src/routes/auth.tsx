@@ -399,7 +399,7 @@ function AuthPage() {
                         <Input
                           id="su-school-name"
                           required
-                          placeholder="e.g. Kampala모dern High School"
+                          placeholder="e.g. Kampala Modern High School"
                           value={schoolName}
                           onChange={(e) => setSchoolName(e.target.value)}
                         />
