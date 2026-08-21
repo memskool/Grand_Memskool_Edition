@@ -1,14 +1,17 @@
+import { useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { Users, GraduationCap, ClipboardList, Building2, Copy } from "lucide-react";
+import { Users, GraduationCap, ClipboardList, Building2, Copy, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import {
   useMySchool,
   useSchoolMembers,
   useSchoolRoster,
   useSetMemberStatus,
+  useUpdateSchoolCode,
 } from "@/lib/school-membership";
 import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
 type MemberUser = { full_name?: string | null; email?: string | null } | null;
@@ -24,6 +27,9 @@ export function InstitutionDashboard({ user }: { user: User }) {
   const members = useSchoolMembers(schoolId);
   const roster = useSchoolRoster(schoolId);
   const setStatus = useSetMemberStatus(schoolId);
+  const updateCode = useUpdateSchoolCode(user.id);
+  const [editing, setEditing] = useState(false);
+  const [draftCode, setDraftCode] = useState("");
 
   const rows = members.data ?? [];
   const pending = rows.filter((r) => r.status === "pending");
@@ -47,23 +53,75 @@ export function InstitutionDashboard({ user }: { user: User }) {
   return (
     <div className="space-y-6">
       <div className="surface-card flex flex-wrap items-center justify-between gap-4 p-5">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">School ID</p>
-          <p className="font-display text-2xl font-bold tracking-tight">{code}</p>
+          {editing ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Input
+                value={draftCode}
+                onChange={(e) => setDraftCode(e.target.value.toUpperCase())}
+                placeholder="e.g. KMHS-2026"
+                className="max-w-xs"
+              />
+              <Button
+                className="rounded-full"
+                disabled={updateCode.isPending}
+                onClick={() =>
+                  updateCode.mutate(
+                    { schoolId: school.data!.id, code: draftCode },
+                    {
+                      onSuccess: (next) => {
+                        setEditing(false);
+                        toast.success(`School ID updated to ${next}`);
+                      },
+                      onError: (e: Error) => toast.error(e.message),
+                    },
+                  )
+                }
+              >
+                Save
+              </Button>
+              <Button
+                variant="ghost"
+                className="rounded-full"
+                onClick={() => setEditing(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <p className="font-display text-2xl font-bold tracking-tight">{code}</p>
+          )}
           <p className="truncate text-sm text-muted-foreground">
-            Share this with your students and teachers so they can join {school.data.name}.
+            {editing
+              ? "3–24 letters, numbers or dashes. Members who already joined stay connected."
+              : `Share this with your students and teachers so they can join ${school.data.name}.`}
           </p>
         </div>
-        <Button
-          variant="outline"
-          className="rounded-full"
-          onClick={() => {
-            navigator.clipboard.writeText(code);
-            toast.success("School ID copied");
-          }}
-        >
-          <Copy className="mr-2 size-4" /> Copy ID
-        </Button>
+        {editing ? null : (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => {
+                setDraftCode(code);
+                setEditing(true);
+              }}
+            >
+              <Pencil className="mr-2 size-4" /> Change ID
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => {
+                navigator.clipboard.writeText(code);
+                toast.success("School ID copied");
+              }}
+            >
+              <Copy className="mr-2 size-4" /> Copy ID
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

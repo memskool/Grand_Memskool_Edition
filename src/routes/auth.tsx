@@ -113,7 +113,7 @@ function AuthPage() {
 
   // Live School-ID verification while typing.
   useEffect(() => {
-    if (!needsSchoolCode || schoolCode.trim().length < 3) {
+    if ((!needsSchoolCode && role !== "institution") || schoolCode.trim().length < 3) {
       setFoundSchool(null);
       return;
     }
@@ -135,7 +135,7 @@ function AuthPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [schoolCode, needsSchoolCode]);
+  }, [schoolCode, needsSchoolCode, role]);
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,6 +171,17 @@ function AuthPage() {
       toast.error("Enter your school's name.");
       return;
     }
+    const wantedCode = schoolCode.trim().toUpperCase();
+    if (role === "institution" && wantedCode) {
+      if (!/^[A-Z0-9-]{3,24}$/.test(wantedCode)) {
+        toast.error("School ID must be 3–24 letters, numbers or dashes.");
+        return;
+      }
+      if (foundSchool) {
+        toast.error("That School ID is already taken. Pick another one.");
+        return;
+      }
+    }
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
@@ -180,7 +191,11 @@ function AuthPage() {
         data: {
           full_name: fullName.trim(),
           role,
-          school_code: needsSchoolCode ? schoolCode.trim() : null,
+          school_code: needsSchoolCode
+            ? schoolCode.trim()
+            : role === "institution" && wantedCode
+              ? wantedCode
+              : null,
           student_code: role === "student" ? studentCode.trim() : null,
           school_name: role === "institution" ? schoolName.trim() : null,
         },
@@ -403,9 +418,26 @@ function AuthPage() {
                           value={schoolName}
                           onChange={(e) => setSchoolName(e.target.value)}
                         />
-                        <p className="text-xs text-muted-foreground">
-                          We generate your School ID once your account is created — share it with
-                          your students and teachers.
+                      </div>
+                    ) : null}
+
+                    {role === "institution" ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="su-own-code">School ID (optional)</Label>
+                        <Input
+                          id="su-own-code"
+                          placeholder="e.g. KMHS-2026"
+                          value={schoolCode}
+                          onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
+                        />
+                        <p
+                          className={`text-xs ${foundSchool ? "text-destructive" : "text-muted-foreground"}`}
+                        >
+                          {checkingSchool
+                            ? "Checking availability…"
+                            : foundSchool
+                              ? "That School ID is already taken — pick another."
+                              : "Pick your own ID (3–24 letters, numbers or dashes), or leave blank and we'll generate one. You can change it later."}
                         </p>
                       </div>
                     ) : null}
