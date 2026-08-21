@@ -75,26 +75,26 @@ function VirtualClassroomPage() {
         {source.isLoading ? (
           <ListSkeleton />
         ) : source.data?.length ? (
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul className="grid gap-4 sm:grid-cols-2">
             {source.data.map((c) => (
               <li
                 key={c.id}
-                className="flex items-center justify-between gap-4 rounded-xl bg-secondary/50 px-4 py-3"
+                className="flex min-h-[148px] flex-col justify-between gap-4 rounded-3xl bg-ink p-5 text-ink-foreground"
+                style={{ boxShadow: "var(--shadow-soft)" }}
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{c.name}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-ink-muted">
                     {c.subject?.name ?? "General"}
-                    {c.room ? ` · ${c.room}` : ""}
                   </p>
+                  <p className="mt-1 truncate font-display text-lg font-bold">{c.name}</p>
+                  {c.room ? <p className="text-xs text-ink-muted">{c.room}</p> : null}
                 </div>
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="shrink-0 rounded-full"
+                  className="w-fit rounded-full bg-ink-foreground text-ink hover:bg-ink-foreground/90"
                   onClick={() => setOpenClass({ id: c.id, name: c.name })}
                 >
-                  <Video className="size-4" /> {isTeacher ? "Start" : "Join"}
+                  <Video className="size-4" /> {isTeacher ? "Start session" : "Join lesson"}
                 </Button>
               </li>
             ))}
