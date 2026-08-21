@@ -1,9 +1,9 @@
-import logoAsset from "@/assets/memskool-crest.png.asset.json";
+import logoAsset from "@/assets/memskool-crest.jpg.asset.json";
 import { cn } from "@/lib/utils";
 
 /**
- * Memskool crest logo (navy + gold shield with laurels), transparent background.
- * Rendered at a fixed height with automatic width so the crest never gets cropped.
+ * Memskool crest logo (navy + gold shield with laurels) rendered exactly as provided.
+ * A generous border radius and subtle ring let it sit cleanly in the premium monochrome UI.
  */
 export function BrandMark({ size = 40, className }: { size?: number; className?: string }) {
   return (
@@ -11,7 +11,10 @@ export function BrandMark({ size = 40, className }: { size?: number; className?:
       src={logoAsset.url}
       alt="Memskool Institute"
       height={size}
-      className={cn("block w-auto shrink-0 object-contain object-center", className)}
+      className={cn(
+        "block w-auto shrink-0 rounded-2xl object-contain object-center ring-1 ring-black/10 dark:ring-white/10",
+        className
+      )}
       style={{ height: size, width: "auto" }}
     />
   );

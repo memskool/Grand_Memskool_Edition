@@ -26,7 +26,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="px-3 py-4">
         <Link to="/dashboard" className="flex items-center gap-2.5">
-          <BrandMark size={40} className="invert dark:invert-0" />
+          <BrandMark size={40} />
           <span className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
             <span className="font-display text-lg font-bold leading-tight tracking-tight text-sidebar-foreground">
               Memskool
