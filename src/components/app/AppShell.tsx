@@ -7,6 +7,8 @@ import { MobileNav } from "@/components/app/MobileNav";
 import { SiteFooter } from "@/components/app/SiteFooter";
 import { BrandMark } from "@/components/app/BrandMark";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
+import { RouteGuard } from "@/components/app/RouteGuard";
+
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -26,8 +28,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-24 sm:px-6 sm:py-8 md:pb-8">
-          {children}
+          <RouteGuard>{children}</RouteGuard>
         </main>
+
         <SiteFooter className="pb-24 md:pb-8" />
         <MobileNav />
       </SidebarInset>

@@ -4,7 +4,7 @@ import { Video, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useSession, useRole } from "@/hooks/useAuth";
 import { useMyEnrolledClasses, useTeachingClasses } from "@/lib/school-data";
-import { useActiveSession, useStartSession } from "@/lib/classroom-data";
+import { useActiveSession, useStartSession, useLiveSessions } from "@/lib/classroom-data";
 import { ClassroomRoom } from "@/components/app/ClassroomRoom";
 import { PageHeader, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
 import { SuspensionNotice } from "@/components/app/SuspensionNotice";
@@ -41,8 +41,12 @@ function VirtualClassroomPage() {
   const source = isTeacher ? teaching : enrolled;
 
   const { suspension } = useSuspensionStatus(user?.id);
+  const classIds = (source.data ?? []).map((c) => c.id);
+  const liveSessions = useLiveSessions(classIds);
+  const liveIds = new Set((liveSessions.data ?? []).map((s) => s.class_id));
 
   const [openClass, setOpenClass] = useState<{ id: string; name: string } | null>(null);
+
 
   if (suspension && !isTeacher) {
     return (
@@ -76,28 +80,46 @@ function VirtualClassroomPage() {
           <ListSkeleton />
         ) : source.data?.length ? (
           <ul className="grid gap-4 sm:grid-cols-2">
-            {source.data.map((c) => (
-              <li
-                key={c.id}
-                className="flex min-h-[148px] flex-col justify-between gap-4 rounded-3xl bg-ink p-5 text-ink-foreground"
-                style={{ boxShadow: "var(--shadow-soft)" }}
-              >
-                <div className="min-w-0">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-ink-muted">
-                    {c.subject?.name ?? "General"}
-                  </p>
-                  <p className="mt-1 truncate font-display text-lg font-bold">{c.name}</p>
-                  {c.room ? <p className="text-xs text-ink-muted">{c.room}</p> : null}
-                </div>
-                <Button
-                  size="sm"
-                  className="w-fit rounded-full bg-ink-foreground text-ink hover:bg-ink-foreground/90"
-                  onClick={() => setOpenClass({ id: c.id, name: c.name })}
+            {source.data.map((c) => {
+              const live = liveIds.has(c.id);
+              return (
+                <li
+                  key={c.id}
+                  className="flex min-h-[148px] flex-col justify-between gap-4 rounded-3xl bg-ink p-5 text-ink-foreground"
+                  style={{ boxShadow: "var(--shadow-soft)" }}
                 >
-                  <Video className="size-4" /> {isTeacher ? "Start session" : "Join lesson"}
-                </Button>
-              </li>
-            ))}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-ink-muted">
+                        {c.subject?.name ?? "General"}
+                      </p>
+                      {live ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-ink-foreground px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ink">
+                          <span className="size-1.5 animate-pulse rounded-full bg-ink" /> Live
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 truncate font-display text-lg font-bold">{c.name}</p>
+                    {c.room ? <p className="text-xs text-ink-muted">{c.room}</p> : null}
+                  </div>
+                  <Button
+                    size="sm"
+                    className="w-fit rounded-full bg-ink-foreground text-ink hover:bg-ink-foreground/90"
+                    disabled={!isTeacher && !live}
+                    onClick={() => setOpenClass({ id: c.id, name: c.name })}
+                  >
+                    <Video className="size-4" />{" "}
+                    {isTeacher
+                      ? live
+                        ? "Rejoin session"
+                        : "Start session"
+                      : live
+                        ? "Join live lesson"
+                        : "No live lesson"}
+                  </Button>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <EmptyState
@@ -107,6 +129,7 @@ function VirtualClassroomPage() {
           />
         )}
       </Panel>
+
     </>
   );
 }

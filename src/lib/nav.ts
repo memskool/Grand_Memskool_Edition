@@ -114,18 +114,47 @@ const BY_ROLE: Record<AppRole, NavItem[]> = {
   ],
 };
 
-/** Navigation for a role, with exam-mode restrictions applied. */
-export function navForRole(role: AppRole | undefined, examActive: boolean): NavItem[] {
-  const items = BY_ROLE[role ?? "student"] ?? BY_ROLE.student;
-  return examActive ? items.filter((i) => i.url !== "/ai-tutor") : items;
+/** Routes staff can still use while their school approval is pending. */
+export const PENDING_ALLOWED = ["/dashboard", "/messages", "/settings"];
+
+/** Navigation for a role, with exam-mode and approval restrictions applied. */
+export function navForRole(
+  role: AppRole | undefined,
+  examActive: boolean,
+  pendingApproval = false,
+): NavItem[] {
+  let items = BY_ROLE[role ?? "student"] ?? BY_ROLE.student;
+  if (examActive) items = items.filter((i) => i.url !== "/ai-tutor");
+  if (pendingApproval) items = items.filter((i) => PENDING_ALLOWED.includes(i.url));
+  return items;
 }
 
 /** Up to four primary destinations for the mobile bottom bar. */
-export function mobileTabsForRole(role: AppRole | undefined, examActive: boolean): NavItem[] {
-  return navForRole(role, examActive).slice(0, 4);
+export function mobileTabsForRole(
+  role: AppRole | undefined,
+  examActive: boolean,
+  pendingApproval = false,
+): NavItem[] {
+  return navForRole(role, examActive, pendingApproval).slice(0, 4);
+}
+
+/**
+ * Can this role open this path directly? Nav is the source of truth, so a
+ * teacher typing /dream-school in the address bar is blocked too.
+ */
+export function canAccessRoute(
+  role: AppRole | undefined,
+  path: string,
+  pendingApproval = false,
+): boolean {
+  const allowed = navForRole(role, false, pendingApproval).map((i) => i.url);
+  // Exam runner lives under /exam/:id and belongs with Assessments.
+  if (path.startsWith("/exam/")) return allowed.includes("/assessments");
+  return allowed.some((url) => path === url || path.startsWith(`${url}/`));
 }
 
 /** Roles allowed to manage a school. */
 export function canManageSchool(role: AppRole | undefined): boolean {
   return role === "admin" || role === "institution";
 }
+

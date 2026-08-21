@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useExamMode } from "@/lib/exam-mode";
-import { useSession, useRole } from "@/hooks/useAuth";
+import { useAccess } from "@/lib/access";
 import { navForRole } from "@/lib/nav";
 import {
   Sidebar,
@@ -18,9 +18,9 @@ import { BrandMark } from "@/components/app/BrandMark";
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const examActive = useExamMode();
-  const { user } = useSession();
-  const role = useRole(user);
-  const items = navForRole(role.data, examActive);
+  const { role, pendingApproval } = useAccess();
+  const items = navForRole(role, examActive, pendingApproval);
+
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">

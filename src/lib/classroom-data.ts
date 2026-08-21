@@ -38,7 +38,49 @@ export type ClassroomMessage = {
 
 /* ------------------------------ sessions ------------------------------ */
 
+/**
+ * Live sessions across a set of classes — powers the "LIVE now" badges so a
+ * learner sees the moment their teacher opens a room.
+ */
+export function useLiveSessions(classIds: string[]) {
+  const qc = useQueryClient();
+  const key = classIds.slice().sort().join(",");
+
+  const query = useQuery({
+    queryKey: ["live-sessions", key],
+    enabled: classIds.length > 0,
+    refetchInterval: 20_000,
+    queryFn: async (): Promise<ClassroomSession[]> => {
+      const { data, error } = await supabase
+        .from("classroom_sessions")
+        .select("id, class_id, host_id, title, started_at, ended_at, is_active")
+        .in("class_id", classIds)
+        .eq("is_active", true);
+      if (error) throw error;
+      return (data ?? []) as ClassroomSession[];
+    },
+  });
+
+  useEffect(() => {
+    if (!classIds.length) return;
+    const channel = supabase
+      .channel(`live-sessions-${key}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "classroom_sessions" },
+        () => qc.invalidateQueries({ queryKey: ["live-sessions", key] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [key, classIds.length, qc]);
+
+  return query;
+}
+
 export function useActiveSession(classId?: string) {
+
   return useQuery({
     queryKey: ["classroom-session", classId],
     enabled: !!classId,
