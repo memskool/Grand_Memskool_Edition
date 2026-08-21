@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { AppRole } from "@/hooks/useAuth";
+import { lookupSchoolByCode } from "@/lib/school-lookup.functions";
+
 
 export type MemberStatus = "pending" | "approved" | "rejected";
 
