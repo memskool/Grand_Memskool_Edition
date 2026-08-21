@@ -217,7 +217,16 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
         ) : null}
 
         {/* Main stage — the teacher's published feed, or your own preview */}
-        <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-foreground/90 text-background">
+        <div className="relative aspect-video w-full overflow-hidden rounded-[20px] border border-border bg-black text-white">
+          <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-2">
+            <span className="flex items-center gap-1.5 rounded-full bg-destructive px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-destructive-foreground">
+              <span className="size-1.5 rounded-full bg-current" /> Live
+            </span>
+            <span className="flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-[11px] font-medium text-white backdrop-blur">
+              <Users className="size-3.5" /> {live.length}
+            </span>
+          </div>
+
           {stageRemote?.videoTrack ? (
             <RemoteVideo media={stageRemote} className="size-full object-cover" />
           ) : null}
