@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useExamMode } from "@/lib/exam-mode";
 import { useSession, useProfile } from "@/hooks/useAuth";
@@ -11,12 +11,16 @@ import { BrandMark } from "@/components/app/BrandMark";
 export function MobileNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const examActive = useExamMode();
   const { user } = useSession();
   const { role, pendingApproval } = useAccess();
   const { data: profile } = useProfile(user);
 
-  const links = navForRole(role, examActive, pendingApproval);
+  const allLinks = navForRole(role, examActive, pendingApproval);
+  const links = allLinks.filter((l) =>
+    l.title.toLowerCase().includes(query.trim().toLowerCase()),
+  );
   const tabs = mobileTabsForRole(role, examActive, pendingApproval);
 
 
