@@ -221,8 +221,8 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
         {/* Main stage — the teacher's published feed, or your own preview */}
         <div className="relative aspect-video w-full overflow-hidden rounded-[20px] border border-border bg-black text-white">
           <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-full bg-destructive px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-destructive-foreground">
-              <span className="size-1.5 rounded-full bg-current" /> Live
+            <span className="flex items-center gap-2 rounded-full bg-destructive px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-destructive-foreground">
+              <span className="live-dot size-1.5 rounded-full bg-current" /> Live
             </span>
             <span className="flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-[11px] font-medium text-white backdrop-blur">
               <Users className="size-3.5" /> {live.length}
