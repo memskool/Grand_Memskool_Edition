@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Building2, CalendarPlus, Loader2, Plus, ShieldAlert, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useSession, useRole } from "@/hooks/useAuth";
+import { canManageSchool } from "@/lib/nav";
 import {
   useSchools,
   useCreateSchool,
@@ -69,7 +70,7 @@ export const Route = createFileRoute("/_authenticated/school-admin")({
 function SchoolAdminPage() {
   const { user } = useSession();
   const role = useRole(user);
-  const isAdmin = role.data === "admin";
+  const isAdmin = canManageSchool(role.data);
 
   if (role.isLoading) {
     return (

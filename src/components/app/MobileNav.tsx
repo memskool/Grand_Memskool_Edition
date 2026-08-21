@@ -101,7 +101,7 @@ export function MobileNav() {
                   >
                     <item.icon className="size-[18px]" />
                   </span>
-                  {item.title}
+                  {item.short ?? item.title}
                 </Link>
               </li>
             );
