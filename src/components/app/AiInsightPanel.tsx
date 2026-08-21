@@ -80,7 +80,7 @@ export function AiInsightPanel({
                 <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{i.body}</p>
                 {i.action_link ? (
                   <Link
-                    to={i.action_link}
+                    to={i.action_link as "/dashboard"}
                     className="mt-2 inline-block text-xs font-medium text-primary hover:underline"
                   >
                     {i.action_label ?? "Open"} →
