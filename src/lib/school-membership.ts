@@ -55,6 +55,32 @@ export function useMySchool(userId: string | undefined) {
   });
 }
 
+/** Change the School ID (code) of a school you own. */
+export function useUpdateSchoolCode(userId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ schoolId, code }: { schoolId: string; code: string }) => {
+      const next = code.trim().toUpperCase();
+      if (!/^[A-Z0-9-]{3,24}$/.test(next)) {
+        throw new Error("School ID must be 3–24 letters, numbers or dashes.");
+      }
+      const { error } = await supabase.from("schools").update({ code: next }).eq("id", schoolId);
+      if (error) {
+        throw new Error(
+          error.code === "23505"
+            ? "That School ID is already taken. Pick another one."
+            : error.message,
+        );
+      }
+      return next;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-school", userId] });
+    },
+  });
+}
+
+
 /** Membership requests + roster for a school the user owns. */
 export function useSchoolMembers(schoolId: string | undefined) {
   return useQuery({
