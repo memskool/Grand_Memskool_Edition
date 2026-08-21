@@ -30,6 +30,23 @@ export function TeacherDashboard({ user }: { user: User }) {
             ? `${schoolName} still needs to approve your teacher account. Classes, live lessons and grading unlock the moment they do.`
             : "Add your School ID in Settings so your school can approve your teacher account."
         }
+        action={
+          schoolId ? (
+            <Button
+              className="rounded-full"
+              disabled={remind.isPending}
+              onClick={() =>
+                remind.mutate(schoolId, {
+                  onSuccess: () => toast.success(`Reminder sent to ${schoolName ?? "your school"}`),
+                  onError: (e: Error) => toast.error(e.message),
+                })
+              }
+            >
+              <BellRing className="mr-2 size-4" />
+              Remind {schoolName ?? "school"}
+            </Button>
+          ) : undefined
+        }
       />
     );
   }
