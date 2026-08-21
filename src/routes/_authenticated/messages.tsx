@@ -297,8 +297,10 @@ function ChatPane({
                 <li key={m.id} className={cn("flex", mine ? "justify-end" : "justify-start")}>
                   <div
                     className={cn(
-                      "max-w-[75%] rounded-2xl px-4 py-2",
-                      mine ? "bg-primary text-primary-foreground" : "bg-secondary",
+                      "max-w-[75%] px-4 py-2.5 text-sm",
+                      mine
+                        ? "rounded-3xl rounded-br-md bg-ink text-ink-foreground"
+                        : "rounded-3xl rounded-bl-md bg-secondary text-foreground",
                     )}
                   >
                     {!mine ? (
