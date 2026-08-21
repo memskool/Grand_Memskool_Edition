@@ -81,16 +81,15 @@ export function InstitutionDashboard({ user }: { user: User }) {
       <Panel
         title="Join requests"
         description="Approve the people who asked to join your school"
-        action={
-          <Button asChild variant="outline" size="sm" className="rounded-full">
-            <Link to="/school-admin">School Admin</Link>
-          </Button>
-        }
       >
         {members.isLoading ? (
           <ListSkeleton rows={2} />
         ) : pending.length === 0 ? (
-          <EmptyState icon={ClipboardList} title="No pending requests" />
+          <EmptyState
+            icon={ClipboardList}
+            title="No pending requests"
+            hint="Manage classes, timetable and roster in School Admin."
+          />
         ) : (
           <ul className="space-y-2">
             {pending.map((m) => (
