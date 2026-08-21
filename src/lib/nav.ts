@@ -25,7 +25,7 @@ export type NavItem = {
   short?: string;
 };
 
-const ITEM: Record<string, NavItem> = {
+const ITEM = {
   dashboard: { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, short: "Home" },
   locker: { title: "Locker", url: "/locker", icon: Archive, short: "Locker" },
   missed: { title: "Missed Work", url: "/missed-work", icon: AlarmClock, short: "Missed" },
@@ -44,7 +44,7 @@ const ITEM: Record<string, NavItem> = {
   marketplace: { title: "Marketplace", url: "/marketplace", icon: ShoppingBag, short: "Store" },
   schoolAdmin: { title: "School Admin", url: "/school-admin", icon: Building2, short: "School" },
   settings: { title: "Settings", url: "/settings", icon: Settings, short: "Settings" },
-};
+} satisfies Record<string, NavItem>;
 
 /**
  * Each role gets its own workspace. Students and parents are receivers,

@@ -11,6 +11,13 @@ import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/prim
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
+type MemberUser = { full_name?: string | null; email?: string | null } | null;
+
+function memberName(u: unknown): string {
+  const m = (u && typeof u === "object" ? u : null) as MemberUser;
+  return m?.full_name || m?.email || "New member";
+}
+
 export function InstitutionDashboard({ user }: { user: User }) {
   const school = useMySchool(user.id);
   const schoolId = school.data?.id;
@@ -98,7 +105,7 @@ export function InstitutionDashboard({ user }: { user: User }) {
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
-                    {m.user?.full_name || m.user?.email || "New member"}
+                    {memberName(m.user)}
                   </p>
                   <p className="text-xs capitalize text-muted-foreground">
                     {m.role}
