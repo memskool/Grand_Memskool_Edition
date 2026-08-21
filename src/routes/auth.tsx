@@ -135,7 +135,7 @@ function AuthPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [schoolCode, needsSchoolCode]);
+  }, [schoolCode, needsSchoolCode, role]);
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
