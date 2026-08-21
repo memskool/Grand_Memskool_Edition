@@ -175,16 +175,22 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
   };
 
   return (
-    <div className="flex flex-col gap-4 lg:h-[calc(100vh-8rem)] lg:flex-row">
+    <div className="dark -mx-1 rounded-[24px] bg-background p-3 text-foreground sm:p-5">
+    <div className="flex flex-col gap-4 lg:h-[calc(100vh-9rem)] lg:flex-row">
       {/* Stage + grid */}
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="font-display truncate text-xl font-semibold sm:text-2xl">{className}</h1>
+            <p className="truncate text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              Classes <span className="opacity-40">/</span> Live <span className="opacity-40">/</span>{" "}
+              {className}
+            </p>
+            <h1 className="font-display truncate text-xl font-bold sm:text-2xl">{className}</h1>
             <p className="text-xs text-muted-foreground">
               Live since {time(session.started_at)} · {live.length} in the room
             </p>
           </div>
+
           <div className="flex items-center gap-2">
             <Badge className="bg-destructive/10 text-destructive">● Live</Badge>
             <Button
