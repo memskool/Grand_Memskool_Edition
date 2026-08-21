@@ -14,8 +14,7 @@ import {
   useMyLocker,
 } from "@/lib/school-data";
 import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
-import { Badge } from "@/components/ui/badge";
-import { DAYS, formatTime, formatDate } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 
 export function StudentDashboard({ user }: { user: User }) {
   const classes = useMyEnrolledClasses(user.id);
