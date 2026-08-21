@@ -451,14 +451,29 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
             </div>
           ) : chat.data?.length ? (
             <ul className="space-y-3">
-              {chat.data.map((m) => (
-                <li key={m.id} className="text-sm">
-                  <p className="text-xs text-muted-foreground">
-                    {m.sender?.full_name ?? "Someone"} · {time(m.created_at)}
-                  </p>
-                  <p className="break-words">{m.body}</p>
-                </li>
-              ))}
+              {chat.data.map((m) => {
+                const mine = m.sender_id === userId;
+                return (
+                  <li
+                    key={m.id}
+                    className={cn("flex flex-col gap-1", mine ? "items-end" : "items-start")}
+                  >
+                    <span className="text-[11px] text-muted-foreground">
+                      {mine ? "You" : (m.sender?.full_name ?? "Someone")} · {time(m.created_at)}
+                    </span>
+                    <span
+                      className={cn(
+                        "max-w-[85%] break-words rounded-3xl px-3.5 py-2 text-sm",
+                        mine
+                          ? "rounded-br-md bg-primary text-primary-foreground"
+                          : "rounded-bl-md bg-secondary text-secondary-foreground",
+                      )}
+                    >
+                      {m.body}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="py-8 text-center text-xs text-muted-foreground">No messages yet.</p>
@@ -469,17 +484,26 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
           <Input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Message the class"
+            placeholder="Type here"
             className="rounded-full"
           />
-          <Button type="submit" size="sm" className="rounded-full" disabled={!draft.trim()}>
-            Send
+          <Button
+            type="submit"
+            size="icon"
+            className="size-10 shrink-0 rounded-full"
+            disabled={!draft.trim()}
+            aria-label="Send message"
+          >
+            <SendHorizonal className="size-4" />
           </Button>
         </form>
       </aside>
+      </div>
+    </div>
     </div>
   );
 }
+
 
 function ParticipantTile({
   participant: p,
