@@ -113,7 +113,7 @@ function AuthPage() {
 
   // Live School-ID verification while typing.
   useEffect(() => {
-    if (!needsSchoolCode || schoolCode.trim().length < 3) {
+    if ((!needsSchoolCode && role !== "institution") || schoolCode.trim().length < 3) {
       setFoundSchool(null);
       return;
     }
