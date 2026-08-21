@@ -7,6 +7,8 @@ import { MobileNav } from "@/components/app/MobileNav";
 import { SiteFooter } from "@/components/app/SiteFooter";
 import { BrandMark } from "@/components/app/BrandMark";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
+import { RouteGuard } from "@/components/app/RouteGuard";
+
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
