@@ -50,14 +50,15 @@ export function AppSidebar() {
                       asChild
                       isActive={active}
                       tooltip={item.title}
-                      className="h-11 rounded-full transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:font-semibold data-[active=true]:text-sidebar-primary-foreground"
+                      className="h-11 rounded-full transition-colors data-[active=true]:bg-brand-accent data-[active=true]:font-semibold data-[active=true]:text-brand-accent-foreground data-[active=true]:hover:bg-brand-accent data-[active=true]:hover:text-brand-accent-foreground"
                     >
                       <Link to={item.url}>
                         <item.icon
-                          className={active ? "size-[18px] text-primary" : "size-[18px]"}
+                          className={active ? "size-[18px]" : "size-[18px]"}
                         />
                         <span>{item.title}</span>
                       </Link>
+
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
