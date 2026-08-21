@@ -418,9 +418,26 @@ function AuthPage() {
                           value={schoolName}
                           onChange={(e) => setSchoolName(e.target.value)}
                         />
-                        <p className="text-xs text-muted-foreground">
-                          We generate your School ID once your account is created — share it with
-                          your students and teachers.
+                      </div>
+                    ) : null}
+
+                    {role === "institution" ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="su-own-code">School ID (optional)</Label>
+                        <Input
+                          id="su-own-code"
+                          placeholder="e.g. KMHS-2026"
+                          value={schoolCode}
+                          onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
+                        />
+                        <p
+                          className={`text-xs ${foundSchool ? "text-destructive" : "text-muted-foreground"}`}
+                        >
+                          {checkingSchool
+                            ? "Checking availability…"
+                            : foundSchool
+                              ? "That School ID is already taken — pick another."
+                              : "Pick your own ID (3–24 letters, numbers or dashes), or leave blank and we'll generate one. You can change it later."}
                         </p>
                       </div>
                     ) : null}
