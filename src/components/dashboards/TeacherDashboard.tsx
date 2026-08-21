@@ -1,6 +1,8 @@
 import { MeetingsPanel } from "@/components/app/SchoolLifePanels";
 import { TeacherAssessmentPanel } from "@/components/app/TeacherAssessmentPanel";
-import { CalendarClock, ClipboardCheck, Users, BookOpen } from "lucide-react";
+import { CalendarClock, ClipboardCheck, BookOpen } from "lucide-react";
+import { ClassCardGrid } from "@/components/dashboards/ClassCards";
+import { ScheduleRail } from "@/components/app/ScheduleRail";
 import type { User } from "@supabase/supabase-js";
 import { AiInsightPanel } from "@/components/app/AiInsightPanel";
 import { BehaviourPanel } from "@/components/app/BehaviourPanel";
