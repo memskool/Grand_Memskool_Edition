@@ -49,6 +49,9 @@ const CATEGORY_ICON = { note: FileText, video: Film, audio: AudioLines } as cons
 
 function MissedWorkPage() {
   const { user } = useSession();
+  const { data: role } = useRole(user);
+  // Review + release is a teacher/admin decision; students can only view and open.
+  const canReview = role === "teacher" || role === "admin";
   const missed = useMissedWork(user?.id);
   const assignments = useMyAssignments(user?.id);
   const markReviewed = useMarkReviewed();
@@ -76,7 +79,7 @@ function MissedWorkPage() {
       } else if (item.url) {
         window.open(item.url, "_blank", "noopener,noreferrer");
       }
-      if (!item.reviewed) {
+      if (!item.reviewed && canReview) {
         setPendingId(item.id);
         await markReviewed.mutateAsync(item.id);
         toast.success("Marked as reviewed — you can now move it to your locker");
@@ -181,7 +184,7 @@ function MissedWorkPage() {
                         <Download className="size-4" /> Open
                       </Button>
                     ) : null}
-                    {!item.reviewed ? (
+                    {!canReview ? null : !item.reviewed ? (
                       <Button
                         size="sm"
                         className="rounded-full"
@@ -202,6 +205,11 @@ function MissedWorkPage() {
                     ) : (
                       <Badge className="rounded-full">In your locker</Badge>
                     )}
+                    {!canReview && !item.reviewed ? (
+                      <Badge variant="outline" className="rounded-full">
+                        Awaiting teacher review
+                      </Badge>
+                    ) : null}
                   </div>
                 </li>
               );
