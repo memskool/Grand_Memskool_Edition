@@ -8,8 +8,7 @@ import { AiInsightPanel } from "@/components/app/AiInsightPanel";
 import { BehaviourPanel } from "@/components/app/BehaviourPanel";
 import { useTeachingClasses, useTeacherTimetable, usePendingGrading } from "@/lib/school-data";
 import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
-import { Badge } from "@/components/ui/badge";
-import { formatTime, formatDateTime } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 
 export function TeacherDashboard({ user }: { user: User }) {
   const classes = useTeachingClasses(user.id);
