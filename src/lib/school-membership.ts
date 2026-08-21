@@ -81,6 +81,16 @@ export function useUpdateSchoolCode(userId: string | undefined) {
 }
 
 
+/** Re-send a pending join request and nudge the school owner. */
+export function useRemindSchool() {
+  return useMutation({
+    mutationFn: async (schoolId: string) => {
+      const { error } = await supabase.rpc("remind_school", { _school_id: schoolId });
+      if (error) throw error;
+    },
+  });
+}
+
 /** Membership requests + roster for a school the user owns. */
 export function useSchoolMembers(schoolId: string | undefined) {
   return useQuery({
