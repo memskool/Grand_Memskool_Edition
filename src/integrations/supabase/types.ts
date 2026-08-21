@@ -1654,6 +1654,13 @@ export type Database = {
             referencedRelation: "schools"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "school_members_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       school_roster: {
@@ -2005,6 +2012,10 @@ export type Database = {
         Args: { _assessment_id: string; _user_id: string }
         Returns: boolean
       }
+      can_view_member_profile: {
+        Args: { _target: string; _viewer: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2057,6 +2068,7 @@ export type Database = {
         Args: { _school: string; _user: string }
         Returns: boolean
       }
+      remind_school: { Args: { _school_id: string }; Returns: undefined }
       session_class_id: { Args: { _session_id: string }; Returns: string }
       shares_school: {
         Args: { _school: string; _user: string }
