@@ -5,6 +5,7 @@ import { StudentDashboard } from "@/components/dashboards/StudentDashboard";
 import { TeacherDashboard } from "@/components/dashboards/TeacherDashboard";
 import { ParentDashboard } from "@/components/dashboards/ParentDashboard";
 import { AdminDashboard } from "@/components/dashboards/AdminDashboard";
+import { InstitutionDashboard } from "@/components/dashboards/InstitutionDashboard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -32,6 +33,7 @@ const SUBTITLES: Record<string, string> = {
   teacher: "Your teaching day, grading queue and classes.",
   parent: "Attendance and performance for your child.",
   admin: "School-wide overview of people and classes.",
+  institution: "Your school: members, approvals and admissions.",
 };
 
 function DashboardPage() {
@@ -55,6 +57,8 @@ function DashboardPage() {
         <TeacherDashboard user={user} />
       ) : role === "parent" ? (
         <ParentDashboard user={user} />
+      ) : role === "institution" ? (
+        <InstitutionDashboard user={user} />
       ) : role === "admin" ? (
         <AdminDashboard />
       ) : (
