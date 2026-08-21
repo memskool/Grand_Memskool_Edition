@@ -88,6 +88,7 @@ function LibraryPage() {
   const [search, setSearch] = useState("");
   const [subjectFilter, setSubjectFilter] = useState("all");
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [active, setActive] = useState<LibraryBook | null>(null);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -162,71 +163,40 @@ function LibraryPage() {
         {books.isLoading ? (
           <ListSkeleton />
         ) : visible.length ? (
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid grid-cols-2 gap-x-5 gap-y-7 sm:grid-cols-3 lg:grid-cols-4">
             {visible.map((book) => {
               const Icon = CATEGORY_ICON[book.category] ?? BookOpen;
               return (
-                <li key={book.id} className="group flex flex-col rounded-xl bg-secondary/50 p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      <Icon className="size-4" />
+                <li key={book.id}>
+                  <button
+                    type="button"
+                    onClick={() => setActive(book)}
+                    className="group w-full text-left"
+                  >
+                    <span
+                      className="relative flex aspect-[3/4] w-full flex-col justify-between overflow-hidden rounded-2xl bg-ink p-4 text-ink-foreground transition-transform group-hover:-translate-y-1"
+                      style={{ boxShadow: "var(--shadow-soft)" }}
+                    >
+                      <span
+                        aria-hidden
+                        className="absolute inset-y-0 left-0 w-1.5 bg-ink-foreground/15"
+                      />
+                      <Icon className="size-5 opacity-70" />
+                      <span className="min-w-0">
+                        <span className="line-clamp-3 block font-display text-sm font-bold leading-snug">
+                          {book.title}
+                        </span>
+                        <span className="mt-1 block truncate text-[11px] text-ink-muted">
+                          {book.author || book.subject?.name || "Memskool"}
+                        </span>
+                      </span>
                     </span>
-                    {canManage ? (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="rounded-full opacity-0 transition-opacity group-hover:opacity-100"
-                        aria-label={`Delete ${book.title}`}
-                        onClick={() => {
-                          void deleteBook
-                            .mutateAsync({ id: book.id, file_path: book.file_path })
-                            .then(() => toast.success("Removed from library"))
-                            .catch((e: Error) => toast.error(e.message));
-                        }}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    ) : null}
-                  </div>
-                  <p className="mt-3 text-sm font-medium">{book.title}</p>
-                  {book.author ? (
-                    <p className="text-xs text-muted-foreground">{book.author}</p>
-                  ) : null}
-                  {book.description ? (
-                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                      {book.description}
-                    </p>
-                  ) : null}
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                    {book.subject?.name ? (
-                      <Badge variant="secondary" className="rounded-full">
-                        {book.subject.name}
-                      </Badge>
-                    ) : null}
-                    {book.class_level ? (
-                      <Badge variant="outline" className="rounded-full">
-                        {book.class_level}
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <div className="mt-3 flex items-center justify-between gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {book.file_size ? `${formatBytes(book.file_size)} · ` : ""}
-                      {formatDate(book.created_at)}
+                    <span className="mt-2.5 block truncate text-sm font-medium">{book.title}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {book.subject?.name ?? "General"}
+                      {book.class_level ? ` · ${book.class_level}` : ""}
                     </span>
-                    {book.file_path ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="rounded-full"
-                        disabled={downloading === book.id}
-                        onClick={() => void download(book)}
-                      >
-                        <Download className="size-4" />
-                        {downloading === book.id ? "Preparing…" : "Download"}
-                      </Button>
-                    ) : null}
-                  </div>
+                  </button>
                 </li>
               );
             })}
@@ -245,6 +215,84 @@ function LibraryPage() {
           />
         )}
       </Panel>
+
+      <Dialog open={!!active} onOpenChange={(o) => !o && setActive(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          {active ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-display text-xl">{active.title}</DialogTitle>
+              </DialogHeader>
+              <div className="flex gap-4">
+                <div
+                  className="flex aspect-[3/4] w-28 shrink-0 items-end rounded-2xl bg-ink p-3 text-ink-foreground"
+                  style={{ boxShadow: "var(--shadow-soft)" }}
+                >
+                  <span className="line-clamp-4 font-display text-xs font-bold leading-snug">
+                    {active.title}
+                  </span>
+                </div>
+                <div className="min-w-0 space-y-2">
+                  {active.author ? (
+                    <p className="text-sm text-muted-foreground">by {active.author}</p>
+                  ) : null}
+                  <div className="flex flex-wrap gap-1.5">
+                    {active.subject?.name ? (
+                      <Badge variant="secondary" className="rounded-full">
+                        {active.subject.name}
+                      </Badge>
+                    ) : null}
+                    {active.class_level ? (
+                      <Badge variant="outline" className="rounded-full">
+                        {active.class_level}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {active.file_size ? `${formatBytes(active.file_size)} · ` : ""}
+                    Added {formatDate(active.created_at)}
+                  </p>
+                </div>
+              </div>
+              {active.description ? (
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {active.description}
+                </p>
+              ) : null}
+              <DialogFooter className="gap-2 sm:justify-between">
+                {canManage ? (
+                  <Button
+                    variant="ghost"
+                    className="rounded-full text-destructive"
+                    onClick={() => {
+                      const target = active;
+                      setActive(null);
+                      void deleteBook
+                        .mutateAsync({ id: target.id, file_path: target.file_path })
+                        .then(() => toast.success("Removed from library"))
+                        .catch((e: Error) => toast.error(e.message));
+                    }}
+                  >
+                    <Trash2 className="size-4" /> Remove
+                  </Button>
+                ) : (
+                  <span />
+                )}
+                {active.file_path ? (
+                  <Button
+                    className="rounded-full"
+                    disabled={downloading === active.id}
+                    onClick={() => void download(active)}
+                  >
+                    <Download className="size-4" />
+                    {downloading === active.id ? "Preparing…" : "Download"}
+                  </Button>
+                ) : null}
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

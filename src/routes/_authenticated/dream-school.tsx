@@ -144,23 +144,25 @@ function DreamSchoolPage() {
           ) : filtered.length ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filtered.map((school) => (
-                <article key={school.id} className="surface-card flex flex-col gap-3 p-5">
-                  <div className="flex items-start gap-3">
-                    <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <article key={school.id} className="surface-card flex flex-col gap-3 overflow-hidden p-0">
+                  <div className="relative flex items-end gap-3 bg-ink p-5 pt-10 text-ink-foreground">
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute -right-8 -top-10 size-32 rounded-full bg-ink-foreground/5"
+                    />
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-ink-foreground/10">
                       <Building2 className="size-5" />
                     </span>
                     <div className="min-w-0">
-                      <h2 className="truncate font-display text-base font-semibold">
-                        {school.name}
-                      </h2>
-                      <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                      <h2 className="truncate font-display text-base font-bold">{school.name}</h2>
+                      <p className="flex items-center gap-1 truncate text-xs text-ink-muted">
                         <MapPin className="size-3" />
                         {[school.city, school.country].filter(Boolean).join(", ")}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5 px-5">
                     <Badge variant="secondary" className="capitalize">
                       {school.category}
                     </Badge>
@@ -180,12 +182,12 @@ function DreamSchoolPage() {
                   </div>
 
                   {school.description ? (
-                    <p className="line-clamp-3 text-sm text-muted-foreground">
+                    <p className="line-clamp-3 px-5 text-sm text-muted-foreground">
                       {school.description}
                     </p>
                   ) : null}
 
-                  <div className="rounded-xl bg-secondary/50 px-3 py-2">
+                  <div className="mx-5 rounded-2xl bg-secondary/60 px-3 py-2">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">Fees</p>
                     <p className="text-sm font-medium">{feeLabel(school)}</p>
                     {school.fees_notes ? (
@@ -193,16 +195,16 @@ function DreamSchoolPage() {
                     ) : null}
                   </div>
 
-                  <div className="mt-auto flex items-center gap-2">
+                  <div className="mt-auto flex items-center gap-2 px-5 pb-5">
                     <Button
-                      className="flex-1"
+                      className="flex-1 rounded-full"
                       disabled={!school.admissions_open || appliedIds.has(school.id) || !canApply}
                       onClick={() => setTarget(school)}
                     >
                       {appliedIds.has(school.id) ? "Applied" : "Apply online"}
                     </Button>
                     {school.website ? (
-                      <Button variant="outline" size="icon" asChild>
+                      <Button variant="outline" size="icon" className="rounded-full" asChild>
                         <a
                           href={school.website}
                           target="_blank"
