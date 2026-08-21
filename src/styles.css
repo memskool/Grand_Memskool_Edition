@@ -174,7 +174,11 @@
   --ink: oklch(0.2 0 0);
   --ink-foreground: oklch(0.99 0 0);
   --ink-muted: oklch(0.74 0 0);
+  --brand-accent: oklch(0.62 0.2 275);
+  --brand-accent-foreground: oklch(1 0 0);
+  --brand-accent-soft: oklch(0.28 0.08 277);
   --gradient-brand: linear-gradient(135deg, oklch(1 0 0), oklch(0.82 0 0));
+  --gradient-accent: linear-gradient(135deg, oklch(0.62 0.2 275), oklch(0.7 0.16 268));
   --gradient-surface: linear-gradient(160deg, oklch(0.1 0 0), oklch(0.05 0 0));
   --shadow-soft: 0 4px 24px rgb(0 0 0 / 0.5);
   --shadow-brand: 0 4px 24px rgb(0 0 0 / 0.6);
