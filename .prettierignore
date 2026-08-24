@@ -2,6 +2,9 @@ node_modules
 dist
 .output
 .vinxi
+functions
+dataconnect
+supabase
 pnpm-lock.yaml
 package-lock.json
 bun.lock
