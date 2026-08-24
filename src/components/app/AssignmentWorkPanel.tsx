@@ -60,7 +60,11 @@ export function AssignmentWorkPanel({ studentId }: { studentId: string }) {
                     {a.description ? (
                       <p className="text-sm text-muted-foreground">{a.description}</p>
                     ) : null}
-                    <AskAiButton assignmentId={a.id} intent="ASSIGNMENT_HELP" label="Ask AI about this assignment" />
+                    <AskAiButton
+                      assignmentId={a.id}
+                      intent="ASSIGNMENT_HELP"
+                      label="Ask AI about this assignment"
+                    />
                     <Textarea
                       rows={3}
                       value={text}

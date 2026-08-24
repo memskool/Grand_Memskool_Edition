@@ -38,10 +38,12 @@ export const completeSignup = createServerFn({ method: "POST" })
     const now = new Date().toISOString();
     let schoolId: string | null = null;
     let membership: "owner" | "pending" | "approved" = "approved";
-    let storedRole: AppRole = data.role === "institution" ? "institution" : data.role;
+    const storedRole: AppRole = data.role === "institution" ? "institution" : data.role;
 
     if (data.role === "institution") {
-      const wanted = data.school_code ? codeKey(data.school_code) : `SCH-${uid.slice(0, 6).toUpperCase()}`;
+      const wanted = data.school_code
+        ? codeKey(data.school_code)
+        : `SCH-${uid.slice(0, 6).toUpperCase()}`;
       const dir = await db.collection("school_directory").doc(wanted).get();
       if (dir.exists) throw new Error("That School ID is already taken. Pick another one.");
       const schoolRef = db.collection("schools").doc();
@@ -77,7 +79,8 @@ export const completeSignup = createServerFn({ method: "POST" })
     } else if (data.school_code) {
       const wanted = codeKey(data.school_code);
       const dir = await db.collection("school_directory").doc(wanted).get();
-      if (!dir.exists) throw new Error("That School ID isn't on Memskool yet. Check it with your school.");
+      if (!dir.exists)
+        throw new Error("That School ID isn't on Memskool yet. Check it with your school.");
       schoolId = String(dir.get("school_id"));
 
       if (data.role === "student") {

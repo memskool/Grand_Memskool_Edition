@@ -1,7 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
-import { adminCol, adminCreate, adminDelete, adminGetById, adminSet } from "@/lib/firebase/admin-repo";
+import {
+  adminCol,
+  adminCreate,
+  adminDelete,
+  adminGetById,
+  adminSet,
+} from "@/lib/firebase/admin-repo";
 import { COLLECTIONS } from "@/lib/firebase/repo";
 import { adminAuth } from "@/lib/firebase/admin.server";
 import { isSchoolManager } from "@/types/roles";

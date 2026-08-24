@@ -13,7 +13,10 @@ export function useNotificationPreferences(userId: string | undefined) {
     queryKey: ["notification-preferences", userId],
     enabled: Boolean(userId),
     queryFn: async (): Promise<NotificationPreferences> => {
-      const byId = await getById<NotificationPreferences>(COLLECTIONS.notificationPreferences, userId!);
+      const byId = await getById<NotificationPreferences>(
+        COLLECTIONS.notificationPreferences,
+        userId!,
+      );
       return (
         byId ?? {
           user_id: userId!,

@@ -221,7 +221,9 @@ function AuthPage() {
     setLoading(true);
     try {
       await requestPasswordReset(email.trim());
-      toast.success("If that account exists, we sent a reset link from notifications@memskool.com.");
+      toast.success(
+        "If that account exists, we sent a reset link from notifications@memskool.com.",
+      );
       setMode("signin");
     } catch (error) {
       toast.error(friendlyAuthError(error));

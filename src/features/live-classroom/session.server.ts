@@ -83,9 +83,8 @@ async function notifyClass(input: {
     ),
   ].slice(0, 80);
   const now = new Date().toISOString();
-  const { createAndQueueNotification, dispatchNotifications } = await import(
-    "@/lib/notifications.server"
-  );
+  const { createAndQueueNotification, dispatchNotifications } =
+    await import("@/lib/notifications.server");
   await Promise.all(
     ids.map((userId) =>
       createAndQueueNotification({
@@ -111,7 +110,12 @@ export async function startLiveSessionHandler({
   if (context.role === "teacher" && !context.approved) {
     throw new Error("Your school has not approved your teacher account yet.");
   }
-  const cls = await assertCanHostClass(context.role, context.schoolId, context.userId, data.classId);
+  const cls = await assertCanHostClass(
+    context.role,
+    context.schoolId,
+    context.userId,
+    data.classId,
+  );
 
   const live = await adminWhere<SessionDoc>(
     COLLECTIONS.classroomSessions,
@@ -231,9 +235,8 @@ export async function endLiveSessionHandler({
     .filter((row) => row.status !== "ended" && !present.has(row.student_id))
     .map((row) => row.student_id)
     .slice(0, 80);
-  const { createAndQueueNotification, dispatchNotifications } = await import(
-    "@/lib/notifications.server"
-  );
+  const { createAndQueueNotification, dispatchNotifications } =
+    await import("@/lib/notifications.server");
   await Promise.all(
     absentees.map((userId) =>
       createAndQueueNotification({

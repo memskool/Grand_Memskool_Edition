@@ -56,9 +56,8 @@ export const setSchoolMemberStatus = createServerFn({ method: "POST" })
       approved: data.status === "approved",
     });
 
-    const { createAndQueueNotification, dispatchNotifications } = await import(
-      "./notifications.server"
-    );
+    const { createAndQueueNotification, dispatchNotifications } =
+      await import("./notifications.server");
     await createAndQueueNotification({
       userId: member.user_id,
       title: data.status === "approved" ? "School access approved" : "School access update",
@@ -90,9 +89,8 @@ export const remindSchoolApproval = createServerFn({ method: "POST" })
       data.schoolId,
     );
     if (!school?.owner_id) throw new Error("That school has no administrator to notify.");
-    const { createAndQueueNotification, dispatchNotifications } = await import(
-      "./notifications.server"
-    );
+    const { createAndQueueNotification, dispatchNotifications } =
+      await import("./notifications.server");
     await createAndQueueNotification({
       userId: school.owner_id,
       title: "Teacher waiting for approval",
@@ -176,9 +174,8 @@ export const linkParentStudent = createServerFn({ method: "POST" })
       false,
     );
 
-    const { createAndQueueNotification, dispatchNotifications } = await import(
-      "./notifications.server"
-    );
+    const { createAndQueueNotification, dispatchNotifications } =
+      await import("./notifications.server");
     await createAndQueueNotification({
       userId: data.parentId,
       title: "Child linked to your account",

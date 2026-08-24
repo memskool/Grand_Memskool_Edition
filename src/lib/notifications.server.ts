@@ -275,7 +275,10 @@ export async function queueEmailForUser(notificationId: string, userId: string) 
   const { COLLECTIONS } = await import("@/lib/firebase/repo");
 
   const deliveryId = `${notificationId}_email`;
-  const existing = await adminGetById<{ status?: string }>(COLLECTIONS.notificationDeliveries, deliveryId);
+  const existing = await adminGetById<{ status?: string }>(
+    COLLECTIONS.notificationDeliveries,
+    deliveryId,
+  );
   if (existing?.status === "pending" || existing?.status === "sent") return;
 
   const prefs = await adminGetById<{ email_enabled?: boolean }>(

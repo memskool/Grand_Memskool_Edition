@@ -19,7 +19,6 @@ export function MobileNav() {
   const links = navForRole(role, examActive, pendingApproval);
   const tabs = mobileTabsForRole(role, examActive, pendingApproval);
 
-
   return (
     <>
       {open ? (

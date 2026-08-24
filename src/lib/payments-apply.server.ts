@@ -46,9 +46,8 @@ export async function applyPaymentResult(verification: FlutterwaveVerification):
     });
   }
 
-  const { createAndQueueNotification, dispatchNotifications } = await import(
-    "./notifications.server"
-  );
+  const { createAndQueueNotification, dispatchNotifications } =
+    await import("./notifications.server");
   await createAndQueueNotification({
     userId: order.buyer_id,
     title: successful ? "Payment successful" : "Payment did not go through",

@@ -7,7 +7,8 @@ import { getStorage } from "firebase-admin/storage";
 import { getMessaging } from "firebase-admin/messaging";
 import { FIRESTORE_DATABASE_ID } from "./config";
 
-const PROJECT_ID = process.env["VITE_FIREBASE_PROJECT_ID"] || process.env["GCLOUD_PROJECT"] || "memskool-4e193";
+const PROJECT_ID =
+  process.env["VITE_FIREBASE_PROJECT_ID"] || process.env["GCLOUD_PROJECT"] || "memskool-4e193";
 
 /** JSON object string, or a path to a service-account .json file. Never a VITE_ var. */
 function loadServiceAccount(): Record<string, unknown> | null {
@@ -23,7 +24,9 @@ function createAdminApp(): App {
   const existing = getApps()[0];
   if (existing) return existing;
 
-  const emulator = Boolean(process.env["FIRESTORE_EMULATOR_HOST"] || process.env["FIREBASE_AUTH_EMULATOR_HOST"]);
+  const emulator = Boolean(
+    process.env["FIRESTORE_EMULATOR_HOST"] || process.env["FIREBASE_AUTH_EMULATOR_HOST"],
+  );
   if (emulator) {
     return initializeApp({ projectId: PROJECT_ID });
   }
@@ -35,14 +38,16 @@ function createAdminApp(): App {
     return initializeApp({
       credential: cert(serviceAccount),
       projectId,
-      storageBucket: process.env["VITE_FIREBASE_STORAGE_BUCKET"] || `${projectId}.firebasestorage.app`,
+      storageBucket:
+        process.env["VITE_FIREBASE_STORAGE_BUCKET"] || `${projectId}.firebasestorage.app`,
     });
   }
 
   return initializeApp({
     credential: applicationDefault(),
     projectId: PROJECT_ID,
-    storageBucket: process.env["VITE_FIREBASE_STORAGE_BUCKET"] || `${PROJECT_ID}.firebasestorage.app`,
+    storageBucket:
+      process.env["VITE_FIREBASE_STORAGE_BUCKET"] || `${PROJECT_ID}.firebasestorage.app`,
   });
 }
 

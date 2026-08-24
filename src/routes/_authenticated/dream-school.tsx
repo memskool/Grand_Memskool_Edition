@@ -144,7 +144,10 @@ function DreamSchoolPage() {
           ) : filtered.length ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filtered.map((school) => (
-                <article key={school.id} className="surface-card flex flex-col gap-3 overflow-hidden p-0">
+                <article
+                  key={school.id}
+                  className="surface-card flex flex-col gap-3 overflow-hidden p-0"
+                >
                   <div className="relative flex items-end gap-3 bg-ink p-5 pt-10 text-ink-foreground">
                     <span
                       aria-hidden

@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { GraduationCap } from "lucide-react";
 import { toast } from "sonner";
-import { confirmEmailVerification, getCurrentAuthUser } from "@/features/auth/services/auth.service";
+import {
+  confirmEmailVerification,
+  getCurrentAuthUser,
+} from "@/features/auth/services/auth.service";
 import { toUserMessage } from "@/lib/errors/app-error";
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/app/SiteFooter";

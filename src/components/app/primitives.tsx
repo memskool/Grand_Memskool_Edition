@@ -116,7 +116,6 @@ export function EmptyState({
   );
 }
 
-
 export function ListSkeleton({ rows = 3 }: { rows?: number }) {
   return (
     <div className="space-y-3">

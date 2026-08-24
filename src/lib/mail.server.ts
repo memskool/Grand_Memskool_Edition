@@ -109,7 +109,10 @@ export function renderAuthEmail(input: {
   return { subject: input.heading, html, text };
 }
 
-export async function sendResendEmail(to: string, payload: { subject: string; html: string; text: string }) {
+export async function sendResendEmail(
+  to: string,
+  payload: { subject: string; html: string; text: string },
+) {
   const config = emailConfig();
   if (!config) throw new DeliveryError("RESEND_API_KEY is not configured", false);
 
@@ -131,7 +134,10 @@ export async function sendResendEmail(to: string, payload: { subject: string; ht
   const json = (await response.json().catch(() => ({}))) as { id?: string; message?: string };
   if (!response.ok) {
     const retryable = response.status === 429 || response.status >= 500;
-    throw new DeliveryError(`Resend ${response.status}: ${json.message ?? "send failed"}`, retryable);
+    throw new DeliveryError(
+      `Resend ${response.status}: ${json.message ?? "send failed"}`,
+      retryable,
+    );
   }
   return json.id ?? null;
 }

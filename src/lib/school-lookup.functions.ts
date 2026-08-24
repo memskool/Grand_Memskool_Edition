@@ -14,7 +14,9 @@ export type SchoolLookupResult = {
  * beyond what Security Rules also allow on `school_directory`.
  */
 export const lookupSchoolByCode = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => z.object({ code: z.string().trim().min(2).max(64) }).parse(data))
+  .inputValidator((data: unknown) =>
+    z.object({ code: z.string().trim().min(2).max(64) }).parse(data),
+  )
   .handler(async ({ data }): Promise<SchoolLookupResult> => {
     try {
       const { adminDb } = await import("@/lib/firebase/admin.server");

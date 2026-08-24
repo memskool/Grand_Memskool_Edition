@@ -35,8 +35,12 @@ export const startCheckout = createServerFn({ method: "POST" })
       throw new Error("Your account is suspended and cannot make purchases.");
     }
 
-    const { requireFlutterwaveSecret, buildReference, createFlutterwaveCheckout, toProviderAmount } =
-      await import("./payments.server");
+    const {
+      requireFlutterwaveSecret,
+      buildReference,
+      createFlutterwaveCheckout,
+      toProviderAmount,
+    } = await import("./payments.server");
     requireFlutterwaveSecret();
 
     const item = await adminGetById<{

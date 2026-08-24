@@ -75,7 +75,10 @@ export async function signInEmail(email: string, password: string): Promise<Auth
   }
 }
 
-export async function signUpEmail(email: string, password: string): Promise<{ user: AuthUser; needsEmailConfirm: boolean }> {
+export async function signUpEmail(
+  email: string,
+  password: string,
+): Promise<{ user: AuthUser; needsEmailConfirm: boolean }> {
   try {
     const cred = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
     return { user: toAuthUser(cred.user), needsEmailConfirm: !cred.user.emailVerified };
@@ -127,7 +130,8 @@ export async function changePassword(newPassword: string): Promise<void> {
 
 export async function resendVerification(): Promise<void> {
   const user = getFirebaseAuth().currentUser;
-  if (!user) throw new AppError("auth", "Sign in first, then we can resend the confirmation email.");
+  if (!user)
+    throw new AppError("auth", "Sign in first, then we can resend the confirmation email.");
   const { sendVerificationEmail } = await import("./mail.functions");
   await sendVerificationEmail({
     data: { origin: window.location.origin },

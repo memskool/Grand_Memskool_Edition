@@ -37,13 +37,13 @@ export function useMyDisciplinaryActions(userId?: string) {
     queryKey: ["discipline", "mine", userId],
     enabled: !!userId,
     queryFn: async (): Promise<DisciplinaryAction[]> => {
-      const rows = await findMany<Omit<DisciplinaryAction, "student">>(COLLECTIONS.disciplinaryActions, [
-        where("student_id", "==", userId!),
-        orderBy("created_at", "desc"),
-      ]);
-      return Promise.all(rows.map((row) => attachNamedUser(row, row.student_id, "student"))) as Promise<
-        DisciplinaryAction[]
-      >;
+      const rows = await findMany<Omit<DisciplinaryAction, "student">>(
+        COLLECTIONS.disciplinaryActions,
+        [where("student_id", "==", userId!), orderBy("created_at", "desc")],
+      );
+      return Promise.all(
+        rows.map((row) => attachNamedUser(row, row.student_id, "student")),
+      ) as Promise<DisciplinaryAction[]>;
     },
   });
 }
@@ -66,9 +66,9 @@ export function useAllDisciplinaryActions(enabled: boolean) {
           ? [where("school_id", "==", schoolId), orderBy("created_at", "desc"), limit(100)]
           : [orderBy("created_at", "desc"), limit(100)],
       );
-      return Promise.all(rows.map((row) => attachNamedUser(row, row.student_id, "student"))) as Promise<
-        DisciplinaryAction[]
-      >;
+      return Promise.all(
+        rows.map((row) => attachNamedUser(row, row.student_id, "student")),
+      ) as Promise<DisciplinaryAction[]>;
     },
   });
 }

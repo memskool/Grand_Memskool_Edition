@@ -37,7 +37,12 @@ export function useAccess() {
     role: r,
     profile: profile.data,
     profileExists: isProfileComplete(profile.data),
-    accountState: loading || !profileReady || !roleReady ? ("loading" as const) : !user ? ("unauthenticated" as const) : state,
+    accountState:
+      loading || !profileReady || !roleReady
+        ? ("loading" as const)
+        : !user
+          ? ("unauthenticated" as const)
+          : state,
     loading: loading || !profileReady || !roleReady || (needsApproval && school.isLoading),
     schoolName: school.data?.name ?? null,
     schoolId: school.data?.id ?? null,

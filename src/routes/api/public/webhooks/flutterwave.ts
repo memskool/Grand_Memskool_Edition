@@ -37,9 +37,8 @@ export const Route = createFileRoute("/api/public/webhooks/flutterwave")({
         const txRef = payload.data?.tx_ref;
         if (!transactionId || !txRef) return new Response("Missing transaction", { status: 400 });
 
-        const { adminGetById, adminSet, adminUpdate, adminDelete } = await import(
-          "@/lib/firebase/admin-repo"
-        );
+        const { adminGetById, adminSet, adminUpdate, adminDelete } =
+          await import("@/lib/firebase/admin-repo");
         const { COLLECTIONS } = await import("@/lib/firebase/repo");
 
         const eventId = `${txRef}:${transactionId}:${payload.data?.status ?? "unknown"}`;

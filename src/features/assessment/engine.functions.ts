@@ -299,9 +299,8 @@ export const publishAssessment = createServerFn({ method: "POST" })
         "==",
         assessment.class_id,
       );
-      const { createAndQueueNotification, dispatchNotifications } = await import(
-        "@/lib/notifications.server"
-      );
+      const { createAndQueueNotification, dispatchNotifications } =
+        await import("@/lib/notifications.server");
       await Promise.all(
         enrolled
           .filter((row) => row.status !== "ended")
@@ -362,9 +361,8 @@ export const releaseAssessmentResults = createServerFn({ method: "POST" })
       "==",
       assessment.id,
     );
-    const { createAndQueueNotification, dispatchNotifications } = await import(
-      "@/lib/notifications.server"
-    );
+    const { createAndQueueNotification, dispatchNotifications } =
+      await import("@/lib/notifications.server");
     for (const row of attempts.filter((item) => item.submitted_at).slice(0, 80)) {
       const priv = await adminGetById<PrivateResult>(COLLECTIONS.assessmentResultPrivate, row.id);
       if (priv) {
@@ -665,9 +663,8 @@ export const submitAssessmentAttempt = createServerFn({ method: "POST" })
         topicScores: graded.topicScores,
       });
     }
-    const { createAndQueueNotification, dispatchNotifications } = await import(
-      "@/lib/notifications.server"
-    );
+    const { createAndQueueNotification, dispatchNotifications } =
+      await import("@/lib/notifications.server");
     await createAndQueueNotification({
       userId: context.userId,
       title: "Assessment submitted",

@@ -92,9 +92,8 @@ export const broadcastAnnouncement = createServerFn({ method: "POST" })
     if (recipients.size === 0) return { recipients: 0 };
 
     const now = new Date().toISOString();
-    const { createAndQueueNotification, dispatchNotifications } = await import(
-      "./notifications.server"
-    );
+    const { createAndQueueNotification, dispatchNotifications } =
+      await import("./notifications.server");
     await Promise.all(
       [...recipients].map((id) =>
         createAndQueueNotification({

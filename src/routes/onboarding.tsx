@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { completeSignup } from "@/features/auth/services/complete-signup.functions";
-import { getCurrentAuthUser, refreshAuthClaims, signOut } from "@/features/auth/services/auth.service";
+import {
+  getCurrentAuthUser,
+  refreshAuthClaims,
+  signOut,
+} from "@/features/auth/services/auth.service";
 import { ACCOUNT_TYPES, type AccountType } from "@/features/auth/account-types";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { lookupSchool, type SchoolSummary } from "@/lib/school-membership";
@@ -116,7 +120,11 @@ function OnboardingPage() {
         data: {
           full_name: fullName.trim(),
           role,
-          school_code: needsSchoolCode ? schoolCode.trim() : role === "institution" && wantedCode ? wantedCode : null,
+          school_code: needsSchoolCode
+            ? schoolCode.trim()
+            : role === "institution" && wantedCode
+              ? wantedCode
+              : null,
           student_code: role === "student" ? studentCode.trim() : null,
           school_name: role === "institution" ? schoolName.trim() : null,
         },
@@ -180,7 +188,9 @@ function OnboardingPage() {
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ob-name">{role === "institution" ? "Contact person's name" : "Full name"}</Label>
+              <Label htmlFor="ob-name">
+                {role === "institution" ? "Contact person's name" : "Full name"}
+              </Label>
               <Input
                 id="ob-name"
                 required
@@ -208,7 +218,9 @@ function OnboardingPage() {
                   value={schoolCode}
                   onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
                 />
-                <p className={`text-xs ${foundSchool ? "text-destructive" : "text-muted-foreground"}`}>
+                <p
+                  className={`text-xs ${foundSchool ? "text-destructive" : "text-muted-foreground"}`}
+                >
                   {checkingSchool
                     ? "Checking availability…"
                     : foundSchool

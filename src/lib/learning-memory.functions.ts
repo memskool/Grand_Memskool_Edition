@@ -61,7 +61,10 @@ async function askGateway(system: string, prompt: string): Promise<ModelPayload 
 
   const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
   const raw = json.choices?.[0]?.message?.content ?? "";
-  const cleaned = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  const cleaned = raw
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/, "")
+    .trim();
   try {
     return JSON.parse(cleaned) as ModelPayload;
   } catch {
@@ -90,9 +93,13 @@ async function replaceInsights(
   insights: ModelInsight[],
   fallbackTitle: string,
 ) {
-  const existing = await adminWhere<{ id: string }>(COLLECTIONS.aiInsights, "user_id", "==", userId, [
-    ["scope", "==", scope],
-  ]);
+  const existing = await adminWhere<{ id: string }>(
+    COLLECTIONS.aiInsights,
+    "user_id",
+    "==",
+    userId,
+    [["scope", "==", scope]],
+  );
   await Promise.all(existing.map((row) => adminCol(COLLECTIONS.aiInsights).doc(row.id).delete()));
   await Promise.all(
     insights.map((i) =>
@@ -134,21 +141,27 @@ export const refreshAiInsights = createServerFn({ method: "POST" })
       const attendance = classIds.length
         ? (
             await Promise.all(
-              classIds.slice(0, 10).map((classId) =>
-                adminWhere<{ status: string; class_id: string; date: string }>(
-                  COLLECTIONS.attendance,
-                  "class_id",
-                  "==",
-                  classId,
+              classIds
+                .slice(0, 10)
+                .map((classId) =>
+                  adminWhere<{ status: string; class_id: string; date: string }>(
+                    COLLECTIONS.attendance,
+                    "class_id",
+                    "==",
+                    classId,
+                  ),
                 ),
-              ),
             )
           ).flat()
         : [];
 
       const payload = await askGateway(
-        "You are Memskool's teaching assistant. Reply ONLY with JSON: {\"insights\":[{\"title\":string,\"body\":string,\"actionLabel\":string,\"actionLink\":string}]}. Give at most 3 insights. Each body is one or two short sentences naming a concrete class or topic and a suggested next step. actionLink must be one of /assessments, /timetable, /missed-work, /dashboard. Never invent data that is not in the input.",
-        JSON.stringify({ classes, assessments: assessments.slice(0, 15), attendance: attendance.slice(0, 300) }),
+        'You are Memskool\'s teaching assistant. Reply ONLY with JSON: {"insights":[{"title":string,"body":string,"actionLabel":string,"actionLink":string}]}. Give at most 3 insights. Each body is one or two short sentences naming a concrete class or topic and a suggested next step. actionLink must be one of /assessments, /timetable, /missed-work, /dashboard. Never invent data that is not in the input.',
+        JSON.stringify({
+          classes,
+          assessments: assessments.slice(0, 15),
+          attendance: attendance.slice(0, 300),
+        }),
       );
 
       const insights = (payload?.insights ?? []).slice(0, 3);
