@@ -1,108 +1,40 @@
-import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Sparkles,
-  Copy,
-  ExternalLink,
-  Maximize2,
-  RefreshCw,
-  ShieldAlert,
-  Wand2,
-  Brain,
-  ListChecks,
-  Target,
-  BookOpenCheck,
-  Lightbulb,
-} from "lucide-react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { ShieldAlert } from "lucide-react";
 import { useExamMode } from "@/lib/exam-mode";
-import { useSession } from "@/hooks/useAuth";
-import { useLearningProfile, useRefreshAiInsights } from "@/lib/learning-memory";
-import { RefreshCw as Refresh2 } from "lucide-react";
+import { AiTutorChat, type TutorLaunch } from "@/components/app/AiTutorChat";
+import type { AiIntent } from "@/types/ai";
+import { AI_INTENTS } from "@/types/ai";
 
-const CRANE5_URL = "https://crane5.com";
+type TutorSearch = {
+  lesson?: string | undefined;
+  assignment?: string | undefined;
+  missed?: string | undefined;
+  subject?: string | undefined;
+  intent?: string | undefined;
+};
 
-const QUICK_PROMPTS = [
-  {
-    icon: Brain,
-    label: "Explain like I'm 10",
-    text: "Explain this topic to me like I'm 10 years old, using a simple everyday example: ",
-  },
-  {
-    icon: ListChecks,
-    label: "Analyze my mistakes",
-    text: "Here is my work. Point out every mistake, explain why it's wrong, and show the correct step-by-step solution: ",
-  },
-  {
-    icon: Wand2,
-    label: "Generate a quiz",
-    text: "Generate a 10-question quiz (mix of multiple choice and short answer) with an answer key on this topic: ",
-  },
-  {
-    icon: Target,
-    label: "Exam strategy tip",
-    text: "Give me a practical exam strategy for answering questions on this topic under time pressure: ",
-  },
-  {
-    icon: BookOpenCheck,
-    label: "Summarise my notes",
-    text: "Summarise these notes into concise revision flashcards with key definitions: ",
-  },
-  {
-    icon: Lightbulb,
-    label: "Real-world example",
-    text: "Give me three real-world examples that show how this concept is actually used: ",
-  },
-] as const;
-
-/** How the tutor should respond — mirrors the Memskool tutoring modes. */
-const TUTOR_MODES = [
-  {
-    value: "guided",
-    label: "Guided",
-    instruction:
-      "Act as my tutor in GUIDED LEARNING MODE: walk me through this step by step, asking me one question at a time and waiting for my answer before moving on. Do not give the full answer up front.",
-  },
-  {
-    value: "hint",
-    label: "Hint only",
-    instruction:
-      "Act as my tutor in HINT MODE: give me only the smallest hint I need to continue on my own. No full solutions.",
-  },
-  {
-    value: "direct",
-    label: "Direct answer",
-    instruction:
-      "Act as my tutor in DIRECT ANSWER MODE: give the answer, then a clear explanation of how you got there.",
-  },
-  {
-    value: "exam",
-    label: "Exam prep",
-    instruction:
-      "Act as my tutor in EXAM PREPARATION MODE: show me how to approach questions like this under exam conditions — marking points, common traps and timing — without doing my work for me.",
-  },
-] as const;
-
-type TutorMode = (typeof TUTOR_MODES)[number]["value"];
+function parseTutorSearch(search: Record<string, unknown>): TutorSearch {
+  const str = (key: string) =>
+    typeof search[key] === "string" ? (search[key] as string) : undefined;
+  return {
+    ...(str("lesson") ? { lesson: str("lesson") } : {}),
+    ...(str("assignment") ? { assignment: str("assignment") } : {}),
+    ...(str("missed") ? { missed: str("missed") } : {}),
+    ...(str("subject") ? { subject: str("subject") } : {}),
+    ...(str("intent") ? { intent: str("intent") } : {}),
+  };
+}
 
 export const Route = createFileRoute("/_authenticated/ai-tutor")({
+  validateSearch: parseTutorSearch,
   head: () => ({
     meta: [
       { title: "AI Tutor — Memskool" },
       {
         name: "description",
         content:
-          "Study with the Crane5 AI teacher inside Memskool — quick prompts, instant explanations and practice questions.",
+          "Study with the Crane5 tutor inside Memskool, using your authorized class and lesson context.",
       },
-      { property: "og:title", content: "AI Tutor — Memskool" },
-      {
-        property: "og:description",
-        content: "Crane5 AI tutoring built right into your Memskool workspace.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: AiTutorPage,
@@ -110,32 +42,23 @@ export const Route = createFileRoute("/_authenticated/ai-tutor")({
 
 function AiTutorPage() {
   const examActive = useExamMode();
-  const [frameKey, setFrameKey] = useState(0);
-  const [mode, setMode] = useState<TutorMode>("guided");
-  const { user } = useSession();
-  const profile = useLearningProfile(user?.id);
-  const refresh = useRefreshAiInsights("student");
+  const search = Route.useSearch();
+  const intent = (AI_INTENTS as readonly string[]).includes(search.intent ?? "")
+    ? (search.intent as AiIntent)
+    : search.assignment
+      ? "ASSIGNMENT_HELP"
+      : search.missed
+        ? "MISSED_WORK_HELP"
+        : search.lesson
+          ? "EXPLAIN"
+          : "CHAT";
 
-  const buildPrompt = (text: string) => {
-    const instruction = TUTOR_MODES.find((m) => m.value === mode)!.instruction;
-    const weak = profile.data?.weak_topics ?? [];
-    const style = profile.data?.learning_style;
-    const memory = [
-      weak.length ? `Topics I currently struggle with: ${weak.join(", ")}.` : "",
-      style ? `My preferred explanation style: ${style}.` : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
-    return `${instruction}${memory ? `\n\n${memory}` : ""}\n\n${text}`;
-  };
-
-  const copyPrompt = async (text: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(buildPrompt(text));
-      toast.success(`"${label}" copied`, { description: "Paste it into the Crane5 chat." });
-    } catch {
-      toast.error("Clipboard blocked by your browser");
-    }
+  const launch: TutorLaunch = {
+    lessonId: search.lesson ?? null,
+    assignmentId: search.assignment ?? null,
+    missedWorkId: search.missed ?? null,
+    subjectId: search.subject ?? null,
+    intent,
   };
 
   if (examActive) {
@@ -146,187 +69,22 @@ function AiTutorPage() {
         </span>
         <h1 className="font-display text-2xl font-semibold">AI Tutor is locked</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          You have an examination in progress. Crane5 and all AI tools stay disabled until you
-          submit your paper.
+          You have an examination in progress. The tutor stays disabled until you submit your paper.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="relative">
-      {/* ambient glow */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-primary/25 blur-[110px]"
-      />
-
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <Badge className="mb-2 rounded-full bg-primary/12 text-primary hover:bg-primary/12">
-            <Sparkles className="mr-1 size-3" /> Powered by Crane5
-          </Badge>
-          <h1 className="font-display text-2xl font-semibold sm:text-3xl">AI Tutor</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Your always-on teacher. Ask anything, share your handwritten work, get it explained.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className="rounded-full"
-            onClick={() => setFrameKey((k) => k + 1)}
-          >
-            <RefreshCw className="size-4" /> Reload
-          </Button>
-          <Button
-            className="rounded-full"
-            onClick={() => window.open(CRANE5_URL, "_blank", "noopener,noreferrer")}
-          >
-            <Maximize2 className="size-4" /> Pop out
-          </Button>
-        </div>
+    <div>
+      <header className="mb-6">
+        <h1 className="font-display text-2xl font-semibold sm:text-3xl">AI Tutor</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Crane5 teaches inside Memskool. Only your authorized lessons, assignments and memory are
+          used.
+        </p>
       </header>
-
-      <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
-        {/* Webview */}
-        <div className="relative overflow-hidden rounded-3xl border border-white/15 bg-card/60 shadow-[0_24px_70px_-30px_color-mix(in_oklab,var(--primary)_55%,transparent)] backdrop-blur-xl">
-          <div className="flex items-center gap-2 border-b border-white/10 bg-white/5 px-4 py-2.5">
-            <span className="size-2.5 rounded-full bg-destructive/70" />
-            <span className="size-2.5 rounded-full bg-warning/80" />
-            <span className="size-2.5 rounded-full bg-success/80" />
-            <span className="ml-3 flex-1 truncate rounded-full bg-background/60 px-3 py-1 text-xs text-muted-foreground">
-              crane5.com
-            </span>
-            <a
-              href={CRANE5_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-muted-foreground transition-colors hover:text-foreground"
-              aria-label="Open Crane5 in a new tab"
-            >
-              <ExternalLink className="size-4" />
-            </a>
-          </div>
-          <iframe
-            key={frameKey}
-            src={CRANE5_URL}
-            title="Crane5 AI Tutor"
-            className="h-[70vh] min-h-[520px] w-full bg-background"
-            allow="clipboard-write; microphone; camera; fullscreen"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-
-        {/* Toolkit */}
-        <aside className="space-y-4">
-          <div className="rounded-3xl border border-white/15 bg-card/60 p-4 backdrop-blur-xl">
-            <div className="mb-3 flex items-start justify-between gap-2">
-              <div>
-                <h2 className="font-display text-sm font-semibold">Learning memory</h2>
-                <p className="text-xs text-muted-foreground">
-                  Memskool adds this to every prompt you copy.
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="size-8 shrink-0 rounded-full p-0"
-                aria-label="Refresh learning memory"
-                disabled={refresh.isPending}
-                onClick={() => refresh.mutate()}
-              >
-                <Refresh2 className={`size-4 ${refresh.isPending ? "animate-spin" : ""}`} />
-              </Button>
-            </div>
-            {profile.data?.weak_topics?.length || profile.data?.strong_topics?.length ? (
-              <div className="space-y-3 text-xs">
-                {profile.data.strong_topics.length ? (
-                  <div>
-                    <p className="mb-1 font-medium text-foreground">Strong areas</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {profile.data.strong_topics.map((t) => (
-                        <Badge key={t} variant="outline" className="rounded-full font-normal">
-                          {t}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {profile.data.weak_topics.length ? (
-                  <div>
-                    <p className="mb-1 font-medium text-foreground">Needs improvement</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {profile.data.weak_topics.map((t) => (
-                        <Badge
-                          key={t}
-                          className="rounded-full bg-warning/15 font-normal text-warning hover:bg-warning/15"
-                        >
-                          {t}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {profile.data.learning_style ? (
-                  <p className="text-muted-foreground">{profile.data.learning_style}</p>
-                ) : null}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                No learning memory yet. Refresh once you have classwork and results, and your
-                prompts will carry your weak topics automatically.
-              </p>
-            )}
-          </div>
-
-          <div className="rounded-3xl border border-white/15 bg-card/60 p-4 backdrop-blur-xl">
-            <h2 className="mb-1 font-display text-sm font-semibold">AI Toolkit</h2>
-            <p className="mb-3 text-xs text-muted-foreground">
-              Choose how the tutor should answer, then tap a prompt to copy it.
-            </p>
-            <div className="mb-3 grid grid-cols-2 gap-1.5">
-              {TUTOR_MODES.map((m) => (
-                <button
-                  key={m.value}
-                  type="button"
-                  onClick={() => setMode(m.value)}
-                  aria-pressed={mode === m.value}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    mode === m.value
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border/70 text-muted-foreground hover:border-primary/40"
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            <div className="space-y-2">
-              {QUICK_PROMPTS.map((p) => (
-                <button
-                  key={p.label}
-                  type="button"
-                  onClick={() => copyPrompt(p.text, p.label)}
-                  className="group flex w-full items-center gap-3 rounded-2xl border border-border/60 bg-background/50 px-3 py-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5"
-                >
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <p.icon className="size-4" />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.label}</span>
-                  <Copy className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-border/60 bg-secondary/40 p-4 text-xs leading-relaxed text-muted-foreground">
-            <p className="mb-1 font-medium text-foreground">Study smart</p>
-            Snap a photo of your handwritten work and upload it in the Crane5 chat — it can read
-            your steps and point out exactly where things went wrong.
-          </div>
-        </aside>
-      </div>
+      <AiTutorChat launch={launch} />
     </div>
   );
 }

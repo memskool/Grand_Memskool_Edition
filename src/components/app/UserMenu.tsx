@@ -1,9 +1,9 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { LogOut, User as UserIcon } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { LogOut, Settings, User as UserIcon } from "lucide-react";
+import { signOut } from "@/features/auth/services/auth.service";
 import { useSession, useProfile, useRole } from "@/hooks/useAuth";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -30,23 +30,27 @@ export function UserMenu() {
     .join("")
     .toUpperCase();
 
-  const signOut = async () => {
+  const onSignOut = async () => {
     await queryClient.cancelQueries();
     queryClient.clear();
-    await supabase.auth.signOut();
+    await signOut();
     navigate({ to: "/auth", replace: true });
   };
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2 sm:gap-3">
       {role ? (
-        <Badge variant="secondary" className="hidden rounded-full capitalize sm:inline-flex">
+        <Badge
+          variant="outline"
+          className="hidden rounded-full border-gold/40 bg-gold/10 capitalize text-foreground sm:inline-flex"
+        >
           {role}
         </Badge>
       ) : null}
       <DropdownMenu>
         <DropdownMenuTrigger className="rounded-full outline-none ring-ring focus-visible:ring-2">
           <Avatar className="size-9">
+            {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt="" /> : null}
             <AvatarFallback className="bg-primary/10 text-sm font-medium text-primary">
               {initials || <UserIcon className="size-4" />}
             </AvatarFallback>
@@ -58,7 +62,10 @@ export function UserMenu() {
             <div className="truncate text-xs font-normal text-muted-foreground">{user?.email}</div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={signOut}>
+          <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
+            <Settings className="mr-2 size-4" /> Settings
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onSignOut}>
             <LogOut className="mr-2 size-4" /> Sign out
           </DropdownMenuItem>
         </DropdownMenuContent>

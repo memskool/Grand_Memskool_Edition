@@ -37,42 +37,38 @@ export const Route = createFileRoute("/api/public/webhooks/flutterwave")({
         const txRef = payload.data?.tx_ref;
         if (!transactionId || !txRef) return new Response("Missing transaction", { status: 400 });
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { adminGetById, adminSet, adminUpdate, adminDelete } = await import(
+          "@/lib/firebase/admin-repo"
+        );
+        const { COLLECTIONS } = await import("@/lib/firebase/repo");
 
-        // Idempotency: the unique (provider, event_id) index rejects replays.
         const eventId = `${txRef}:${transactionId}:${payload.data?.status ?? "unknown"}`;
-        const { error: dupe } = await supabaseAdmin.from("payment_events").insert({
+        const existing = await adminGetById(COLLECTIONS.paymentEvents, eventId);
+        if (existing) {
+          return Response.json({ received: true, duplicate: true });
+        }
+        await adminSet(COLLECTIONS.paymentEvents, eventId, {
           provider: "flutterwave",
           event_id: eventId,
           event_type: payload.event ?? null,
           order_reference: txRef,
           status: payload.data?.status ?? null,
           payload: JSON.parse(raw) as never,
+          created_at: new Date().toISOString(),
         });
-        if (dupe) {
-          // Already seen this exact event — acknowledge without reprocessing.
-          return Response.json({ received: true, duplicate: true });
-        }
 
         try {
           const { verifyFlutterwaveTransaction } = await import("@/lib/payments.server");
           const { applyPaymentResult } = await import("@/lib/payments-apply.server");
           const verification = await verifyFlutterwaveTransaction(transactionId);
           const status = await applyPaymentResult(verification);
-          await supabaseAdmin
-            .from("payment_events")
-            .update({ processed_at: new Date().toISOString() })
-            .eq("provider", "flutterwave")
-            .eq("event_id", eventId);
+          await adminUpdate(COLLECTIONS.paymentEvents, eventId, {
+            processed_at: new Date().toISOString(),
+          });
           return Response.json({ received: true, status });
         } catch (error) {
           console.error("flutterwave webhook processing failed", error);
-          // 500 makes Flutterwave retry; the event row stays unprocessed.
-          await supabaseAdmin
-            .from("payment_events")
-            .delete()
-            .eq("provider", "flutterwave")
-            .eq("event_id", eventId);
+          await adminDelete(COLLECTIONS.paymentEvents, eventId);
           return new Response("Processing failed", { status: 500 });
         }
       },

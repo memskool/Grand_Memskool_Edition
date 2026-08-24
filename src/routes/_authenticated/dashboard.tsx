@@ -1,11 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { lazy, Suspense } from "react";
 import { useSession, useProfile, useRole } from "@/hooks/useAuth";
 import { PageHeader, ListSkeleton } from "@/components/app/primitives";
-import { StudentDashboard } from "@/components/dashboards/StudentDashboard";
-import { TeacherDashboard } from "@/components/dashboards/TeacherDashboard";
-import { ParentDashboard } from "@/components/dashboards/ParentDashboard";
-import { AdminDashboard } from "@/components/dashboards/AdminDashboard";
-import { InstitutionDashboard } from "@/components/dashboards/InstitutionDashboard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -28,12 +24,36 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
 });
 
+const StudentDashboard = lazy(() =>
+  import("@/components/dashboards/StudentDashboard").then((m) => ({ default: m.StudentDashboard })),
+);
+const TeacherDashboard = lazy(() =>
+  import("@/components/dashboards/TeacherDashboard").then((m) => ({ default: m.TeacherDashboard })),
+);
+const ParentDashboard = lazy(() =>
+  import("@/components/dashboards/ParentDashboard").then((m) => ({ default: m.ParentDashboard })),
+);
+const AdminDashboard = lazy(() =>
+  import("@/components/dashboards/AdminDashboard").then((m) => ({ default: m.AdminDashboard })),
+);
+const InstitutionDashboard = lazy(() =>
+  import("@/components/dashboards/InstitutionDashboard").then((m) => ({
+    default: m.InstitutionDashboard,
+  })),
+);
+const SuperadminDashboard = lazy(() =>
+  import("@/components/dashboards/SuperadminDashboard").then((m) => ({
+    default: m.SuperadminDashboard,
+  })),
+);
+
 const SUBTITLES: Record<string, string> = {
   student: "Your classes, work and locker at a glance.",
   teacher: "Your teaching day, grading queue and classes.",
   parent: "Attendance and performance for your child.",
   admin: "School-wide overview of people and classes.",
   institution: "Your school: members, approvals and admissions.",
+  superadmin: "Platform operator — school workspaces stay separate.",
 };
 
 function DashboardPage() {
@@ -53,17 +73,21 @@ function DashboardPage() {
         title={firstName ? `Welcome back, ${firstName}` : "Welcome back"}
         subtitle={SUBTITLES[role ?? "student"] ?? ""}
       />
-      {role === "teacher" ? (
-        <TeacherDashboard user={user} />
-      ) : role === "parent" ? (
-        <ParentDashboard user={user} />
-      ) : role === "institution" ? (
-        <InstitutionDashboard user={user} />
-      ) : role === "admin" ? (
-        <AdminDashboard />
-      ) : (
-        <StudentDashboard user={user} />
-      )}
+      <Suspense fallback={<ListSkeleton rows={6} />}>
+        {role === "teacher" ? (
+          <TeacherDashboard user={user} />
+        ) : role === "parent" ? (
+          <ParentDashboard user={user} />
+        ) : role === "institution" ? (
+          <InstitutionDashboard user={user} />
+        ) : role === "admin" ? (
+          <AdminDashboard />
+        ) : role === "superadmin" ? (
+          <SuperadminDashboard />
+        ) : (
+          <StudentDashboard user={user} />
+        )}
+      </Suspense>
     </>
   );
 }

@@ -12,6 +12,14 @@ import { useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { AuthProvider } from "@/hooks/useAuth";
+import { ThemeProvider } from "@/components/app/ThemeToggle";
+import { NavigationProgress } from "@/components/app/NavigationProgress";
+
+const FONT_HREF =
+  "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap";
+
+const THEME_BOOT = `(function(){try{var t=localStorage.getItem("memskool-theme");if(t!=="dark"&&t!=="light"){t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(t==="dark")document.documentElement.classList.add("dark");document.documentElement.style.colorScheme=t}catch(e){}})();`;
 
 function NotFoundComponent() {
   return (
@@ -85,14 +93,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Memskool is a complete digital school: classes, locker, assessments, live classrooms and school life in one branded platform.",
       },
       { name: "author", content: "Memskool" },
-      { name: "theme-color", content: "#000000" },
+      { name: "theme-color", content: "#0B1C3A" },
+      { name: "color-scheme", content: "light dark" },
       { property: "og:title", content: "Memskool — Digital eSchool Platform" },
       {
         property: "og:description",
         content: "Classes, locker, assessments and live classrooms in one platform.",
       },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:image", content: "/memskool-logo.png" },
+      { name: "twitter:card", content: "summary" },
+      { name: "twitter:image", content: "/memskool-logo.png" },
     ],
 
     links: [
@@ -102,11 +113,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",
-      },
+      { rel: "preload", as: "style", href: FONT_HREF },
+      { rel: "stylesheet", href: FONT_HREF },
       { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/memskool-logo.png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
   shellComponent: RootShell,
@@ -117,11 +128,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
         <HeadContent />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         {children}
         <Scripts />
       </body>
@@ -134,9 +146,13 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
-      <Toaster />
+      <ThemeProvider>
+        <AuthProvider>
+          <NavigationProgress />
+          <Outlet />
+          <Toaster />
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

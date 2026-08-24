@@ -1,7 +1,8 @@
 import { useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import type { AuthUser } from "@/types/roles";
 import { Users, GraduationCap, ClipboardList, Building2, Copy, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { authErrorMessage } from "@/lib/errors/auth-errors";
 import {
   useMySchool,
   useSchoolMembers,
@@ -21,7 +22,7 @@ function memberName(u: unknown): string {
   return m?.full_name || m?.email || "New member";
 }
 
-export function InstitutionDashboard({ user }: { user: User }) {
+export function InstitutionDashboard({ user }: { user: AuthUser }) {
   const school = useMySchool(user.id);
   const schoolId = school.data?.id;
   const members = useSchoolMembers(schoolId);
@@ -74,18 +75,14 @@ export function InstitutionDashboard({ user }: { user: User }) {
                         setEditing(false);
                         toast.success(`School ID updated to ${next}`);
                       },
-                      onError: (e: Error) => toast.error(e.message),
+                      onError: (e) => toast.error(authErrorMessage(e)),
                     },
                   )
                 }
               >
                 Save
               </Button>
-              <Button
-                variant="ghost"
-                className="rounded-full"
-                onClick={() => setEditing(false)}
-              >
+              <Button variant="ghost" className="rounded-full" onClick={() => setEditing(false)}>
                 Cancel
               </Button>
             </div>
@@ -142,10 +139,7 @@ export function InstitutionDashboard({ user }: { user: User }) {
         />
       </div>
 
-      <Panel
-        title="Join requests"
-        description="Approve the people who asked to join your school"
-      >
+      <Panel title="Join requests" description="Approve the people who asked to join your school">
         {members.isLoading ? (
           <ListSkeleton rows={2} />
         ) : pending.length === 0 ? (
@@ -162,9 +156,7 @@ export function InstitutionDashboard({ user }: { user: User }) {
                 className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-secondary/50 px-4 py-3"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
-                    {memberName(m.user)}
-                  </p>
+                  <p className="truncate text-sm font-medium">{memberName(m.user)}</p>
                   <p className="text-xs capitalize text-muted-foreground">
                     {m.role}
                     {m.student_code ? ` · ${m.student_code}` : ""}

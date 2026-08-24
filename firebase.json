@@ -1,0 +1,52 @@
+{
+  "firestore": {
+    "database": "default",
+    "location": "africa-south1",
+    "edition": "enterprise",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "disallowLegacyRuntimeConfig": true,
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ],
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "auth": {
+    "authorizedDomains": [
+      "localhost",
+      "127.0.0.1",
+      "memskool-4e193.firebaseapp.com",
+      "memskool-4e193.web.app"
+    ],
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Memskool",
+        "supportEmail": "memskool6@gmail.com"
+      }
+    }
+  },
+  "emulators": {
+    "auth": { "port": 9099 },
+    "functions": { "port": 5001 },
+    "firestore": { "port": 8080 },
+    "storage": { "port": 9199 },
+    "ui": { "enabled": true, "port": 4000 },
+    "singleProjectMode": true,
+    "dataconnect": {
+      "dataDir": "dataconnect/.dataconnect/pgliteData"
+    }
+  },
+  "dataconnect": {
+    "source": "dataconnect"
+  }
+}

@@ -3,20 +3,23 @@ import { AiInsightPanel } from "@/components/app/AiInsightPanel";
 import { RewardsWidget } from "@/components/app/RewardsWidget";
 import { MyBehaviourPanel } from "@/components/app/MyBehaviourPanel";
 import { PerformanceAnalytics } from "@/components/app/PerformanceAnalytics";
+import { Link } from "@tanstack/react-router";
 import { ClipboardList, Archive, BookOpen } from "lucide-react";
 import { ClassCardGrid } from "@/components/dashboards/ClassCards";
 import { ScheduleRail } from "@/components/app/ScheduleRail";
-import type { User } from "@supabase/supabase-js";
+import type { AuthUser } from "@/types/roles";
 import {
   useMyEnrolledClasses,
   useUpcomingSlots,
   useMyAssignments,
   useMyLocker,
 } from "@/lib/school-data";
+import { AssignmentWorkPanel } from "@/components/app/AssignmentWorkPanel";
 import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
+import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
 
-export function StudentDashboard({ user }: { user: User }) {
+export function StudentDashboard({ user }: { user: AuthUser }) {
   const classes = useMyEnrolledClasses(user.id);
   const slots = useUpcomingSlots(user.id);
   const assignments = useMyAssignments(user.id);
@@ -59,34 +62,24 @@ export function StudentDashboard({ user }: { user: User }) {
             <ClassCardGrid
               classes={classes.data ?? []}
               loading={classes.isLoading}
-              emptyHint="Once your school enrols you in a class it shows up here."
+              emptyHint="Once your school enrols you in a class it shows up here. Until then, open your locker or ask the AI Tutor a question from a lesson you already have."
             />
+            {!classes.isLoading && !classes.data?.length ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button asChild className="rounded-full" variant="outline" size="sm">
+                  <Link to="/locker">Open locker</Link>
+                </Button>
+                <Button asChild className="rounded-full" variant="outline" size="sm">
+                  <Link to="/ai-tutor">Ask the AI Tutor</Link>
+                </Button>
+                <Button asChild className="rounded-full" variant="outline" size="sm">
+                  <Link to="/messages">Message your school</Link>
+                </Button>
+              </div>
+            ) : null}
           </Panel>
 
-          <Panel title="Pending assignments" description="Work that still needs handing in">
-            {assignments.isLoading ? (
-              <ListSkeleton />
-            ) : pending.length ? (
-              <ul className="space-y-2">
-                {pending.slice(0, 6).map((a) => (
-                  <li
-                    key={a.id}
-                    className="flex items-center justify-between rounded-2xl bg-secondary/60 px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{a.title}</p>
-                      <p className="text-xs text-muted-foreground">{a.class?.name}</p>
-                    </div>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {a.due_at ? formatDate(a.due_at) : "No due date"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState icon={ClipboardList} title="You're all caught up" />
-            )}
-          </Panel>
+          <AssignmentWorkPanel studentId={user.id} />
         </div>
 
         <ScheduleRail

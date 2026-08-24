@@ -1,58 +1,87 @@
-import { useEffect, useState } from "react";
-import type { Session, User } from "@supabase/supabase-js";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getFirebaseAuth } from "@/lib/firebase/client";
+import { subscribeAuth, getCurrentAuthUser } from "@/features/auth/services/auth.service";
+import { COLLECTIONS, getById } from "@/lib/firebase/repo";
+import type { AppRole, AuthUser } from "@/types/roles";
+import type { UserProfile } from "@/types/user";
+import { claimsRoleToAppRole } from "@/types/roles";
 
-export type AppRole = "student" | "teacher" | "parent" | "admin" | "institution";
+export type { AppRole, AuthUser };
 
-export function useSession() {
-  const [session, setSession] = useState<Session | null>(null);
+type SessionValue = {
+  session: AuthUser | null;
+  user: AuthUser | null;
+  loading: boolean;
+};
+
+const SessionContext = createContext<SessionValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
+    let active = true;
+    void getCurrentAuthUser()
+      .then((current) => {
+        if (!active) return;
+        setUser(current);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setUser(null);
+        setLoading(false);
+      });
+    const unsub = subscribeAuth((next) => {
+      setUser(next);
       setLoading(false);
     });
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      active = false;
+      unsub();
+    };
   }, []);
 
-  return { session, user: session?.user ?? null, loading };
+  return (
+    <SessionContext.Provider value={{ session: user, user, loading }}>{children}</SessionContext.Provider>
+  );
 }
 
-export function useProfile(user: User | null) {
+export function useSession(): SessionValue {
+  const ctx = useContext(SessionContext);
+  if (ctx) return ctx;
+  return { session: null, user: null, loading: true };
+}
+
+export function useProfile(user: AuthUser | null) {
+  const id = user?.id;
   return useQuery({
-    queryKey: ["profile", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, avatar_url")
-        .eq("id", user!.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
+    queryKey: ["profile", id],
+    enabled: !!id,
+    staleTime: 5 * 60_000,
+    queryFn: async () => getById<UserProfile>(COLLECTIONS.users, id!),
   });
 }
 
-export function useRole(user: User | null) {
+export function useRole(user: AuthUser | null) {
+  const id = user?.id;
   return useQuery({
-    queryKey: ["role", user?.id],
-    enabled: !!user,
-    queryFn: async (): Promise<AppRole> => {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user!.id);
-      if (error) throw error;
-      const roles = (data ?? []).map((r) => r.role as AppRole);
-      const priority: AppRole[] = ["admin", "institution", "teacher", "parent", "student"];
-      return priority.find((p) => roles.includes(p)) ?? "student";
+    queryKey: ["role", id],
+    enabled: !!id,
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<AppRole | null> => {
+      const authUser = getFirebaseAuth().currentUser;
+      if (authUser) {
+        const token = await authUser.getIdTokenResult();
+        if (typeof token.claims["role"] === "string" && token.claims["role"]) {
+          return claimsRoleToAppRole(token.claims["role"]);
+        }
+      }
+      const row = await getById<UserProfile>(COLLECTIONS.users, id!);
+      if (!row?.role) return null;
+      return row.role === "admin" ? "institution" : row.role;
     },
   });
 }

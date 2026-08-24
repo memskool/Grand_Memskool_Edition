@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Panel } from "@/components/app/primitives";
+import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { REWARD_LABELS, summarise, useDailyCheckIn, useRewardEvents } from "@/lib/rewards-data";
 
 export function RewardsWidget({
@@ -65,7 +66,7 @@ export function RewardsWidget({
         onClick={() =>
           checkIn.mutate(undefined, {
             onSuccess: () => toast.success("Checked in — +5 points"),
-            onError: (e) => toast.error(e instanceof Error ? e.message : "Check-in failed"),
+            onError: (e) => toast.error(authErrorMessage(e)),
           })
         }
       >
@@ -114,7 +115,7 @@ export function RewardsWidget({
                 {REWARD_LABELS[e.kind] ?? e.kind}
                 {e.note ? ` · ${e.note}` : ""}
               </span>
-              <span className="shrink-0 font-medium text-primary">+{e.points}</span>
+              <span className="shrink-0 font-medium text-gold">+{e.points}</span>
             </li>
           ))}
         </ul>

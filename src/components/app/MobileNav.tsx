@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Menu, X, Search } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useExamMode } from "@/lib/exam-mode";
 import { useSession, useProfile } from "@/hooks/useAuth";
@@ -11,16 +11,12 @@ import { BrandMark } from "@/components/app/BrandMark";
 export function MobileNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
   const examActive = useExamMode();
   const { user } = useSession();
   const { role, pendingApproval } = useAccess();
   const { data: profile } = useProfile(user);
 
-  const allLinks = navForRole(role, examActive, pendingApproval);
-  const links = allLinks.filter((l) =>
-    l.title.toLowerCase().includes(query.trim().toLowerCase()),
-  );
+  const links = navForRole(role, examActive, pendingApproval);
   const tabs = mobileTabsForRole(role, examActive, pendingApproval);
 
 
@@ -55,19 +51,6 @@ export function MobileNav() {
               </button>
             </div>
 
-            <div className="px-5 pb-1 pt-4">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink-muted" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search"
-                  aria-label="Search menu"
-                  className="h-11 w-full rounded-full bg-ink-foreground/10 pl-11 pr-4 text-sm text-ink-foreground outline-none placeholder:text-ink-muted focus:ring-2 focus:ring-brand-accent"
-                />
-              </div>
-            </div>
-
             <nav className="flex-1 overflow-y-auto p-3">
               <ul className="space-y-1">
                 {links.map((item) => {
@@ -75,15 +58,13 @@ export function MobileNav() {
                   return (
                     <li key={item.url}>
                       <Link
+                        preload="intent"
                         to={item.url}
-                        onClick={() => {
-                          setOpen(false);
-                          setQuery("");
-                        }}
+                        onClick={() => setOpen(false)}
                         className={cn(
-                          "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors",
+                          "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors duration-150",
                           active
-                            ? "accent-gradient shadow-[0_10px_24px_-12px_var(--brand-accent)]"
+                            ? "bg-gold text-gold-foreground"
                             : "text-ink-foreground/85 hover:bg-ink-foreground/10",
                         )}
                       >
@@ -93,12 +74,8 @@ export function MobileNav() {
                     </li>
                   );
                 })}
-                {links.length === 0 ? (
-                  <li className="px-4 py-6 text-center text-sm text-ink-muted">No matches</li>
-                ) : null}
               </ul>
             </nav>
-
           </div>
         </div>
       ) : null}
@@ -113,16 +90,17 @@ export function MobileNav() {
             return (
               <li key={item.url} className="flex-1">
                 <Link
+                  preload="intent"
                   to={item.url}
                   className={cn(
-                    "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
-                    active ? "text-brand-accent" : "text-muted-foreground",
+                    "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors duration-150",
+                    active ? "text-primary" : "text-muted-foreground",
                   )}
                 >
                   <span
                     className={cn(
-                      "flex h-7 w-12 items-center justify-center rounded-full transition-all",
-                      active && "accent-gradient",
+                      "flex h-8 w-12 items-center justify-center rounded-full transition-all",
+                      active && "bg-primary text-primary-foreground",
                     )}
                   >
                     <item.icon className="size-[18px]" />
@@ -139,13 +117,13 @@ export function MobileNav() {
               aria-expanded={open}
               className={cn(
                 "flex w-full flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
-                open ? "text-brand-accent" : "text-muted-foreground",
+                open ? "text-primary" : "text-muted-foreground",
               )}
             >
               <span
                 className={cn(
-                  "flex h-7 w-12 items-center justify-center rounded-full transition-all",
-                  open && "accent-gradient",
+                  "flex h-8 w-12 items-center justify-center rounded-full transition-all",
+                  open && "bg-primary text-primary-foreground",
                 )}
               >
                 <Menu className="size-[18px]" />

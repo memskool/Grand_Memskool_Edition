@@ -12,8 +12,8 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export function AdminDashboard() {
-  const overview = useSchoolOverview(true);
   const { user } = useSession();
+  const overview = useSchoolOverview(user?.id);
 
   return (
     <div className="space-y-6">

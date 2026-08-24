@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { COLLECTIONS, findMany, where, orderBy, limit } from "@/lib/firebase/repo";
+import { recordDailyCheckIn } from "@/lib/rewards.functions";
+import { classifyFirebase } from "@/lib/errors/app-error";
 
 export type RewardEvent = {
   id: string;
@@ -52,14 +54,11 @@ export function useRewardEvents(studentId?: string) {
     queryKey: ["reward-events", studentId],
     enabled: !!studentId,
     queryFn: async (): Promise<RewardEvent[]> => {
-      const { data, error } = await supabase
-        .from("reward_events")
-        .select("id, kind, points, note, created_at")
-        .eq("student_id", studentId!)
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (error) throw error;
-      return (data ?? []) as RewardEvent[];
+      return findMany<RewardEvent>(COLLECTIONS.rewardEvents, [
+        where("student_id", "==", studentId!),
+        orderBy("created_at", "desc"),
+        limit(200),
+      ]);
     },
   });
 }
@@ -132,13 +131,11 @@ export function useDailyCheckIn(studentId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("reward_events").insert({
-        student_id: studentId!,
-        kind: "daily_checkin",
-        points: 5,
-        note: "Daily check-in",
-      });
-      if (error) throw error;
+      try {
+        return await recordDailyCheckIn();
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["reward-events", studentId] }),
   });

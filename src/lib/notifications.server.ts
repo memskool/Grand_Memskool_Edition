@@ -1,26 +1,28 @@
 /**
  * Server-only notification delivery.
  *
- * The `notifications` table stays the single source of truth: a database
- * trigger fans every new notification out into `notification_deliveries`
- * rows (one per channel, unique per notification+channel). This module is the
- * worker that drains those rows through Resend (email) and Africa's Talking
- * (SMS).
+ * In-app `notifications` stay the source of truth. Spark cannot run the
+ * Firestore trigger in `functions/`, so callers enqueue `notification_deliveries`
+ * with `createAndQueueNotification` and then `dispatchNotifications()`.
  *
  * Guarantees:
  *  - Idempotent: a delivery row is claimed before sending and can only reach
- *    `sent` once; the unique (notification_id, channel) index stops duplicates
- *    even if an upstream event is replayed.
+ *    `sent` once; deterministic delivery ids stop duplicate email rows.
  *  - Retry-safe: transient failures get exponential backoff up to MAX_ATTEMPTS.
  *  - Non-blocking: callers use `dispatchNotifications()` fire-and-forget so an
  *    email/SMS outage never fails a payment, grade or application update.
  *  - Never logs credentials, message bodies or student PII beyond an id.
  */
 
+import "@tanstack/react-start/server-only";
+import { DeliveryError, emailConfig, sendResendEmail } from "@/lib/mail.server";
+
 const MAX_ATTEMPTS = 4;
 const BATCH_SIZE = 25;
-const RESEND_API = "https://api.resend.com/emails";
+const DRAIN_BATCHES = 12;
 const AT_API = "https://api.africastalking.com/version1/messaging";
+
+export { DeliveryError, emailConfig };
 
 export type DeliveryRow = {
   id: string;
@@ -29,6 +31,7 @@ export type DeliveryRow = {
   channel: "email" | "sms";
   destination: string;
   attempts: number;
+  next_attempt_at?: string;
   notifications: {
     title: string;
     body: string | null;
@@ -40,12 +43,6 @@ export type DeliveryRow = {
 /* ------------------------------------------------------------------ */
 /* Provider configuration                                              */
 /* ------------------------------------------------------------------ */
-
-export function emailConfig() {
-  const apiKey = process.env["RESEND_API_KEY"];
-  const from = process.env["RESEND_FROM"] ?? "Memskool <notifications@memskool.com>";
-  return apiKey ? { apiKey, from } : null;
-}
 
 export function smsConfig() {
   const apiKey = process.env["AFRICASTALKING_API_KEY"];
@@ -71,6 +68,7 @@ const KIND_LABEL: Record<string, string> = {
   meeting: "School meeting",
   announcement: "School announcement",
   security: "Account security",
+  live_class: "Live class",
 };
 
 function escapeHtml(value: string): string {
@@ -92,18 +90,18 @@ export function renderEmail(input: {
   const url = input.link ? `${appOrigin()}${input.link}` : appOrigin();
   const body = input.body ?? "";
 
-  const html = `<!doctype html><html><body style="margin:0;background:#f5f5f7;font-family:'Helvetica Neue',Arial,sans-serif;color:#1c1b22">
+  const html = `<!doctype html><html><body style="margin:0;background:#f6f5f2;font-family:'Helvetica Neue',Arial,sans-serif;color:#111827">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px">
     <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 30px rgba(30,20,70,.08)">
-        <tr><td style="background:linear-gradient(120deg,#4c1d95,#0f766e);padding:24px 28px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:20px;overflow:hidden;border:1px solid #e8e6e1">
+        <tr><td style="background:#0B1C3A;padding:24px 28px">
           <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:-.02em">Memskool</span>
-          <div style="color:#e9d5ff;font-size:12px;margin-top:4px">${escapeHtml(label)}</div>
+          <div style="color:#C4A035;font-size:11px;margin-top:6px;letter-spacing:.16em;text-transform:uppercase">${escapeHtml(label)}</div>
         </td></tr>
         <tr><td style="padding:28px">
           <h1 style="margin:0 0 12px;font-size:20px;line-height:1.3">${escapeHtml(input.title)}</h1>
-          <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#4b4a55">${escapeHtml(body)}</p>
-          <a href="${escapeHtml(url)}" style="display:inline-block;background:#4c1d95;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:999px;font-size:14px;font-weight:600">Open Memskool</a>
+          <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#4b5563">${escapeHtml(body)}</p>
+          <a href="${escapeHtml(url)}" style="display:inline-block;background:#0B1C3A;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:999px;font-size:14px;font-weight:600">Open Memskool</a>
         </td></tr>
         <tr><td style="padding:18px 28px;border-top:1px solid #eeedf2;font-size:12px;color:#8b8a96">
           You are receiving this because of activity on your Memskool account. Manage email and SMS alerts in Settings.
@@ -126,43 +124,8 @@ export function renderSms(input: { title: string; body: string | null }): string
 /* Providers                                                           */
 /* ------------------------------------------------------------------ */
 
-export class DeliveryError extends Error {
-  retryable: boolean;
-  constructor(message: string, retryable = true) {
-    super(message);
-    this.retryable = retryable;
-  }
-}
-
 export async function sendEmail(to: string, payload: ReturnType<typeof renderEmail>) {
-  const config = emailConfig();
-  if (!config) throw new DeliveryError("RESEND_API_KEY is not configured", false);
-
-  const response = await fetch(RESEND_API, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${config.apiKey}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      from: config.from,
-      to: [to],
-      subject: payload.subject,
-      html: payload.html,
-      text: payload.text,
-    }),
-  });
-
-  const json = (await response.json().catch(() => ({}))) as { id?: string; message?: string };
-  if (!response.ok) {
-    // 4xx (bad address, unverified domain) is permanent; 429/5xx is retryable.
-    const retryable = response.status === 429 || response.status >= 500;
-    throw new DeliveryError(
-      `Resend ${response.status}: ${json.message ?? "send failed"}`,
-      retryable,
-    );
-  }
-  return json.id ?? null;
+  return sendResendEmail(to, payload);
 }
 
 export async function sendSms(to: string, message: string) {
@@ -213,38 +176,40 @@ function backoffMinutes(attempts: number) {
 }
 
 export async function processPendingDeliveries(limit = BATCH_SIZE) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { adminCol, adminGetById, adminUpdate } = await import("@/lib/firebase/admin-repo");
+  const { COLLECTIONS } = await import("@/lib/firebase/repo");
   const hasEmail = Boolean(emailConfig());
   const hasSms = Boolean(smsConfig());
 
   const result = { claimed: 0, sent: 0, failed: 0, skipped: 0 };
   if (!hasEmail && !hasSms) return result;
 
-  const { data, error } = await supabaseAdmin
-    .from("notification_deliveries")
-    .select(
-      "id, notification_id, user_id, channel, destination, attempts, notifications(title, body, kind, link)",
-    )
-    .eq("status", "pending")
-    .lte("next_attempt_at", new Date().toISOString())
-    .order("created_at", { ascending: true })
-    .limit(limit);
+  const now = new Date().toISOString();
+  const snap = await adminCol(COLLECTIONS.notificationDeliveries)
+    .where("status", "==", "pending")
+    .orderBy("created_at", "asc")
+    .limit(limit)
+    .get();
 
-  if (error) {
-    console.error("[notifications] could not load queue:", error.message);
-    return result;
-  }
-
-  const rows = (data ?? []) as unknown as DeliveryRow[];
+  const rows = snap.docs
+    .map((d) => ({ ...(d.data() as Omit<DeliveryRow, "id" | "notifications">), id: d.id }))
+    .filter((row) => !row.next_attempt_at || row.next_attempt_at <= now) as Array<
+    Omit<DeliveryRow, "notifications"> & { next_attempt_at?: string }
+  >;
   result.claimed = rows.length;
 
   for (const row of rows) {
-    const notification = row.notifications;
+    const notification = await adminGetById<{
+      title: string;
+      body: string | null;
+      kind: string;
+      link: string | null;
+    }>(COLLECTIONS.notifications, row.notification_id);
     if (!notification) {
-      await supabaseAdmin
-        .from("notification_deliveries")
-        .update({ status: "skipped", error: "notification missing" })
-        .eq("id", row.id);
+      await adminUpdate(COLLECTIONS.notificationDeliveries, row.id, {
+        status: "skipped",
+        error: "notification missing",
+      });
       result.skipped += 1;
       continue;
     }
@@ -255,18 +220,18 @@ export async function processPendingDeliveries(limit = BATCH_SIZE) {
       continue;
     }
 
-    // Claim: only one worker can move a row out of `pending`.
-    const { data: claimed } = await supabaseAdmin
-      .from("notification_deliveries")
-      .update({
+    const db = (await import("@/lib/firebase/admin.server")).adminDb();
+    const claimed = await db.runTransaction(async (tx) => {
+      const ref = db.collection(COLLECTIONS.notificationDeliveries).doc(row.id);
+      const current = await tx.get(ref);
+      const data = current.data();
+      if (!data || data["status"] !== "pending" || data["attempts"] !== row.attempts) return false;
+      tx.update(ref, {
         attempts: row.attempts + 1,
         next_attempt_at: new Date(Date.now() + 5 * 60_000).toISOString(),
-      })
-      .eq("id", row.id)
-      .eq("status", "pending")
-      .eq("attempts", row.attempts)
-      .select("id")
-      .maybeSingle();
+      });
+      return true;
+    });
     if (!claimed) continue;
 
     try {
@@ -275,15 +240,12 @@ export async function processPendingDeliveries(limit = BATCH_SIZE) {
           ? await sendEmail(row.destination, renderEmail(notification))
           : await sendSms(row.destination, renderSms(notification));
 
-      await supabaseAdmin
-        .from("notification_deliveries")
-        .update({
-          status: "sent",
-          sent_at: new Date().toISOString(),
-          provider_message_id: providerId,
-          error: null,
-        })
-        .eq("id", row.id);
+      await adminUpdate(COLLECTIONS.notificationDeliveries, row.id, {
+        status: "sent",
+        sent_at: new Date().toISOString(),
+        provider_message_id: providerId,
+        error: null,
+      });
       result.sent += 1;
     } catch (error) {
       const retryable = error instanceof DeliveryError ? error.retryable : true;
@@ -291,16 +253,12 @@ export async function processPendingDeliveries(limit = BATCH_SIZE) {
       const giveUp = !retryable || attempts >= MAX_ATTEMPTS;
       const message = error instanceof Error ? error.message : "unknown error";
 
-      await supabaseAdmin
-        .from("notification_deliveries")
-        .update({
-          status: giveUp ? "failed" : "pending",
-          error: message.slice(0, 300),
-          next_attempt_at: new Date(Date.now() + backoffMinutes(attempts) * 60_000).toISOString(),
-        })
-        .eq("id", row.id);
+      await adminUpdate(COLLECTIONS.notificationDeliveries, row.id, {
+        status: giveUp ? "failed" : "pending",
+        error: message.slice(0, 300),
+        next_attempt_at: new Date(Date.now() + backoffMinutes(attempts) * 60_000).toISOString(),
+      });
 
-      // Log the channel + delivery id only — never the recipient or body.
       console.error(
         `[notifications] ${row.channel} delivery ${row.id} attempt ${attempts} failed: ${message.slice(0, 200)}`,
       );
@@ -311,17 +269,86 @@ export async function processPendingDeliveries(limit = BATCH_SIZE) {
   return result;
 }
 
+export async function queueEmailForUser(notificationId: string, userId: string) {
+  if (!emailConfig()) return;
+  const { adminGetById, adminSet } = await import("@/lib/firebase/admin-repo");
+  const { COLLECTIONS } = await import("@/lib/firebase/repo");
+
+  const deliveryId = `${notificationId}_email`;
+  const existing = await adminGetById<{ status?: string }>(COLLECTIONS.notificationDeliveries, deliveryId);
+  if (existing?.status === "pending" || existing?.status === "sent") return;
+
+  const prefs = await adminGetById<{ email_enabled?: boolean }>(
+    COLLECTIONS.notificationPreferences,
+    userId,
+  );
+  if (prefs?.email_enabled === false) return;
+
+  const user = await adminGetById<{ email?: string | null }>(COLLECTIONS.users, userId);
+  let email = user?.email ?? null;
+  if (!email) {
+    try {
+      const rec = await (await import("@/lib/firebase/admin.server")).adminAuth().getUser(userId);
+      email = rec.email ?? null;
+    } catch {
+      return;
+    }
+  }
+  if (!email) return;
+
+  const now = new Date().toISOString();
+  await adminSet(COLLECTIONS.notificationDeliveries, deliveryId, {
+    notification_id: notificationId,
+    user_id: userId,
+    channel: "email",
+    destination: email,
+    status: "pending",
+    attempts: 0,
+    next_attempt_at: now,
+    created_at: now,
+  });
+}
+
+export async function createAndQueueNotification(input: {
+  userId: string;
+  title: string;
+  body: string | null;
+  kind: string;
+  link: string | null;
+  schoolId?: string | null;
+  createdAt?: string;
+}): Promise<string> {
+  const { adminCreate } = await import("@/lib/firebase/admin-repo");
+  const { COLLECTIONS } = await import("@/lib/firebase/repo");
+  const id = await adminCreate(COLLECTIONS.notifications, {
+    user_id: input.userId,
+    title: input.title,
+    body: input.body,
+    kind: input.kind,
+    link: input.link,
+    read: false,
+    school_id: input.schoolId ?? null,
+    created_at: input.createdAt ?? new Date().toISOString(),
+  });
+  await queueEmailForUser(id, input.userId);
+  return id;
+}
+
 /**
  * Fire-and-forget drain used right after a server-side action created
  * notifications. Never rejects, so it can't break the calling operation.
  */
 export function dispatchNotifications(limit = BATCH_SIZE): Promise<void> {
-  return processPendingDeliveries(limit)
-    .then(() => undefined)
-    .catch((error: unknown) => {
-      console.error(
-        "[notifications] dispatch failed:",
-        error instanceof Error ? error.message : "unknown error",
-      );
-    });
+  return (async () => {
+    const batches = Math.max(1, Math.ceil(limit / BATCH_SIZE), DRAIN_BATCHES);
+    for (let i = 0; i < batches; i += 1) {
+      const result = await processPendingDeliveries(BATCH_SIZE);
+      if (result.claimed === 0) break;
+    }
+  })().catch((error: unknown) => {
+    console.error(
+      "[notifications] dispatch failed:",
+      error instanceof Error ? error.message : "unknown error",
+    );
+  });
 }

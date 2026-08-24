@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { BookOpen, GraduationCap, Plus, ShoppingBag, Sparkles } from "lucide-react";
+import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { useSession, useRole } from "@/hooks/useAuth";
 import { PageHeader, Panel, EmptyState } from "@/components/app/primitives";
 import { CheckoutModal } from "@/components/app/CheckoutModal";
@@ -32,6 +33,7 @@ import {
   formatPrice,
   useCreateItem,
   useMarketplaceItems,
+  useReconcileOrder,
   type ItemKind,
   type MarketplaceItem,
 } from "@/lib/marketplace-data";
@@ -66,7 +68,21 @@ const KIND_ICON = {
 function MarketplacePage() {
   const { user } = useSession();
   const { data: role } = useRole(user ?? null);
-  const { data: items, isLoading } = useMarketplaceItems();
+  const { data: items, isLoading } = useMarketplaceItems(user?.id);
+  const reconcile = useReconcileOrder(user?.id);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const reference = params.get("ref") ?? params.get("tx_ref");
+    if (!reference) return;
+    reconcile.mutate(reference, {
+      onSuccess: (row) => {
+        if (row.status === "paid") toast.success("Payment confirmed");
+      },
+      onError: (e) => toast.error(authErrorMessage(e)),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
   const [tab, setTab] = useState<"all" | ItemKind>("all");
   const [search, setSearch] = useState("");
   const [checkoutItem, setCheckoutItem] = useState<MarketplaceItem | null>(null);

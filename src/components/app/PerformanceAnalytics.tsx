@@ -11,20 +11,24 @@ import {
   YAxis,
 } from "recharts";
 import { TrendingUp } from "lucide-react";
-import { usePerformanceTrend } from "@/lib/assessment-data";
+import { usePerformanceTrend, type TrendPoint } from "@/lib/assessment-data";
 import { Panel, EmptyState } from "@/components/app/primitives";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function PerformanceAnalytics({
   studentId,
+  points,
   title = "Performance analytics",
   description = "Grade trend across assessments and subjects.",
 }: {
   studentId?: string | undefined;
+  points?: TrendPoint[] | undefined;
   title?: string | undefined;
   description?: string | undefined;
 }) {
-  const { data, isLoading } = usePerformanceTrend(studentId);
+  const trend = usePerformanceTrend(points ? undefined : studentId);
+  const data = points ?? trend.data;
+  const isLoading = points ? false : trend.isLoading;
 
   const bySubject = useMemo(() => {
     const map = new Map<string, { total: number; count: number }>();
@@ -74,9 +78,9 @@ export function PerformanceAnalytics({
                 <Line
                   type="monotone"
                   dataKey="percent"
-                  stroke="var(--primary)"
+                  stroke="var(--gold)"
                   strokeWidth={2.5}
-                  dot={{ r: 3 }}
+                  dot={{ r: 3, fill: "var(--gold)" }}
                 />
               </LineChart>
             </ResponsiveContainer>

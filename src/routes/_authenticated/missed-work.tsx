@@ -20,11 +20,13 @@ import {
   useReleaseToLocker,
   type MissedWorkItem,
 } from "@/lib/content-data";
+import { useUpdateMissedWork } from "@/features/academic/academic-data";
 import { downloadObject } from "@/lib/storage";
 import { PageHeader, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AskAiButton } from "@/components/app/AskAiButton";
 import { formatDate } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/missed-work")({
@@ -56,6 +58,7 @@ function MissedWorkPage() {
   const assignments = useMyAssignments(user?.id);
   const markReviewed = useMarkReviewed();
   const release = useReleaseToLocker(user?.id);
+  const progress = useUpdateMissedWork();
 
   const [tab, setTab] = useState<"pending" | "reviewed">("pending");
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -158,7 +161,7 @@ function MissedWorkPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{item.title}</p>
                     <p className="text-xs text-muted-foreground">
-                      {[item.class?.name, `Lesson ${formatDate(item.lesson_date)}`]
+                      {[item.class?.name, `Lesson ${formatDate(item.lesson_date)}`, item.status]
                         .filter(Boolean)
                         .join(" · ")}
                     </p>
@@ -172,7 +175,8 @@ function MissedWorkPage() {
                       <Lock className="size-3.5" /> Locked
                     </Badge>
                   )}
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <AskAiButton missedWorkId={item.id} intent="MISSED_WORK_HELP" label="Ask AI" />
                     {item.file_path || item.url ? (
                       <Button
                         size="sm"
@@ -205,10 +209,27 @@ function MissedWorkPage() {
                     ) : (
                       <Badge className="rounded-full">In your locker</Badge>
                     )}
-                    {!canReview && !item.reviewed ? (
-                      <Badge variant="outline" className="rounded-full">
-                        Awaiting teacher review
-                      </Badge>
+                    {!canReview && item.status !== "completed" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-full"
+                        disabled={working}
+                        onClick={() =>
+                          progress.mutate(
+                            {
+                              id: item.id,
+                              status: item.status === "in_progress" ? "completed" : "in_progress",
+                            },
+                            {
+                              onError: (e) =>
+                                toast.error(e instanceof Error ? e.message : "Could not update"),
+                            },
+                          )
+                        }
+                      >
+                        {item.status === "in_progress" ? "Mark completed" : "Start"}
+                      </Button>
                     ) : null}
                   </div>
                 </li>

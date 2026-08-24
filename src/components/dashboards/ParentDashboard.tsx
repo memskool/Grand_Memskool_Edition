@@ -2,20 +2,22 @@ import { AdmissionsPanel, MeetingsPanel } from "@/components/app/SchoolLifePanel
 import { PerformanceAnalytics } from "@/components/app/PerformanceAnalytics";
 import { useState } from "react";
 import { CalendarCheck, TrendingUp, Users, GraduationCap } from "lucide-react";
-import type { User } from "@supabase/supabase-js";
+import type { AuthUser } from "@/types/roles";
 import { useMyChildren, useMyAttendance, useChildPerformance } from "@/lib/school-data";
+import { useLinkedChildResults } from "@/lib/assessment-data";
 import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { formatDate } from "@/lib/format";
 
-export function ParentDashboard({ user }: { user: User }) {
+export function ParentDashboard({ user }: { user: AuthUser }) {
   const children = useMyChildren(user.id);
   const [selected, setSelected] = useState<string | null>(null);
   const childId = selected ?? children.data?.[0]?.student_id;
 
   const attendance = useMyAttendance(childId);
   const performance = useChildPerformance(childId);
+  const results = useLinkedChildResults(childId);
 
   const records = attendance.data ?? [];
   const present = records.filter((r) => r.status === "present").length;
@@ -31,7 +33,7 @@ export function ParentDashboard({ user }: { user: User }) {
       <EmptyState
         icon={Users}
         title="No child linked to your account yet"
-        hint="Ask your school administrator to link your child's Memskool account to yours."
+        hint="Ask your school administrator to open School Admin → Families and link your account to your child’s student account. You cannot complete this step yourself."
       />
     );
   }
@@ -142,11 +144,15 @@ export function ParentDashboard({ user }: { user: User }) {
         />
         <MeetingsPanel />
       </div>
-      <PerformanceAnalytics
-        studentId={childId}
-        title="Progress report"
-        description="Assessment grade trend for your child."
-      />
+      {results.isLoading ? (
+        <ListSkeleton rows={4} />
+      ) : (
+        <PerformanceAnalytics
+          points={results.data ?? []}
+          title="Progress report"
+          description="Released assessment scores for your child. Papers that have not been published stay hidden."
+        />
+      )}
     </div>
   );
 }

@@ -9,7 +9,9 @@ export function SiteFooter({ className = "" }: { className?: string }) {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <div className="flex items-center gap-3">
           <BrandMark size={40} />
-          <span className="font-display text-lg font-bold tracking-tight text-foreground">Memskool</span>
+          <span className="font-display text-lg font-bold tracking-tight text-foreground">
+            Memskool
+          </span>
         </div>
         <p className="font-display text-sm font-semibold tracking-tight text-foreground">
           Memskool is a product of Mem-Industries in Partnership with Altrastate Technologies Ltd
@@ -22,7 +24,7 @@ export function SiteFooter({ className = "" }: { className?: string }) {
             </p>
             <a
               href="mailto:memskool@gmail.com"
-              className="flex items-center gap-2 transition-colors hover:text-primary"
+              className="flex items-center gap-2 transition-colors duration-150 hover:text-gold"
             >
               <Mail className="size-3.5" aria-hidden /> memskool@gmail.com
             </a>
@@ -30,7 +32,7 @@ export function SiteFooter({ className = "" }: { className?: string }) {
               href="https://mem.com"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-2 transition-colors hover:text-primary"
+              className="flex items-center gap-2 transition-colors duration-150 hover:text-gold"
             >
               <Globe className="size-3.5" aria-hidden /> mem.com
             </a>
@@ -42,7 +44,7 @@ export function SiteFooter({ className = "" }: { className?: string }) {
             </p>
             <a
               href="mailto:altrastate@gmail.com"
-              className="flex items-center gap-2 transition-colors hover:text-primary"
+              className="flex items-center gap-2 transition-colors duration-150 hover:text-gold"
             >
               <Mail className="size-3.5" aria-hidden /> altrastate@gmail.com
             </a>
@@ -50,13 +52,13 @@ export function SiteFooter({ className = "" }: { className?: string }) {
               href="https://altrastate.com"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-2 transition-colors hover:text-primary"
+              className="flex items-center gap-2 transition-colors duration-150 hover:text-gold"
             >
               <Globe className="size-3.5" aria-hidden /> altrastate.com
             </a>
             <a
               href="tel:+256765179900"
-              className="flex items-center gap-2 transition-colors hover:text-primary"
+              className="flex items-center gap-2 transition-colors duration-150 hover:text-gold"
             >
               <Phone className="size-3.5" aria-hidden /> +256 765 179 900
             </a>
@@ -67,6 +69,17 @@ export function SiteFooter({ className = "" }: { className?: string }) {
           © {new Date().getFullYear()} Mem-Industries. Built by Altrastate Technologies Ltd. All
           rights reserved.
         </p>
+        <nav className="flex flex-wrap gap-4 text-xs">
+          <a href="/privacy" className="hover:text-foreground">
+            Privacy
+          </a>
+          <a href="/terms" className="hover:text-foreground">
+            Terms
+          </a>
+          <a href="/auth" className="hover:text-foreground">
+            Sign in
+          </a>
+        </nav>
       </div>
     </footer>
   );

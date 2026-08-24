@@ -147,7 +147,7 @@ function MessagesPage() {
                       className={cn(
                         "flex size-10 shrink-0 items-center justify-center rounded-full",
                         activeId === c.id
-                          ? "accent-gradient"
+                          ? "bg-ink-foreground/15 text-ink-foreground"
                           : "bg-secondary text-foreground",
                       )}
                     >
@@ -159,24 +159,20 @@ function MessagesPage() {
                         <MessageSquare className="size-4" />
                       )}
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">
                         {conversationLabel(c, userId ?? "")}
                       </span>
                       <span
                         className={cn(
-                          "block truncate text-xs capitalize",
+                          "block text-xs capitalize",
                           activeId === c.id ? "text-ink-muted" : "text-muted-foreground",
                         )}
                       >
                         {c.kind}
                       </span>
                     </span>
-                    {activeId === c.id ? (
-                      <span className="size-2 shrink-0 rounded-full bg-brand-accent" />
-                    ) : null}
                   </button>
-
                 </li>
               ))}
             </ul>
@@ -303,7 +299,7 @@ function ChatPane({
                     className={cn(
                       "max-w-[75%] px-4 py-2.5 text-sm",
                       mine
-                        ? "accent-gradient rounded-3xl rounded-br-md shadow-[0_10px_24px_-14px_var(--brand-accent)]"
+                        ? "rounded-3xl rounded-br-md bg-ink text-ink-foreground"
                         : "rounded-3xl rounded-bl-md bg-secondary text-foreground",
                     )}
                   >

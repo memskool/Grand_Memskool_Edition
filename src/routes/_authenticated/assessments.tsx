@@ -1,15 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-  ClipboardCheck,
-  GraduationCap,
-  Plus,
-  Timer,
-  Trophy,
-  Eye,
-  EyeOff,
-  Trash2,
-} from "lucide-react";
+import { ClipboardCheck, GraduationCap, Plus, Timer, Trophy, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { useSession, useRole } from "@/hooks/useAuth";
 import {
@@ -17,11 +8,18 @@ import {
   useAvailableAssessments,
   useMyAttempts,
   useTogglePublished,
-  useDeleteAssessment,
   useTeacherAssessmentStats,
+  useReleaseResults,
+  useRevisionPlan,
+  usePerformanceSummary,
+  useLinkedChildResults,
 } from "@/lib/assessment-data";
+import { useMyChildren } from "@/lib/school-data";
 import { AssessmentBuilder } from "@/components/app/AssessmentBuilder";
+import { AssessmentMarking } from "@/components/app/AssessmentMarking";
 import { PerformanceAnalytics } from "@/components/app/PerformanceAnalytics";
+import { AskAiButton } from "@/components/app/AskAiButton";
+import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { PageHeader, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,7 +51,8 @@ function AssessmentsPage() {
   const { user } = useSession();
   const { data: role } = useRole(user ?? null);
 
-  if (role === "teacher" || role === "admin") return <TeacherView userId={user?.id} />;
+  if (role === "teacher" || role === "admin" || role === "institution")
+    return <TeacherView userId={user?.id} />;
   if (role === "parent") return <ParentView />;
   return <StudentView userId={user?.id} />;
 }
@@ -65,7 +64,8 @@ function TeacherView({ userId }: { userId?: string | undefined }) {
   const list = useTeacherAssessments(userId);
   const stats = useTeacherAssessmentStats(userId);
   const toggle = useTogglePublished();
-  const remove = useDeleteAssessment();
+  const release = useReleaseResults();
+  const [markId, setMarkId] = useState<string | null>(null);
 
   return (
     <>
@@ -123,24 +123,36 @@ function TeacherView({ userId }: { userId?: string | undefined }) {
                           toggle.mutate(
                             { id: a.id, published: !a.published },
                             {
-                              onSuccess: () =>
-                                toast.success(a.published ? "Unpublished" : "Published"),
+                              onSuccess: () => toast.success(a.published ? "Closed" : "Published"),
+                              onError: (e) => toast.error(authErrorMessage(e)),
                             },
                           )
                         }
                       >
                         {a.published ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                       </Button>
+                      {a.published && !a.results_released ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="rounded-full"
+                          onClick={() =>
+                            release.mutate(a.id, {
+                              onSuccess: () => toast.success("Results released"),
+                              onError: (e) => toast.error(authErrorMessage(e)),
+                            })
+                          }
+                        >
+                          Release results
+                        </Button>
+                      ) : null}
                       <Button
-                        size="icon"
-                        variant="ghost"
+                        size="sm"
+                        variant="outline"
                         className="rounded-full"
-                        aria-label="Delete assessment"
-                        onClick={() =>
-                          remove.mutate(a.id, { onSuccess: () => toast.success("Deleted") })
-                        }
+                        onClick={() => setMarkId(a.id)}
                       >
-                        <Trash2 className="size-4" />
+                        Mark
                       </Button>
                     </div>
                   </li>
@@ -153,6 +165,12 @@ function TeacherView({ userId }: { userId?: string | undefined }) {
                 hint="Head to the Builder tab to create your first timed quiz."
               />
             )}
+            {markId ? (
+              <div className="mt-6">
+                <h3 className="mb-2 font-display text-sm font-semibold">Marking</h3>
+                <AssessmentMarking assessmentId={markId} />
+              </div>
+            ) : null}
           </Panel>
         </TabsContent>
 
@@ -182,6 +200,9 @@ function TeacherView({ userId }: { userId?: string | undefined }) {
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {s.submissions} submission{s.submissions === 1 ? "" : "s"}
+                      {s.belowPass
+                        ? ` · ${s.belowPass} below 50% — review privately, not as a ranking`
+                        : ""}
                     </p>
                   </li>
                 ))}
@@ -201,8 +222,8 @@ function TeacherView({ userId }: { userId?: string | undefined }) {
 function StudentView({ userId }: { userId?: string | undefined }) {
   const available = useAvailableAssessments(userId);
   const attempts = useMyAttempts(userId);
-
-  const attemptFor = (id: string) => attempts.data?.find((a) => a.assessment_id === id);
+  const revision = useRevisionPlan();
+  const summary = usePerformanceSummary(userId);
 
   return (
     <>
@@ -215,8 +236,12 @@ function StudentView({ userId }: { userId?: string | undefined }) {
           ) : available.data?.length ? (
             <ul className="space-y-2">
               {available.data.map((a) => {
-                const attempt = attemptFor(a.id);
-                const done = !!attempt?.submitted_at;
+                const related = (attempts.data ?? []).filter((row) => row.assessment_id === a.id);
+                const open = related.find((row) => row.status === "in_progress");
+                const finished = related.filter((row) => row.submitted_at);
+                const max = a.max_attempts ?? (a.type === "practice" ? 0 : 1);
+                const canRetake = !open && (max === 0 || finished.length < max);
+                const done = finished.length > 0 && !open && !canRetake;
                 return (
                   <li
                     key={a.id}
@@ -226,8 +251,9 @@ function StudentView({ userId }: { userId?: string | undefined }) {
                       <p className="truncate text-sm font-medium">{a.title}</p>
                       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Timer className="size-3" />
-                        {a.time_limit_minutes} min · {a.total_points} pts ·{" "}
-                        {a.subject?.name ?? a.class?.name ?? "General"}
+                        {a.type === "practice" ? "Practice · " : ""}
+                        {a.time_limit_minutes ? `${a.time_limit_minutes} min · ` : "Untimed · "}
+                        {a.total_points} pts · {a.subject?.name ?? a.class?.name ?? "General"}
                       </p>
                     </div>
                     {done ? (
@@ -237,7 +263,7 @@ function StudentView({ userId }: { userId?: string | undefined }) {
                     ) : (
                       <Button asChild size="sm" className="rounded-full">
                         <Link to="/exam/$assessmentId" params={{ assessmentId: a.id }}>
-                          {attempt ? "Resume" : "Start"}
+                          {open ? "Resume" : finished.length ? "Retake" : "Start"}
                         </Link>
                       </Button>
                     )}
@@ -270,7 +296,9 @@ function StudentView({ userId }: { userId?: string | undefined }) {
                       </p>
                     </div>
                     <span className="font-display text-sm font-semibold">
-                      {Number(s.manual_score ?? s.auto_score)}/{s.total_points}
+                      {s.results_released === false
+                        ? "Pending release"
+                        : `${Number(s.manual_score ?? s.auto_score)}/${s.total_points}`}
                     </span>
                   </li>
                 ))}
@@ -278,6 +306,48 @@ function StudentView({ userId }: { userId?: string | undefined }) {
           ) : (
             <EmptyState icon={GraduationCap} title="No results yet" />
           )}
+        </Panel>
+
+        <Panel
+          title="Revision"
+          description="Recommendations need at least two graded assessments on a subject or topic."
+        >
+          <p className="mb-3 text-sm text-muted-foreground">
+            Graded papers in your summary: {summary.data?.graded_count ?? 0}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              className="rounded-full"
+              disabled={revision.isPending}
+              onClick={() =>
+                revision.mutate(undefined, {
+                  onSuccess: (plan) =>
+                    toast.success(plan.message ?? `${plan.items.length} focus areas ready`),
+                  onError: (e) => toast.error(authErrorMessage(e)),
+                })
+              }
+            >
+              Build my revision plan
+            </Button>
+            <AskAiButton intent="REVISE" label="Ask AI to revise" />
+          </div>
+          {revision.data?.items.length ? (
+            <ul className="mt-4 space-y-2">
+              {revision.data.items.map((item) => (
+                <li key={item.title} className="rounded-xl bg-secondary/50 px-4 py-3 text-sm">
+                  <p className="font-medium">{item.title}</p>
+                  <p className="text-xs text-muted-foreground">{item.reason}</p>
+                  {item.subjectId ? (
+                    <AskAiButton
+                      subjectId={item.subjectId}
+                      intent="REVISE"
+                      label="Revise with AI"
+                    />
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </Panel>
 
         <PerformanceAnalytics studentId={userId} />
@@ -290,14 +360,59 @@ function StudentView({ userId }: { userId?: string | undefined }) {
 
 function ParentView() {
   const { user } = useSession();
+  const children = useMyChildren(user?.id);
+  const [selected, setSelected] = useState<string | null>(null);
+  const childId = selected ?? children.data?.[0]?.student_id;
+  const selectedChild = children.data?.find((c) => c.student_id === childId);
+  const results = useLinkedChildResults(childId);
+
+  if (!children.isLoading && !children.data?.length) {
+    return (
+      <>
+        <PageHeader title="Assessments" subtitle="Released results for a linked child." />
+        <EmptyState
+          icon={GraduationCap}
+          title="No child linked yet"
+          hint="Ask your school administrator to open School Admin → Families and link your account."
+        />
+      </>
+    );
+  }
+
   return (
     <>
-      <PageHeader title="Assessments" subtitle="Your child's exam performance." />
-      <PerformanceAnalytics
-        studentId={user?.id}
-        title="Progress report"
-        description="Open the Dashboard to switch between children."
+      <PageHeader
+        title="Assessments"
+        subtitle={
+          selectedChild?.student?.full_name
+            ? `Released results for ${selectedChild.student.full_name}.`
+            : "Released results for a linked child."
+        }
       />
+      {(children.data?.length ?? 0) > 1 ? (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {children.data!.map((c) => (
+            <Button
+              key={c.student_id}
+              size="sm"
+              variant={c.student_id === childId ? "default" : "outline"}
+              className="rounded-full"
+              onClick={() => setSelected(c.student_id)}
+            >
+              {c.student?.full_name || "Child"}
+            </Button>
+          ))}
+        </div>
+      ) : null}
+      {results.isLoading ? (
+        <ListSkeleton rows={4} />
+      ) : (
+        <PerformanceAnalytics
+          points={results.data ?? []}
+          title="Progress report"
+          description="Only released scores are shown. Unreleased papers stay hidden."
+        />
+      )}
     </>
   );
 }

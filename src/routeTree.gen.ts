@@ -12,7 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as AuthenticatedAiTutorRouteImport } from './routes/_authenticated/ai-tutor'
 import { Route as AuthenticatedAssessmentsRouteImport } from './routes/_authenticated/assessments'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -29,6 +33,7 @@ import { Route as AuthenticatedVirtualClassroomRouteImport } from './routes/_aut
 import { Route as AuthenticatedExamAssessmentIdRouteImport } from './routes/_authenticated/exam.$assessmentId'
 import { Route as ApiPublicNotificationsDispatchRouteImport } from './routes/api/public/notifications/dispatch'
 import { Route as ApiPublicWebhooksFlutterwaveRouteImport } from './routes/api/public/webhooks/flutterwave'
+import { Route as ApiPublicWebhooksLivekitRouteImport } from './routes/api/public/webhooks/livekit'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 
@@ -46,9 +51,29 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyEmailRoute = VerifyEmailRouteImport.update({
+  id: '/verify-email',
+  path: '/verify-email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAiTutorRoute = AuthenticatedAiTutorRouteImport.update({
@@ -139,6 +164,12 @@ const ApiPublicWebhooksFlutterwaveRoute =
     path: '/api/public/webhooks/flutterwave',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicWebhooksLivekitRoute =
+  ApiPublicWebhooksLivekitRouteImport.update({
+    id: '/api/public/webhooks/livekit',
+    path: '/api/public/webhooks/livekit',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
   id: '/lovable/email/auth/preview',
   path: '/lovable/email/auth/preview',
@@ -153,7 +184,11 @@ const LovableEmailAuthWebhookRoute = LovableEmailAuthWebhookRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/terms': typeof TermsRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/ai-tutor': typeof AuthenticatedAiTutorRoute
   '/assessments': typeof AuthenticatedAssessmentsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -170,13 +205,18 @@ export interface FileRoutesByFullPath {
   '/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
   '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
   '/api/public/webhooks/flutterwave': typeof ApiPublicWebhooksFlutterwaveRoute
+  '/api/public/webhooks/livekit': typeof ApiPublicWebhooksLivekitRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/terms': typeof TermsRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/ai-tutor': typeof AuthenticatedAiTutorRoute
   '/assessments': typeof AuthenticatedAssessmentsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -193,6 +233,7 @@ export interface FileRoutesByTo {
   '/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
   '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
   '/api/public/webhooks/flutterwave': typeof ApiPublicWebhooksFlutterwaveRoute
+  '/api/public/webhooks/livekit': typeof ApiPublicWebhooksLivekitRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
 }
@@ -201,7 +242,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/terms': typeof TermsRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/_authenticated/ai-tutor': typeof AuthenticatedAiTutorRoute
   '/_authenticated/assessments': typeof AuthenticatedAssessmentsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -218,6 +263,7 @@ export interface FileRoutesById {
   '/_authenticated/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
   '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
   '/api/public/webhooks/flutterwave': typeof ApiPublicWebhooksFlutterwaveRoute
+  '/api/public/webhooks/livekit': typeof ApiPublicWebhooksLivekitRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
 }
@@ -226,7 +272,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/onboarding'
+    | '/privacy'
     | '/reset-password'
+    | '/terms'
+    | '/verify-email'
     | '/ai-tutor'
     | '/assessments'
     | '/dashboard'
@@ -243,13 +293,18 @@ export interface FileRouteTypes {
     | '/exam/$assessmentId'
     | '/api/public/notifications/dispatch'
     | '/api/public/webhooks/flutterwave'
+    | '/api/public/webhooks/livekit'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/onboarding'
+    | '/privacy'
     | '/reset-password'
+    | '/terms'
+    | '/verify-email'
     | '/ai-tutor'
     | '/assessments'
     | '/dashboard'
@@ -266,6 +321,7 @@ export interface FileRouteTypes {
     | '/exam/$assessmentId'
     | '/api/public/notifications/dispatch'
     | '/api/public/webhooks/flutterwave'
+    | '/api/public/webhooks/livekit'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
   id:
@@ -273,7 +329,11 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/onboarding'
+    | '/privacy'
     | '/reset-password'
+    | '/terms'
+    | '/verify-email'
     | '/_authenticated/ai-tutor'
     | '/_authenticated/assessments'
     | '/_authenticated/dashboard'
@@ -290,6 +350,7 @@ export interface FileRouteTypes {
     | '/_authenticated/exam/$assessmentId'
     | '/api/public/notifications/dispatch'
     | '/api/public/webhooks/flutterwave'
+    | '/api/public/webhooks/livekit'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
   fileRoutesById: FileRoutesById
@@ -298,9 +359,14 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  OnboardingRoute: typeof OnboardingRoute
+  PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  TermsRoute: typeof TermsRoute
+  VerifyEmailRoute: typeof VerifyEmailRoute
   ApiPublicNotificationsDispatchRoute: typeof ApiPublicNotificationsDispatchRoute
   ApiPublicWebhooksFlutterwaveRoute: typeof ApiPublicWebhooksFlutterwaveRoute
+  ApiPublicWebhooksLivekitRoute: typeof ApiPublicWebhooksLivekitRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
 }
@@ -328,11 +394,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify-email': {
+      id: '/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof VerifyEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/ai-tutor': {
@@ -447,6 +541,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebhooksFlutterwaveRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/webhooks/livekit': {
+      id: '/api/public/webhooks/livekit'
+      path: '/api/public/webhooks/livekit'
+      fullPath: '/api/public/webhooks/livekit'
+      preLoaderRoute: typeof ApiPublicWebhooksLivekitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/auth/preview': {
       id: '/lovable/email/auth/preview'
       path: '/lovable/email/auth/preview'
@@ -505,9 +606,14 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  OnboardingRoute: OnboardingRoute,
+  PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  TermsRoute: TermsRoute,
+  VerifyEmailRoute: VerifyEmailRoute,
   ApiPublicNotificationsDispatchRoute: ApiPublicNotificationsDispatchRoute,
   ApiPublicWebhooksFlutterwaveRoute: ApiPublicWebhooksFlutterwaveRoute,
+  ApiPublicWebhooksLivekitRoute: ApiPublicWebhooksLivekitRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
 }

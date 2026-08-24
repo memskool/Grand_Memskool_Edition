@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
 import { reconcileOrder, startCheckout } from "@/lib/payments.functions";
+import { COLLECTIONS, createDoc, findMany, where, orderBy, limit } from "@/lib/firebase/repo";
+import { attachSubject, attachNamedUser, userSchoolId } from "@/lib/firebase/hydrate";
 
 export const ITEM_KINDS = [
   { value: "book", label: "Book" },
@@ -48,19 +49,32 @@ export function formatPrice(cents: number, currency: string) {
   return `${currency} ${amount.toLocaleString()}`;
 }
 
-export function useMarketplaceItems() {
+export function useMarketplaceItems(userId?: string) {
   return useQuery({
-    queryKey: ["marketplace-items"],
+    queryKey: ["marketplace-items", userId],
+    enabled: !!userId,
     queryFn: async (): Promise<MarketplaceItem[]> => {
-      const { data, error } = await supabase
-        .from("marketplace_items")
-        .select(
-          "id, title, description, kind, price_cents, currency, class_level, duration_minutes, cover_url, seller_id, active, seller:profiles(full_name), subject:subjects(name)",
-        )
-        .eq("active", true)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as MarketplaceItem[];
+      const schoolId = await userSchoolId(userId);
+      if (!schoolId) return [];
+      const rows = await findMany<
+        Omit<MarketplaceItem, "seller" | "subject"> & { subject_id?: string | null }
+      >(COLLECTIONS.marketplaceItems, [
+        where("school_id", "==", schoolId),
+        where("active", "==", true),
+        orderBy("created_at", "desc"),
+        limit(40),
+      ]);
+      return Promise.all(
+        rows.map(async (row) => {
+          const withSeller = await attachNamedUser(row, row.seller_id, "seller");
+          const withSubject = await attachSubject(row);
+          return {
+            ...row,
+            seller: withSeller.seller ? { full_name: withSeller.seller.full_name } : null,
+            subject: withSubject.subject ? { name: withSubject.subject.name } : null,
+          };
+        }),
+      );
     },
   });
 }
@@ -79,10 +93,14 @@ export function useCreateItem(sellerId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: NewItem) => {
-      const { error } = await supabase
-        .from("marketplace_items")
-        .insert({ ...input, seller_id: sellerId! });
-      if (error) throw error;
+      const schoolId = await userSchoolId(sellerId);
+      await createDoc(COLLECTIONS.marketplaceItems, {
+        ...input,
+        seller_id: sellerId!,
+        school_id: schoolId,
+        active: true,
+        created_at: new Date().toISOString(),
+      });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["marketplace-items"] }),
   });
@@ -93,15 +111,11 @@ export function useMyOrders(buyerId?: string) {
     queryKey: ["orders", buyerId],
     enabled: !!buyerId,
     queryFn: async (): Promise<Order[]> => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select(
-          "id, item_id, item_title, item_kind, quantity, amount_cents, currency, status, provider, reference, scheduled_at, notes, created_at",
-        )
-        .eq("buyer_id", buyerId!)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as Order[];
+      return findMany<Order>(COLLECTIONS.orders, [
+        where("buyer_id", "==", buyerId!),
+        orderBy("created_at", "desc"),
+        limit(40),
+      ]);
     },
   });
 }
@@ -113,11 +127,6 @@ export type CheckoutInput = {
   notes: string | null;
 };
 
-/**
- * Real checkout: the server prices the order from the database, creates a
- * pending order and returns a Flutterwave hosted-checkout link. The browser
- * never decides the amount or the paid status.
- */
 export function useCheckout(_buyerId?: string) {
   const start = useServerFn(startCheckout);
   return useMutation({
@@ -133,7 +142,6 @@ export function useCheckout(_buyerId?: string) {
   });
 }
 
-/** Re-verifies with the provider after the buyer returns from checkout. */
 export function useReconcileOrder(buyerId?: string) {
   const qc = useQueryClient();
   const reconcile = useServerFn(reconcileOrder);

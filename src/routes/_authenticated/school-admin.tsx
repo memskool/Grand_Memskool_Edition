@@ -4,6 +4,15 @@ import { Building2, CalendarPlus, Loader2, Plus, ShieldAlert, Trash2, Users } fr
 import { toast } from "sonner";
 import { useSession, useRole } from "@/hooks/useAuth";
 import { canManageSchool } from "@/lib/nav";
+import { useMySchool } from "@/lib/school-membership";
+import {
+  AcademicStructurePanel,
+  CurriculumPanel,
+  EnrolmentPanel,
+} from "@/components/app/AcademicAdminPanel";
+import { FamilyLinkPanel } from "@/components/app/FamilyLinkPanel";
+import { useCreateSlotSafe } from "@/features/academic/academic-data";
+import { authErrorMessage } from "@/lib/errors/auth-errors";
 import {
   useSchools,
   useCreateSchool,
@@ -12,7 +21,6 @@ import {
   useUpdateApplicationStatus,
   useAllClasses,
   useCreateClass,
-  useCreateTimetableSlot,
   useDeleteTimetableSlot,
   useWeeklyTimetable,
   useMeetings,
@@ -70,7 +78,8 @@ export const Route = createFileRoute("/_authenticated/school-admin")({
 function SchoolAdminPage() {
   const { user } = useSession();
   const role = useRole(user);
-  const isAdmin = canManageSchool(role.data);
+  const school = useMySchool(user?.id);
+  const isAdmin = canManageSchool(role.data ?? undefined);
 
   if (role.isLoading) {
     return (
@@ -103,7 +112,11 @@ function SchoolAdminPage() {
       <Tabs defaultValue="school" className="space-y-6">
         <TabsList className="flex-wrap">
           <TabsTrigger value="school">School</TabsTrigger>
-          <TabsTrigger value="classes">Classes & timetable</TabsTrigger>
+          <TabsTrigger value="academic">Academic year</TabsTrigger>
+          <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
+          <TabsTrigger value="enrolment">Classes & enrolment</TabsTrigger>
+          <TabsTrigger value="families">Families</TabsTrigger>
+          <TabsTrigger value="classes">Timetable</TabsTrigger>
           <TabsTrigger value="staff">Teachers</TabsTrigger>
           <TabsTrigger value="admissions">Admissions</TabsTrigger>
           <TabsTrigger value="meetings">Meetings</TabsTrigger>
@@ -112,6 +125,32 @@ function SchoolAdminPage() {
 
         <TabsContent value="school">
           <SchoolSection userId={user?.id} />
+        </TabsContent>
+        <TabsContent value="academic">
+          <AcademicStructurePanel
+            schoolId={school.data?.id}
+            currentYearId={
+              school.data && "current_academic_year_id" in school.data
+                ? ((school.data as { current_academic_year_id?: string | null })
+                    .current_academic_year_id ?? null)
+                : null
+            }
+            periodLabel={
+              school.data && "academic_period_label" in school.data
+                ? ((school.data as { academic_period_label?: string | null })
+                    .academic_period_label ?? null)
+                : null
+            }
+          />
+        </TabsContent>
+        <TabsContent value="curriculum">
+          <CurriculumPanel schoolId={school.data?.id} userId={user?.id ?? undefined} />
+        </TabsContent>
+        <TabsContent value="enrolment">
+          <EnrolmentPanel schoolId={school.data?.id} />
+        </TabsContent>
+        <TabsContent value="families">
+          <FamilyLinkPanel schoolId={school.data?.id} />
         </TabsContent>
         <TabsContent value="classes">
           <ClassesSection userId={user?.id} />
@@ -176,7 +215,7 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
       setDescription("");
       toast.success("School registered");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not register school");
+      toast.error(authErrorMessage(err));
     }
   };
 
@@ -320,7 +359,7 @@ function ClassesSection({ userId }: { userId?: string | undefined }) {
   const staff = useStaffDirectory(true);
   const timetable = useWeeklyTimetable(userId);
   const createClass = useCreateClass();
-  const createSlot = useCreateTimetableSlot();
+  const createSlot = useCreateSlotSafe();
   const deleteSlot = useDeleteTimetableSlot();
 
   const [className, setClassName] = useState("");
@@ -365,10 +404,14 @@ function ClassesSection({ userId }: { userId?: string | undefined }) {
         day_of_week: Number(day),
         start_time: start,
         end_time: end,
+        subject_id: null,
+        teacher_id: null,
+        academic_period_id: null,
+        room: null,
       });
       toast.success("Timetable updated for teachers and students");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not add slot");
+      toast.error(authErrorMessage(err));
     }
   };
 

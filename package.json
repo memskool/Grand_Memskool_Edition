@@ -1,8 +1,11 @@
 {
-  "name": "tanstack_start_ts",
+  "name": "memskool",
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
@@ -73,7 +76,11 @@
     "@lovable.dev/email-js": "0.1.0",
     "@lovable.dev/webhooks-js": "^0.0.1",
     "@react-email/components": "^1.0.12",
-    "@react-email/render": "^2.0.10"
+    "@react-email/render": "^2.0.10",
+    "@dataconnect/admin-generated": "file:src/dataconnect-admin-generated",
+    "@dataconnect/generated": "file:src/dataconnect-generated",
+    "firebase": "^12.18.0",
+    "firebase-admin": "^14.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",

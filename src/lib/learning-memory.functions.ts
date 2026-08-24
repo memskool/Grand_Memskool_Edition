@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
+import { adminCol, adminSet, adminWhere } from "@/lib/firebase/admin-repo";
+import { COLLECTIONS } from "@/lib/firebase/repo";
 
 const scopeSchema = z.object({ scope: z.enum(["student", "teacher"]).default("student") });
 
@@ -31,7 +33,6 @@ const APP_LINKS = [
   "/timetable",
 ] as const;
 
-/** Calls the Lovable AI gateway and returns parsed JSON, or null when the model misbehaves. */
 async function askGateway(system: string, prompt: string): Promise<ModelPayload | null> {
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("AI is not configured for this workspace.");
@@ -83,102 +84,94 @@ function cleanLink(value: unknown): string | null {
     : null;
 }
 
-/**
- * Rebuilds the signed-in user's AI learning memory from their real academic
- * record, then stores fresh dashboard insights. Students get a learning
- * profile; teachers get class-level teaching insights only.
- */
+async function replaceInsights(
+  userId: string,
+  scope: "student" | "teacher",
+  insights: ModelInsight[],
+  fallbackTitle: string,
+) {
+  const existing = await adminWhere<{ id: string }>(COLLECTIONS.aiInsights, "user_id", "==", userId, [
+    ["scope", "==", scope],
+  ]);
+  await Promise.all(existing.map((row) => adminCol(COLLECTIONS.aiInsights).doc(row.id).delete()));
+  await Promise.all(
+    insights.map((i) =>
+      adminCol(COLLECTIONS.aiInsights).add({
+        user_id: userId,
+        scope,
+        title: String(i.title ?? fallbackTitle).slice(0, 120),
+        body: String(i.body ?? "").slice(0, 600),
+        action_label: i.actionLabel ? String(i.actionLabel).slice(0, 40) : null,
+        action_link: cleanLink(i.actionLink),
+        dismissed: false,
+        created_at: new Date().toISOString(),
+      }),
+    ),
+  );
+}
+
 export const refreshAiInsights = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireFirebaseAuth])
   .inputValidator((data: unknown) => scopeSchema.parse(data ?? {}))
   .handler(async ({ data, context }): Promise<RefreshResult> => {
-    const { supabase, userId } = context;
+    const userId = context.userId;
 
     if (data.scope === "teacher") {
-      const { data: classes } = await supabase
-        .from("classes")
-        .select("id, name, subject:subjects(name)")
-        .eq("teacher_id", userId);
-      const classIds = (classes ?? []).map((c) => c.id);
+      const classes = await adminWhere<{ name: string; subject_id?: string | null }>(
+        COLLECTIONS.classes,
+        "teacher_id",
+        "==",
+        userId,
+      );
+      const classIds = classes.map((c) => c.id);
 
-      const { data: assessments } = await supabase
-        .from("assessments")
-        .select(
-          "id, title, total_points, class_id, submissions:assessment_submissions(auto_score, manual_score, total_points, status)",
-        )
-        .eq("created_by", userId)
-        .order("created_at", { ascending: false })
-        .limit(15);
+      const assessments = await adminWhere<{
+        title: string;
+        total_points: number;
+        class_id: string | null;
+      }>(COLLECTIONS.assessments, "created_by", "==", userId);
 
-      const { data: attendance } = classIds.length
-        ? await supabase
-            .from("attendance")
-            .select("status, class_id, date")
-            .in("class_id", classIds)
-            .order("date", { ascending: false })
-            .limit(300)
-        : { data: [] };
+      const attendance = classIds.length
+        ? (
+            await Promise.all(
+              classIds.slice(0, 10).map((classId) =>
+                adminWhere<{ status: string; class_id: string; date: string }>(
+                  COLLECTIONS.attendance,
+                  "class_id",
+                  "==",
+                  classId,
+                ),
+              ),
+            )
+          ).flat()
+        : [];
 
       const payload = await askGateway(
         "You are Memskool's teaching assistant. Reply ONLY with JSON: {\"insights\":[{\"title\":string,\"body\":string,\"actionLabel\":string,\"actionLink\":string}]}. Give at most 3 insights. Each body is one or two short sentences naming a concrete class or topic and a suggested next step. actionLink must be one of /assessments, /timetable, /missed-work, /dashboard. Never invent data that is not in the input.",
-        JSON.stringify({ classes, assessments, attendance }),
+        JSON.stringify({ classes, assessments: assessments.slice(0, 15), attendance: attendance.slice(0, 300) }),
       );
 
       const insights = (payload?.insights ?? []).slice(0, 3);
-      await supabase.from("ai_insights").delete().eq("user_id", userId).eq("scope", "teacher");
-      if (insights.length) {
-        await supabase.from("ai_insights").insert(
-          insights.map((i) => ({
-            user_id: userId,
-            scope: "teacher",
-            title: String(i.title ?? "Teaching insight").slice(0, 120),
-            body: String(i.body ?? "").slice(0, 600),
-            action_label: i.actionLabel ? String(i.actionLabel).slice(0, 40) : null,
-            action_link: cleanLink(i.actionLink),
-          })),
-        );
-      }
+      await replaceInsights(userId, "teacher", insights, "Teaching insight");
       return {
         scope: "teacher",
-        dataPoints: (assessments?.length ?? 0) + (attendance?.length ?? 0),
+        dataPoints: assessments.length + attendance.length,
         insights: insights.length,
       };
     }
 
     const [subs, missed, attendance, submissions] = await Promise.all([
-      supabase
-        .from("assessment_submissions")
-        .select(
-          "auto_score, manual_score, total_points, passed, status, submitted_at, assessment:assessments(title, subject:subjects(name))",
-        )
-        .eq("student_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(40),
-      supabase
-        .from("missed_work")
-        .select("title, category, reviewed, lesson_date")
-        .eq("student_id", userId)
-        .order("lesson_date", { ascending: false })
-        .limit(30),
-      supabase
-        .from("attendance")
-        .select("status, date")
-        .eq("student_id", userId)
-        .order("date", { ascending: false })
-        .limit(60),
-      supabase
-        .from("submissions")
-        .select("grade, status, graded_at, assignment:assignments(title, points)")
-        .eq("student_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(40),
+      adminWhere(COLLECTIONS.assessmentSubmissions, "student_id", "==", userId),
+      adminWhere(COLLECTIONS.missedWork, "student_id", "==", userId),
+      adminWhere(COLLECTIONS.attendance, "student_id", "==", userId),
+      adminWhere(COLLECTIONS.submissions, "student_id", "==", userId),
     ]);
 
     const record = {
-      assessments: subs.data ?? [],
-      missedWork: missed.data ?? [],
-      attendance: attendance.data ?? [],
-      assignments: submissions.data ?? [],
+      assessments: subs.slice(0, 40),
+      missedWork: missed.slice(0, 30),
+      attendance: attendance.slice(0, 60),
+      assignments: submissions.slice(0, 40),
     };
     const dataPoints =
       record.assessments.length +
@@ -187,7 +180,7 @@ export const refreshAiInsights = createServerFn({ method: "POST" })
       record.assignments.length;
 
     if (dataPoints === 0) {
-      await supabase.from("learning_profiles").upsert({
+      await adminSet(COLLECTIONS.learningProfiles, userId, {
         student_id: userId,
         summary:
           "We don't have enough academic activity yet. Attend classes, hand in work and take an assessment — your learning memory builds itself from there.",
@@ -207,7 +200,7 @@ export const refreshAiInsights = createServerFn({ method: "POST" })
     const strong = cleanList(payload?.strong_topics, 4);
     const weak = cleanList(payload?.weak_topics, 4);
 
-    await supabase.from("learning_profiles").upsert({
+    await adminSet(COLLECTIONS.learningProfiles, userId, {
       student_id: userId,
       summary: payload?.summary ? String(payload.summary).slice(0, 800) : null,
       strong_topics: strong,
@@ -220,19 +213,7 @@ export const refreshAiInsights = createServerFn({ method: "POST" })
     });
 
     const insights = (payload?.insights ?? []).slice(0, 3);
-    await supabase.from("ai_insights").delete().eq("user_id", userId).eq("scope", "student");
-    if (insights.length) {
-      await supabase.from("ai_insights").insert(
-        insights.map((i) => ({
-          user_id: userId,
-          scope: "student",
-          title: String(i.title ?? "Learning insight").slice(0, 120),
-          body: String(i.body ?? "").slice(0, 600),
-          action_label: i.actionLabel ? String(i.actionLabel).slice(0, 40) : null,
-          action_link: cleanLink(i.actionLink),
-        })),
-      );
-    }
+    await replaceInsights(userId, "student", insights, "Learning insight");
 
     return { scope: "student", dataPoints, insights: insights.length };
   });

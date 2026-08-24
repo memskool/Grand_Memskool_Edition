@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Room, RoomEvent, Track, type RemoteTrack, type RemoteParticipant } from "livekit-client";
+import {
+  ConnectionState,
+  Room,
+  RoomEvent,
+  Track,
+  type RemoteParticipant,
+  type RemoteTrack,
+} from "livekit-client";
 import { useServerFn } from "@tanstack/react-start";
 import { issueClassroomToken } from "@/lib/livekit.functions";
 
@@ -7,6 +14,9 @@ export type MediaError = {
   kind: "permission" | "config" | "unsupported" | "unknown";
   message: string;
 };
+
+export type ConnectionStatus =
+  "idle" | "connecting" | "connected" | "reconnecting" | "disconnected";
 
 function toMediaError(err: unknown): MediaError {
   const name = (err as { name?: string } | null)?.name ?? "";
@@ -17,6 +27,8 @@ function toMediaError(err: unknown): MediaError {
       message: "Camera and microphone access was blocked. Allow it in your browser settings.",
     };
   if (message.includes("not configured")) return { kind: "config", message };
+  if (name === "NotFoundError")
+    return { kind: "permission", message: "No camera or microphone was found on this device." };
   return { kind: "unknown", message };
 }
 
@@ -24,8 +36,13 @@ export type RemoteMedia = {
   identity: string;
   videoTrack: RemoteTrack | null;
   audioTrack: RemoteTrack | null;
+  screenTrack: RemoteTrack | null;
   speaking: boolean;
 };
+
+function screenShareSupported() {
+  return typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia;
+}
 
 /**
  * Real-time A/V powered by LiveKit. The access token is minted server-side, so
@@ -35,13 +52,17 @@ export function useLiveKit(sessionId: string, enabled = true) {
   const getToken = useServerFn(issueClassroomToken);
   const roomRef = useRef<Room | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const screenVideoRef = useRef<HTMLVideoElement | null>(null);
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [status, setStatus] = useState<ConnectionStatus>("idle");
   const [micOn, setMicOn] = useState(false);
   const [camOn, setCamOn] = useState(false);
+  const [screenShareOn, setScreenShareOn] = useState(false);
   const [pipActive, setPipActive] = useState(false);
   const [error, setError] = useState<MediaError | null>(null);
   const [remotes, setRemotes] = useState<Record<string, RemoteMedia>>({});
+  const [canShareScreen, setCanShareScreen] = useState(false);
 
   const syncRemotes = useCallback((room: Room) => {
     const next: Record<string, RemoteMedia> = {};
@@ -50,6 +71,7 @@ export function useLiveKit(sessionId: string, enabled = true) {
         identity: p.identity,
         videoTrack: p.getTrackPublication(Track.Source.Camera)?.track ?? null,
         audioTrack: p.getTrackPublication(Track.Source.Microphone)?.track ?? null,
+        screenTrack: p.getTrackPublication(Track.Source.ScreenShare)?.track ?? null,
         speaking: p.isSpeaking,
       };
     });
@@ -63,20 +85,26 @@ export function useLiveKit(sessionId: string, enabled = true) {
 
     const connect = async () => {
       setConnecting(true);
+      setStatus("connecting");
       try {
-        const { token, serverUrl } = await getToken({ data: { sessionId } });
+        const granted = await getToken({ data: { sessionId } });
         if (cancelled) return;
-        await room.connect(serverUrl, token);
+        setCanShareScreen(granted.canShareScreen);
+        await room.connect(granted.serverUrl, granted.token);
         if (cancelled) {
           await room.disconnect();
           return;
         }
         roomRef.current = room;
         setConnected(true);
+        setStatus("connected");
         setError(null);
         syncRemotes(room);
       } catch (err) {
-        if (!cancelled) setError(toMediaError(err));
+        if (!cancelled) {
+          setError(toMediaError(err));
+          setStatus("disconnected");
+        }
       } finally {
         if (!cancelled) setConnecting(false);
       }
@@ -89,7 +117,27 @@ export function useLiveKit(sessionId: string, enabled = true) {
       .on(RoomEvent.ParticipantConnected, refresh)
       .on(RoomEvent.ParticipantDisconnected, refresh)
       .on(RoomEvent.ActiveSpeakersChanged, refresh)
-      .on(RoomEvent.Disconnected, () => setConnected(false));
+      .on(RoomEvent.Reconnecting, () => setStatus("reconnecting"))
+      .on(RoomEvent.Reconnected, () => {
+        setStatus("connected");
+        setConnected(true);
+        setError(null);
+      })
+      .on(RoomEvent.Disconnected, () => {
+        setConnected(false);
+        setStatus("disconnected");
+        setMicOn(false);
+        setCamOn(false);
+        setScreenShareOn(false);
+      })
+      .on(RoomEvent.ConnectionStateChanged, (state: ConnectionState) => {
+        if (state === ConnectionState.Reconnecting) setStatus("reconnecting");
+        if (state === ConnectionState.Connected) setStatus("connected");
+        if (state === ConnectionState.Disconnected) setStatus("disconnected");
+      })
+      .on(RoomEvent.LocalTrackUnpublished, (pub) => {
+        if (pub.source === Track.Source.ScreenShare) setScreenShareOn(false);
+      });
 
     void connect();
 
@@ -99,10 +147,10 @@ export function useLiveKit(sessionId: string, enabled = true) {
       void room.disconnect();
       roomRef.current = null;
       setConnected(false);
+      setStatus("disconnected");
     };
   }, [sessionId, enabled, getToken, syncRemotes]);
 
-  // Keep the local preview element bound to the published camera track.
   useEffect(() => {
     const track = roomRef.current?.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
     const el = localVideoRef.current;
@@ -111,6 +159,17 @@ export function useLiveKit(sessionId: string, enabled = true) {
       if (track && el) track.detach(el);
     };
   }, [camOn, connected]);
+
+  useEffect(() => {
+    const track = roomRef.current?.localParticipant.getTrackPublication(
+      Track.Source.ScreenShare,
+    )?.track;
+    const el = screenVideoRef.current;
+    if (track && el) track.attach(el);
+    return () => {
+      if (track && el) track.detach(el);
+    };
+  }, [screenShareOn, connected]);
 
   const toggleMic = useCallback(async () => {
     const room = roomRef.current;
@@ -140,6 +199,27 @@ export function useLiveKit(sessionId: string, enabled = true) {
     }
   }, [camOn]);
 
+  const toggleScreenShare = useCallback(async () => {
+    const room = roomRef.current;
+    if (!room) return false;
+    if (!screenShareSupported()) {
+      setError({
+        kind: "unsupported",
+        message: "Screen sharing is not available in this browser. Use a desktop browser.",
+      });
+      return false;
+    }
+    const next = !screenShareOn;
+    try {
+      await room.localParticipant.setScreenShareEnabled(next);
+      setScreenShareOn(next);
+      return next;
+    } catch (err) {
+      setError(toMediaError(err));
+      return screenShareOn;
+    }
+  }, [screenShareOn]);
+
   const forceMute = useCallback(() => {
     void roomRef.current?.localParticipant.setMicrophoneEnabled(false);
     setMicOn(false);
@@ -155,6 +235,8 @@ export function useLiveKit(sessionId: string, enabled = true) {
     setConnected(false);
     setMicOn(false);
     setCamOn(false);
+    setScreenShareOn(false);
+    setStatus("disconnected");
   }, []);
 
   const togglePictureInPicture = useCallback(async () => {
@@ -181,17 +263,23 @@ export function useLiveKit(sessionId: string, enabled = true) {
 
   return {
     videoRef: localVideoRef,
+    screenVideoRef,
     remotes,
     connected,
     connecting,
     starting: connecting,
+    status,
     micOn,
     camOn,
+    screenShareOn,
+    canShareScreen,
+    screenShareSupported: screenShareSupported(),
     pipActive,
     error,
     clearError: () => setError(null),
     toggleMic,
     toggleCam,
+    toggleScreenShare,
     forceMute,
     forceCameraOff,
     togglePictureInPicture,

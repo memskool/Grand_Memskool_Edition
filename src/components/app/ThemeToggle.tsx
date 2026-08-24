@@ -1,31 +1,49 @@
-import { useCallback, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const KEY = "memskool-theme";
 
-function apply(theme: "light" | "dark") {
+type Theme = "light" | "dark";
+
+function apply(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
   document.documentElement.style.colorScheme = theme;
 }
 
-export function useTheme() {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+function readTheme(): Theme {
+  const stored = window.localStorage.getItem(KEY);
+  if (stored === "dark" || stored === "light") return stored;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+type ThemeValue = { theme: Theme; toggle: () => void; setTheme: (next: Theme) => void };
+
+const ThemeContext = createContext<ThemeValue | null>(null);
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setThemeState] = useState<Theme>(() =>
+    typeof document === "undefined"
+      ? "light"
+      : document.documentElement.classList.contains("dark")
+        ? "dark"
+        : "light",
+  );
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(KEY);
-    const next: "light" | "dark" =
-      stored === "dark" || stored === "light"
-        ? stored
-        : window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light";
-    setTheme(next);
+    const next = readTheme();
+    setThemeState(next);
     apply(next);
   }, []);
 
+  const setTheme = useCallback((next: Theme) => {
+    window.localStorage.setItem(KEY, next);
+    apply(next);
+    setThemeState(next);
+  }, []);
+
   const toggle = useCallback(() => {
-    setTheme((prev) => {
+    setThemeState((prev) => {
       const next = prev === "dark" ? "light" : "dark";
       window.localStorage.setItem(KEY, next);
       apply(next);
@@ -33,7 +51,17 @@ export function useTheme() {
     });
   }, []);
 
-  return { theme, toggle };
+  return <ThemeContext.Provider value={{ theme, toggle, setTheme }}>{children}</ThemeContext.Provider>;
+}
+
+export function useTheme(): ThemeValue {
+  const ctx = useContext(ThemeContext);
+  if (ctx) return ctx;
+  return {
+    theme: "light",
+    toggle: () => undefined,
+    setTheme: () => undefined,
+  };
 }
 
 export function ThemeToggle() {

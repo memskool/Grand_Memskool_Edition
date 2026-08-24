@@ -1,0 +1,93 @@
+mutation CreateSeedData @transaction {
+  user_insertMany(data: [
+    {
+      id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      name: "Alice Instructor",
+      email: "alice@example.com",
+      role: "instructor"
+    },
+    {
+      id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+      name: "Bob Student",
+      email: "bob@example.com",
+      role: "student"
+    },
+    {
+      id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13",
+      name: "Charlie Student",
+      email: "charlie@example.com",
+      role: "student"
+    }
+  ])
+  course_insertMany(data: [
+    {
+      id: "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      title: "Intro to GraphQL",
+      description: "Learn the basics of GraphQL",
+      instructorId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+    },
+    {
+      id: "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+      title: "Advanced Data Connect",
+      description: "Master Firebase Data Connect",
+      instructorId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+    }
+  ])
+  module_insertMany(data: [
+    {
+      id: "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      courseId: "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      title: "Schema Basics",
+      contentUrl: "https://example.com/mod1",
+      orderIndex: 1
+    },
+    {
+      id: "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+      courseId: "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      title: "Queries",
+      contentUrl: "https://example.com/mod2",
+      orderIndex: 2
+    }
+  ])
+  enrollment_insertMany(data: [
+    {
+      id: "d0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      studentId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+      courseId: "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      enrollmentDate: "2023-10-01",
+      status: "active"
+    },
+    {
+      id: "d0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+      studentId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13",
+      courseId: "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      enrollmentDate: "2023-10-05",
+      status: "active"
+    }
+  ])
+  assignment_insertMany(data: [
+    {
+      id: "e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      moduleId: "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      title: "First Schema",
+      dueDate: "2023-11-01T23:59:59Z",
+      maxPoints: 100
+    },
+    {
+      id: "e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+      moduleId: "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+      title: "Query Practice",
+      dueDate: "2023-11-15T23:59:59Z",
+      maxPoints: 50
+    }
+  ])
+  submission_insertMany(data: [
+    {
+      id: "f0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      assignmentId: "e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      studentId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+      submissionUrl: "https://submissions.com/s1",
+      grade: 95
+    }
+  ])
+}

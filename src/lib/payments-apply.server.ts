@@ -1,4 +1,6 @@
 import type { FlutterwaveVerification } from "./payments.server";
+import { adminUpdate, adminWhere } from "@/lib/firebase/admin-repo";
+import { COLLECTIONS } from "@/lib/firebase/repo";
 
 /**
  * Single place where an order's money state changes. Idempotent: an order that
@@ -7,14 +9,17 @@ import type { FlutterwaveVerification } from "./payments.server";
  */
 export async function applyPaymentResult(verification: FlutterwaveVerification): Promise<string> {
   const { toStoredCents } = await import("./payments.server");
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-  const { data: order } = await supabaseAdmin
-    .from("orders")
-    .select("id, buyer_id, item_title, amount_cents, currency, status, reference")
-    .eq("reference", verification.tx_ref)
-    .maybeSingle();
+  const orders = await adminWhere<{
+    buyer_id: string;
+    item_title: string;
+    amount_cents: number;
+    currency: string;
+    status: string;
+    reference: string;
+  }>(COLLECTIONS.orders, "reference", "==", verification.tx_ref);
 
+  const order = orders[0];
   if (!order) return "unknown_order";
   if (order.status === "paid" || order.status === "failed") return order.status;
 
@@ -31,20 +36,21 @@ export async function applyPaymentResult(verification: FlutterwaveVerification):
       ? "Amount or currency did not match the order"
       : (verification.processor_response ?? `Payment ${verification.status}`);
 
-  await supabaseAdmin
-    .from("orders")
-    .update({
+  if (order.status === "pending") {
+    await adminUpdate(COLLECTIONS.orders, order.id, {
       status,
       provider_tx_id: String(verification.id),
       verified_amount_cents: paidCents,
       failure_reason: failureReason,
       paid_at: successful ? new Date().toISOString() : null,
-    })
-    .eq("id", order.id)
-    .eq("status", "pending");
+    });
+  }
 
-  await supabaseAdmin.from("notifications").insert({
-    user_id: order.buyer_id,
+  const { createAndQueueNotification, dispatchNotifications } = await import(
+    "./notifications.server"
+  );
+  await createAndQueueNotification({
+    userId: order.buyer_id,
     title: successful ? "Payment successful" : "Payment did not go through",
     body: successful
       ? `Your payment for ${order.item_title} is confirmed. Receipt ${order.reference}.`
@@ -52,10 +58,6 @@ export async function applyPaymentResult(verification: FlutterwaveVerification):
     kind: "payment",
     link: "/marketplace",
   });
-
-  // Email/SMS receipt. Fire-and-forget: a provider outage must never affect
-  // the money state we just recorded.
-  const { dispatchNotifications } = await import("./notifications.server");
   void dispatchNotifications();
 
   return status;

@@ -15,10 +15,7 @@ export function PageHeader({
   return (
     <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:flex-wrap sm:justify-between">
       <div className="min-w-0">
-        <span
-          className="mb-2 inline-block h-1 w-10 rounded-full"
-          style={{ background: "var(--gradient-brand)" }}
-        />
+        <span className="mb-2 inline-block h-0.5 w-8 rounded-full bg-gold" />
         <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
         {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
       </div>
@@ -47,7 +44,7 @@ export function StatCard({
   } as const;
 
   return (
-    <div className="surface-card flex items-center gap-4 p-5 transition-shadow hover:brand-shadow">
+    <div className="surface-card flex items-center gap-4 p-5 transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:brand-shadow">
       <span
         className={cn("flex size-11 shrink-0 items-center justify-center rounded-2xl", tones[tone])}
       >

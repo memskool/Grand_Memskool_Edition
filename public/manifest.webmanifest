@@ -1,0 +1,23 @@
+{
+  "name": "Memskool Institute",
+  "short_name": "Memskool",
+  "description": "Digital eSchool platform for classes, locker, assessments and school life.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1c3a",
+  "theme_color": "#0b1c3a",
+  "icons": [
+    {
+      "src": "/memskool-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/memskool-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

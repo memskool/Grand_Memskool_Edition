@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { GraduationCap } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  changePassword,
+  completePasswordReset,
+  getCurrentAuthUser,
+} from "@/features/auth/services/auth.service";
+import { toUserMessage } from "@/lib/errors/app-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,19 +37,21 @@ export const Route = createFileRoute("/reset-password")({
 
 function ResetPasswordPage() {
   const navigate = useNavigate();
+  const [oobCode, setOobCode] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) setReady(true);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
-    });
-    return () => sub.subscription.unsubscribe();
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("oobCode");
+    if (code) {
+      setOobCode(code);
+      setReady(true);
+      return;
+    }
+    void getCurrentAuthUser().then((user) => setReady(!!user));
   }, []);
 
   const submit = async (e: React.FormEvent) => {
@@ -54,14 +61,16 @@ function ResetPasswordPage() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      if (oobCode) await completePasswordReset(oobCode, password);
+      else await changePassword(password);
+      toast.success("Password updated. You're signed in.");
+      navigate({ to: "/dashboard" });
+    } catch (error) {
+      toast.error(toUserMessage(error));
+    } finally {
+      setLoading(false);
     }
-    toast.success("Password updated. You're signed in.");
-    navigate({ to: "/dashboard" });
   };
 
   return (

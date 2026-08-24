@@ -1,29 +1,34 @@
-import logoAsset from "@/assets/memskool-crest.jpg.asset.json";
+import logo from "@/assets/memskool-logo.png";
 import { cn } from "@/lib/utils";
 
-/**
- * Memskool crest logo (navy + gold shield with laurels) rendered exactly as provided.
- * A generous border radius and subtle ring let it sit cleanly in the premium monochrome UI.
- */
-export function BrandMark({ size = 40, className }: { size?: number; className?: string }) {
+/** Memskool Institute crest. Full colour — do not invert. */
+export function BrandMark({
+  size = 40,
+  className,
+  priority = false,
+}: {
+  size?: number;
+  className?: string;
+  priority?: boolean;
+}) {
   return (
     <img
-      src={logoAsset.url}
+      src={logo}
       alt="Memskool Institute"
+      width={size}
       height={size}
-      className={cn(
-        "block w-auto shrink-0 rounded-2xl object-contain object-center ring-1 ring-black/10 dark:ring-white/10",
-        className
-      )}
-      style={{ height: size, width: "auto" }}
+      decoding="async"
+      fetchPriority={priority ? "high" : "low"}
+      loading={priority ? "eager" : "lazy"}
+      className={cn("shrink-0 rounded-md object-contain object-center", className)}
+      style={{ width: size, height: size }}
     />
   );
 }
 
-
 export function BrandLockup({
   size = 40,
-  subtitle = "eSchool",
+  subtitle = "Institute",
   className,
 }: {
   size?: number;

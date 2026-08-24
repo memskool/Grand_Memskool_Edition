@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { refreshAiInsights } from "@/lib/learning-memory.functions";
+import { COLLECTIONS, findMany, getById, patchById, where, orderBy } from "@/lib/firebase/repo";
 
 export type LearningProfile = {
   student_id: string;
@@ -24,19 +24,17 @@ export type AiInsight = {
   created_at: string;
 };
 
-/** The student's AI learning memory — strengths, weak areas and study style. */
 export function useLearningProfile(studentId: string | undefined) {
   return useQuery({
     queryKey: ["learning-profile", studentId],
     enabled: !!studentId,
     queryFn: async (): Promise<LearningProfile | null> => {
-      const { data, error } = await supabase
-        .from("learning_profiles")
-        .select("*")
-        .eq("student_id", studentId!)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as LearningProfile | null) ?? null;
+      const byId = await getById<LearningProfile>(COLLECTIONS.learningProfiles, studentId!);
+      if (byId) return { ...byId, student_id: studentId! };
+      const row = await findMany<LearningProfile>(COLLECTIONS.learningProfiles, [
+        where("student_id", "==", studentId!),
+      ]);
+      return row[0] ?? null;
     },
   });
 }
@@ -46,15 +44,12 @@ export function useAiInsights(userId: string | undefined, scope: "student" | "te
     queryKey: ["ai-insights", userId, scope],
     enabled: !!userId,
     queryFn: async (): Promise<AiInsight[]> => {
-      const { data, error } = await supabase
-        .from("ai_insights")
-        .select("id, title, body, action_label, action_link, created_at")
-        .eq("user_id", userId!)
-        .eq("scope", scope)
-        .eq("dismissed", false)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as AiInsight[];
+      return findMany<AiInsight>(COLLECTIONS.aiInsights, [
+        where("user_id", "==", userId!),
+        where("scope", "==", scope),
+        where("dismissed", "==", false),
+        orderBy("created_at", "desc"),
+      ]);
     },
   });
 }
@@ -80,8 +75,7 @@ export function useDismissInsight() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("ai_insights").update({ dismissed: true }).eq("id", id);
-      if (error) throw error;
+      await patchById(COLLECTIONS.aiInsights, id, { dismissed: true });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-insights"] }),
   });

@@ -2,26 +2,32 @@ import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { BrandMark } from "@/components/app/BrandMark";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
+import {
+  signInEmail,
+  signUpEmail,
+  requestPasswordReset,
+  resendVerification,
+  signInWithGoogle,
+  getCurrentAuthUser,
+  refreshAuthClaims,
+} from "@/features/auth/services/auth.service";
+import { completeSignup } from "@/features/auth/services/complete-signup.functions";
+import { authErrorMessage } from "@/lib/errors/auth-errors";
+import { ACCOUNT_TYPES, type AccountType } from "@/features/auth/account-types";
+import { parseAuthSearch, safeAppPath } from "@/lib/safe-redirect";
+import { COLLECTIONS, getById } from "@/lib/firebase/repo";
+import type { UserProfile } from "@/types/user";
+import { isProfileComplete } from "@/features/auth/account-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { SiteFooter } from "@/components/app/SiteFooter";
 import { lookupSchool, type SchoolSummary } from "@/lib/school-membership";
 
 export const Route = createFileRoute("/auth")({
-  // Auth state only exists in the browser; rendering this shell on the server
-  // produced a hydration mismatch.
   ssr: false,
+  validateSearch: parseAuthSearch,
   head: () => ({
     meta: [
       { title: "Sign in to Memskool — eSchool platform" },
@@ -43,49 +49,15 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-const ACCOUNT_TYPES = [
-  {
-    value: "student",
-    label: "Student",
-    blurb: "Classes, locker, library, AI tutor, Dream School and the book store.",
-  },
-  {
-    value: "parent",
-    label: "Parent",
-    blurb: "Follow attendance, performance and school communication for your child.",
-  },
-  {
-    value: "teacher",
-    label: "Teacher",
-    blurb: "Request to join your school, then teach, grade and run live classes.",
-  },
-  {
-    value: "institution",
-    label: "School / Institution",
-    blurb: "Register your school, upload students and teachers, publish books.",
-  },
-] as const;
-
-type AccountType = (typeof ACCOUNT_TYPES)[number]["value"];
-
-
-/** Turns raw Supabase auth errors into guidance a learner or parent can act on. */
-function friendlyAuthError(message: string): string {
-  const m = message.toLowerCase();
-  if (m.includes("invalid login credentials"))
-    return "That email and password don't match an account. Check them, or create an account first.";
-  if (m.includes("email not confirmed"))
-    return "Your email isn't confirmed yet. Open the confirmation link we emailed you, or resend it below.";
-  if (m.includes("user already registered") || m.includes("already been registered"))
-    return "An account with that email already exists. Try signing in instead.";
-  if (m.includes("password should be at least")) return "Passwords must be at least 6 characters.";
-  if (m.includes("rate limit") || m.includes("after"))
-    return "Too many attempts just now. Please wait a moment and try again.";
-  return message;
+/** Turns raw auth errors into guidance a learner or parent can act on. */
+function friendlyAuthError(error: unknown): string {
+  return authErrorMessage(error);
 }
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { redirect: redirectTo } = Route.useSearch();
+  const continueTo = safeAppPath(redirectTo) ?? "/dashboard";
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -102,14 +74,17 @@ function AuthPage() {
   const needsSchoolCode = role === "student" || role === "teacher";
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/dashboard", replace: true });
+    void getCurrentAuthUser().then(async (user) => {
+      if (!user) return;
+      let profile: UserProfile | null = null;
+      try {
+        profile = await getById<UserProfile>(COLLECTIONS.users, user.id);
+      } catch {
+        profile = null;
+      }
+      navigate({ to: isProfileComplete(profile) ? continueTo : "/onboarding", replace: true });
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) navigate({ to: "/dashboard", replace: true });
-    });
-    return () => sub.subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, continueTo]);
 
   // Live School-ID verification while typing.
   useEffect(() => {
@@ -140,17 +115,22 @@ function AuthPage() {
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-    setLoading(false);
-    if (error) {
-      if (error.message.toLowerCase().includes("email not confirmed")) setAwaitingConfirm(true);
-      toast.error(friendlyAuthError(error.message));
-      return;
+    try {
+      await signInEmail(email.trim(), password);
+      const user = await getCurrentAuthUser();
+      let profile: UserProfile | null = null;
+      try {
+        profile = user ? await getById<UserProfile>(COLLECTIONS.users, user.id) : null;
+      } catch {
+        // Auth succeeded; a missing/unreadable profile still belongs on onboarding.
+        profile = null;
+      }
+      navigate({ to: isProfileComplete(profile) ? continueTo : "/onboarding", replace: true });
+    } catch (error) {
+      toast.error(friendlyAuthError(error));
+    } finally {
+      setLoading(false);
     }
-    if (data.session) navigate({ to: "/dashboard", replace: true });
   };
 
   const signUp = async (e: React.FormEvent) => {
@@ -183,11 +163,9 @@ function AuthPage() {
       }
     }
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
+    try {
+      const { needsEmailConfirm } = await signUpEmail(email.trim(), password);
+      await completeSignup({
         data: {
           full_name: fullName.trim(),
           role,
@@ -199,48 +177,39 @@ function AuthPage() {
           student_code: role === "student" ? studentCode.trim() : null,
           school_name: role === "institution" ? schoolName.trim() : null,
         },
-      },
-    });
-
-    setLoading(false);
-    if (error) {
-      toast.error(friendlyAuthError(error.message));
-      return;
+      });
+      await refreshAuthClaims();
+      if (needsEmailConfirm) {
+        try {
+          await resendVerification();
+        } catch {
+          // Account exists; the dashboard banner can resend.
+        }
+        setAwaitingConfirm(true);
+        toast.success(
+          role === "teacher"
+            ? "Account created. Confirm the email from notifications@memskool.com — your school still needs to approve your request."
+            : "Account created. Check notifications@memskool.com in your inbox (and spam), then continue.",
+        );
+      }
+      navigate({ to: continueTo, replace: true });
+    } catch (error) {
+      toast.error(friendlyAuthError(error));
+    } finally {
+      setLoading(false);
     }
-    if (data.session) {
-      navigate({ to: "/dashboard", replace: true });
-      return;
-    }
-    if (data.user && (data.user.identities?.length ?? 0) === 0) {
-      toast.error("An account with that email already exists. Try signing in instead.");
-      return;
-    }
-    setAwaitingConfirm(true);
-    toast.success(
-      role === "teacher"
-        ? "Account created. Confirm your email — your school still needs to approve your request."
-        : "Account created. Check your email to confirm, then sign in.",
-    );
-
   };
 
   const resendConfirmation = async () => {
-    if (!email.trim()) {
-      toast.error("Enter your email first.");
-      return;
-    }
     setLoading(true);
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}/dashboard` },
-    });
-    setLoading(false);
-    if (error) {
-      toast.error(friendlyAuthError(error.message));
-      return;
+    try {
+      await resendVerification();
+      toast.success("Sent from notifications@memskool.com — check spam if it is not in the inbox.");
+    } catch (error) {
+      toast.error(friendlyAuthError(error));
+    } finally {
+      setLoading(false);
     }
-    toast.success("Confirmation email sent again.");
   };
 
   const sendReset = async (e: React.FormEvent) => {
@@ -250,28 +219,33 @@ function AuthPage() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    setLoading(false);
-    if (error) {
-      toast.error(friendlyAuthError(error.message));
-      return;
+    try {
+      await requestPasswordReset(email.trim());
+      toast.success("If that account exists, we sent a reset link from notifications@memskool.com.");
+      setMode("signin");
+    } catch (error) {
+      toast.error(friendlyAuthError(error));
+    } finally {
+      setLoading(false);
     }
-    toast.success("Password reset link sent. Check your inbox.");
-    setMode("signin");
   };
 
   const google = async () => {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      toast.error("Google sign-in failed. Please try again.");
-      return;
+    setLoading(true);
+    try {
+      const signedIn = await signInWithGoogle();
+      let profile: UserProfile | null = null;
+      try {
+        profile = await getById<UserProfile>(COLLECTIONS.users, signedIn.id);
+      } catch {
+        profile = null;
+      }
+      navigate({ to: isProfileComplete(profile) ? continueTo : "/onboarding", replace: true });
+    } catch (error) {
+      toast.error(friendlyAuthError(error));
+    } finally {
+      setLoading(false);
     }
-    if (result.redirected) return;
-    navigate({ to: "/dashboard", replace: true });
   };
 
   return (
@@ -279,12 +253,16 @@ function AuthPage() {
       <div className="relative flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="mb-8 flex flex-col items-center text-center">
-            <BrandMark size={64} className="mb-4" />
+            <BrandMark size={64} className="mb-4" priority />
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
+              Memskool Institute
+            </p>
             <h1 className="font-display text-4xl font-bold tracking-tight text-foreground">
               Welcome to Memskool
             </h1>
-            <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-              One account for your classes, work and school life.
+            <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+              Classes, live lessons, assessments and a private AI tutor — in one school workspace.
+              Use the School ID your institution gave you when you create an account.
             </p>
           </div>
 
@@ -547,6 +525,17 @@ function AuthPage() {
             <Button variant="outline" className="w-full rounded-full" onClick={google}>
               Continue with Google
             </Button>
+            <p className="mt-4 text-center text-xs text-muted-foreground">
+              By continuing you agree to our{" "}
+              <a href="/terms" className="underline-offset-2 hover:underline">
+                Terms
+              </a>{" "}
+              and{" "}
+              <a href="/privacy" className="underline-offset-2 hover:underline">
+                Privacy
+              </a>{" "}
+              notices.
+            </p>
           </div>
         </div>
       </div>

@@ -30,3 +30,20 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Local agent skill copies
+.agents/
+.claude/
+.cursor/
+
+# Firebase
+.firebase/
+firebase-debug.log*
+firebase-debug.*.log*
+.dataconnect
+*firebase-adminsdk*.json

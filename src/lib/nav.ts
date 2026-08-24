@@ -72,6 +72,7 @@ const BY_ROLE: Record<AppRole, NavItem[]> = {
     ITEM.classroom,
     ITEM.assessments,
     ITEM.library,
+    ITEM.tutor,
     ITEM.locker,
     ITEM.messages,
     ITEM.marketplace,
@@ -80,6 +81,7 @@ const BY_ROLE: Record<AppRole, NavItem[]> = {
   parent: [
     ITEM.dashboard,
     ITEM.timetable,
+    ITEM.assessments,
     ITEM.messages,
     ITEM.library,
     ITEM.dream,
@@ -112,6 +114,7 @@ const BY_ROLE: Record<AppRole, NavItem[]> = {
     ITEM.marketplace,
     ITEM.settings,
   ],
+  superadmin: [ITEM.dashboard, ITEM.settings],
 };
 
 /** Routes staff can still use while their school approval is pending. */
@@ -157,4 +160,3 @@ export function canAccessRoute(
 export function canManageSchool(role: AppRole | undefined): boolean {
   return role === "admin" || role === "institution";
 }
-

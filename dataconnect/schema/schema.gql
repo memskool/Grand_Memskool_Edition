@@ -1,0 +1,44 @@
+type User @table {
+  name: String!
+  email: String!
+  role: String!
+  profilePictureUrl: String
+}
+
+type Course @table {
+  title: String!
+  description: String!
+  instructor: User!
+  category: String
+  thumbnailUrl: String
+}
+
+type Module @table {
+  course: Course!
+  title: String!
+  contentUrl: String!
+  orderIndex: Int!
+  durationMinutes: Int
+}
+
+type Enrollment @table {
+  student: User!
+  course: Course!
+  enrollmentDate: Date!
+  status: String
+}
+
+type Assignment @table {
+  module: Module!
+  title: String!
+  dueDate: Timestamp!
+  maxPoints: Int
+}
+
+type Submission @table {
+  assignment: Assignment!
+  student: User!
+  submissionUrl: String!
+  grade: Int
+  instructorFeedback: String
+}

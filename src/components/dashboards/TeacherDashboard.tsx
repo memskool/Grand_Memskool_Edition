@@ -1,29 +1,31 @@
 import { MeetingsPanel } from "@/components/app/SchoolLifePanels";
 import { TeacherAssessmentPanel } from "@/components/app/TeacherAssessmentPanel";
 import { TeacherAssignmentPanel } from "@/components/app/TeacherAssignmentPanel";
+import { LessonManager } from "@/components/app/LessonManager";
+import { AttendanceRecorder } from "@/components/app/AttendanceRecorder";
 
 import { CalendarClock, ClipboardCheck, BookOpen, Clock, BellRing } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAccess } from "@/lib/access";
 import { useRemindSchool } from "@/lib/school-membership";
+import { authErrorMessage } from "@/lib/errors/auth-errors";
 
 import { ClassCardGrid } from "@/components/dashboards/ClassCards";
 import { ScheduleRail } from "@/components/app/ScheduleRail";
-import type { User } from "@supabase/supabase-js";
+import type { AuthUser } from "@/types/roles";
 import { AiInsightPanel } from "@/components/app/AiInsightPanel";
 import { BehaviourPanel } from "@/components/app/BehaviourPanel";
 import { useTeachingClasses, useTeacherTimetable, usePendingGrading } from "@/lib/school-data";
 import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
 import { formatDateTime } from "@/lib/format";
 
-export function TeacherDashboard({ user }: { user: User }) {
+export function TeacherDashboard({ user }: { user: AuthUser }) {
   const { pendingApproval, schoolName, schoolId } = useAccess();
   const remind = useRemindSchool();
   const classes = useTeachingClasses(user.id);
   const today = useTeacherTimetable(user.id);
   const grading = usePendingGrading(user.id);
-
 
   if (pendingApproval) {
     return (
@@ -43,7 +45,7 @@ export function TeacherDashboard({ user }: { user: User }) {
               onClick={() =>
                 remind.mutate(schoolId, {
                   onSuccess: () => toast.success(`Reminder sent to ${schoolName ?? "your school"}`),
-                  onError: (e: Error) => toast.error(e.message),
+                  onError: (e) => toast.error(authErrorMessage(e)),
                 })
               }
             >
@@ -58,7 +60,6 @@ export function TeacherDashboard({ user }: { user: User }) {
 
   return (
     <div className="space-y-6">
-
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label="Active classes"
@@ -126,9 +127,13 @@ export function TeacherDashboard({ user }: { user: User }) {
         teacherId={user.id}
         classes={(classes.data ?? []).map((c) => ({ id: c.id, name: c.name }))}
       />
+      <LessonManager
+        teacherId={user.id}
+        classes={(classes.data ?? []).map((c) => ({ id: c.id, name: c.name }))}
+      />
+      <AttendanceRecorder teacherId={user.id} />
       <TeacherAssessmentPanel teacherId={user.id} />
       <BehaviourPanel staffId={user.id} />
-
     </div>
   );
 }

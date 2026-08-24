@@ -1,11 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { triggerNotificationDelivery } from "@/lib/notifications-data";
-
-/* ------------------------------------------------------------------ */
-/* Constants                                                           */
-/* ------------------------------------------------------------------ */
+import {
+  COLLECTIONS,
+  createDoc,
+  findMany,
+  getById,
+  patchById,
+  removeById,
+  subscribeMany,
+  where,
+  orderBy,
+  limit,
+} from "@/lib/firebase/repo";
+import {
+  attachClassName,
+  attachSubject,
+  attachNamedUser,
+  userSchoolId,
+} from "@/lib/firebase/hydrate";
+import { deleteDigitalSchool, registerDigitalSchool } from "@/lib/school-register.functions";
+import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 
 export const SCHOOL_CATEGORIES = [
   { value: "nursery", label: "Nursery" },
@@ -26,10 +41,6 @@ export const MEETING_KINDS = [
   { value: "parent_teacher", label: "Parent–teacher" },
   { value: "staff", label: "Staff briefing" },
 ] as const;
-
-/* ------------------------------------------------------------------ */
-/* Types                                                               */
-/* ------------------------------------------------------------------ */
 
 export type School = {
   id: string;
@@ -122,36 +133,55 @@ export type AppNotification = {
   created_at: string;
 };
 
-/* ------------------------------------------------------------------ */
-/* Schools                                                             */
-/* ------------------------------------------------------------------ */
+async function hydrateApplication(
+  row: Omit<SchoolApplication, "school">,
+): Promise<SchoolApplication> {
+  const school = await getById<{ name: string; category: string; city: string | null }>(
+    COLLECTIONS.schools,
+    row.school_id,
+  );
+  return {
+    ...row,
+    school: school ? { name: school.name, category: school.category, city: school.city } : null,
+  };
+}
 
 export function useSchools() {
   return useQuery({
     queryKey: ["schools"],
     queryFn: async (): Promise<School[]> => {
-      const { data, error } = await supabase
-        .from("schools")
-        .select("*")
-        .order("name", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as School[];
+      return findMany<School>(COLLECTIONS.schools, [orderBy("name", "asc")]);
     },
   });
 }
 
-export function useCreateSchool(userId?: string) {
+export function useCreateSchool(_userId?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (values: Partial<School> & { name: string; code?: string }) => {
-      const code =
-        values.code ?? `MS-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-      const { error } = await supabase
-        .from("schools")
-        .insert({ ...values, code, created_by: userId! });
-      if (error) throw error;
+    mutationFn: async (values: Partial<School> & { name: string }) => {
+      const result = await registerDigitalSchool({
+        data: {
+          name: values.name,
+          category: values.category ?? "secondary",
+          city: values.city ?? null,
+          country: values.country ?? "Uganda",
+          website: values.website ?? null,
+          description: values.description ?? null,
+          fees_min: values.fees_min ?? null,
+          fees_max: values.fees_max ?? null,
+          badges: values.badges ?? [],
+          is_international: values.is_international ?? false,
+        },
+      });
+      await refreshAuthClaims();
+      return result;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["schools"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["schools"] });
+      void qc.invalidateQueries({ queryKey: ["my-school"] });
+      void qc.invalidateQueries({ queryKey: ["profile"] });
+      void qc.invalidateQueries({ queryKey: ["role"] });
+    },
   });
 }
 
@@ -159,32 +189,28 @@ export function useDeleteSchool() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("schools").delete().eq("id", id);
-      if (error) throw error;
+      await deleteDigitalSchool({ data: { schoolId: id } });
+      await refreshAuthClaims();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["schools"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["schools"] });
+      void qc.invalidateQueries({ queryKey: ["my-school"] });
+      void qc.invalidateQueries({ queryKey: ["profile"] });
+      void qc.invalidateQueries({ queryKey: ["role"] });
+    },
   });
 }
-
-/* ------------------------------------------------------------------ */
-/* Applications                                                        */
-/* ------------------------------------------------------------------ */
-
-const APPLICATION_SELECT =
-  "id, school_id, student_id, applicant_name, email, phone, class_level, intended_program, personal_statement, documents, status, review_notes, reviewed_at, created_at, school:schools(name, category, city)";
 
 export function useMyApplications(studentId?: string) {
   return useQuery({
     queryKey: ["applications", studentId],
     enabled: !!studentId,
     queryFn: async (): Promise<SchoolApplication[]> => {
-      const { data, error } = await supabase
-        .from("school_applications")
-        .select(APPLICATION_SELECT)
-        .eq("student_id", studentId!)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as SchoolApplication[];
+      const rows = await findMany<Omit<SchoolApplication, "school">>(
+        COLLECTIONS.schoolApplications,
+        [where("student_id", "==", studentId!), orderBy("created_at", "desc")],
+      );
+      return Promise.all(rows.map(hydrateApplication));
     },
   });
 }
@@ -194,12 +220,14 @@ export function useAllApplications(enabled: boolean) {
     queryKey: ["all-applications"],
     enabled,
     queryFn: async (): Promise<SchoolApplication[]> => {
-      const { data, error } = await supabase
-        .from("school_applications")
-        .select(APPLICATION_SELECT)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as SchoolApplication[];
+      const schoolId = await userSchoolId();
+      const rows = await findMany<Omit<SchoolApplication, "school">>(
+        COLLECTIONS.schoolApplications,
+        schoolId
+          ? [where("school_id", "==", schoolId), orderBy("created_at", "desc")]
+          : [orderBy("created_at", "desc")],
+      );
+      return Promise.all(rows.map(hydrateApplication));
     },
   });
 }
@@ -219,12 +247,14 @@ export function useSubmitApplication(studentId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (values: NewApplication) => {
-      const { error } = await supabase.from("school_applications").insert({
+      await createDoc(COLLECTIONS.schoolApplications, {
         ...values,
-        documents: values.documents as unknown as never,
         student_id: studentId!,
+        status: "pending",
+        review_notes: null,
+        reviewed_at: null,
+        created_at: new Date().toISOString(),
       });
-      if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["applications"] });
@@ -237,8 +267,7 @@ export function useWithdrawApplication() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("school_applications").delete().eq("id", id);
-      if (error) throw error;
+      await removeById(COLLECTIONS.schoolApplications, id);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["applications"] }),
   });
@@ -256,11 +285,11 @@ export function useUpdateApplicationStatus() {
       status: ApplicationStatus;
       notes?: string;
     }) => {
-      const { error } = await supabase
-        .from("school_applications")
-        .update({ status, review_notes: notes ?? null })
-        .eq("id", id);
-      if (error) throw error;
+      await patchById(COLLECTIONS.schoolApplications, id, {
+        status,
+        review_notes: notes ?? null,
+        reviewed_at: new Date().toISOString(),
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["all-applications"] });
@@ -270,39 +299,66 @@ export function useUpdateApplicationStatus() {
   });
 }
 
-/* ------------------------------------------------------------------ */
-/* Timetable                                                           */
-/* ------------------------------------------------------------------ */
-
-const SLOT_SELECT =
-  "id, class_id, day_of_week, start_time, end_time, class:classes(id, name, room, subject:subjects(name, code), teacher:profiles(full_name))";
+async function hydrateSlot(row: {
+  id: string;
+  class_id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+}): Promise<TimetableSlot> {
+  const cls = await getById<{
+    name: string;
+    room: string | null;
+    subject_id: string | null;
+    teacher_id: string | null;
+  }>(COLLECTIONS.classes, row.class_id);
+  if (!cls) return { ...row, class: null };
+  const withSubject = await attachSubject(cls);
+  const withTeacher = await attachNamedUser(cls, cls.teacher_id, "teacher");
+  return {
+    ...row,
+    class: {
+      id: cls.id,
+      name: cls.name,
+      room: cls.room,
+      subject: withSubject.subject,
+      teacher: withTeacher.teacher ? { full_name: withTeacher.teacher.full_name } : null,
+    },
+  };
+}
 
 export function useWeeklyTimetable(userId?: string) {
   const qc = useQueryClient();
 
   useEffect(() => {
-    const channel = supabase
-      .channel("timetable-sync")
-      .on("postgres_changes", { event: "*", schema: "public", table: "timetable_slots" }, () => {
-        qc.invalidateQueries({ queryKey: ["weekly-timetable"] });
-      })
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [qc]);
+    if (!userId) return;
+    let unsub: (() => void) | undefined;
+    void userSchoolId(userId).then((schoolId) => {
+      if (!schoolId) return;
+      unsub = subscribeMany(COLLECTIONS.timetableSlots, [where("school_id", "==", schoolId)], () =>
+        qc.invalidateQueries({ queryKey: ["weekly-timetable", userId] }),
+      );
+    });
+    return () => unsub?.();
+  }, [qc, userId]);
 
   return useQuery({
     queryKey: ["weekly-timetable", userId],
     enabled: !!userId,
     queryFn: async (): Promise<TimetableSlot[]> => {
-      const { data, error } = await supabase
-        .from("timetable_slots")
-        .select(SLOT_SELECT)
-        .order("day_of_week")
-        .order("start_time");
-      if (error) throw error;
-      return (data ?? []) as unknown as TimetableSlot[];
+      const schoolId = await userSchoolId(userId);
+      const rows = await findMany<{
+        class_id: string;
+        day_of_week: number;
+        start_time: string;
+        end_time: string;
+      }>(
+        COLLECTIONS.timetableSlots,
+        schoolId
+          ? [where("school_id", "==", schoolId), orderBy("day_of_week"), orderBy("start_time")]
+          : [orderBy("day_of_week"), orderBy("start_time")],
+      );
+      return Promise.all(rows.map(hydrateSlot));
     },
   });
 }
@@ -316,8 +372,8 @@ export function useCreateTimetableSlot() {
       start_time: string;
       end_time: string;
     }) => {
-      const { error } = await supabase.from("timetable_slots").insert(values);
-      if (error) throw error;
+      const cls = await getById<{ school_id?: string }>(COLLECTIONS.classes, values.class_id);
+      await createDoc(COLLECTIONS.timetableSlots, { ...values, school_id: cls?.school_id ?? null });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["weekly-timetable"] }),
   });
@@ -327,31 +383,23 @@ export function useDeleteTimetableSlot() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("timetable_slots").delete().eq("id", id);
-      if (error) throw error;
+      await removeById(COLLECTIONS.timetableSlots, id);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["weekly-timetable"] }),
   });
 }
-
-/* ------------------------------------------------------------------ */
-/* Study reminders                                                     */
-/* ------------------------------------------------------------------ */
 
 export function useStudyReminders(userId?: string) {
   return useQuery({
     queryKey: ["study-reminders", userId],
     enabled: !!userId,
     queryFn: async (): Promise<StudyReminder[]> => {
-      const { data, error } = await supabase
-        .from("study_reminders")
-        .select(
-          "id, title, subject_id, day_of_week, start_time, end_time, remind_minutes_before, active, subject:subjects(name, code)",
-        )
-        .order("day_of_week")
-        .order("start_time");
-      if (error) throw error;
-      return (data ?? []) as unknown as StudyReminder[];
+      const rows = await findMany<Omit<StudyReminder, "subject">>(COLLECTIONS.studyReminders, [
+        where("user_id", "==", userId!),
+        orderBy("day_of_week"),
+        orderBy("start_time"),
+      ]);
+      return Promise.all(rows.map((row) => attachSubject(row))) as Promise<StudyReminder[]>;
     },
   });
 }
@@ -367,10 +415,11 @@ export function useCreateStudyReminder(userId?: string) {
       end_time: string | null;
       remind_minutes_before: number;
     }) => {
-      const { error } = await supabase
-        .from("study_reminders")
-        .insert({ ...values, user_id: userId! });
-      if (error) throw error;
+      await createDoc(COLLECTIONS.studyReminders, {
+        ...values,
+        user_id: userId!,
+        active: true,
+      });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["study-reminders"] }),
   });
@@ -380,8 +429,7 @@ export function useToggleStudyReminder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from("study_reminders").update({ active }).eq("id", id);
-      if (error) throw error;
+      await patchById(COLLECTIONS.studyReminders, id, { active });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["study-reminders"] }),
   });
@@ -391,29 +439,24 @@ export function useDeleteStudyReminder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("study_reminders").delete().eq("id", id);
-      if (error) throw error;
+      await removeById(COLLECTIONS.studyReminders, id);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["study-reminders"] }),
   });
 }
 
-/* ------------------------------------------------------------------ */
-/* Meetings                                                            */
-/* ------------------------------------------------------------------ */
-
 export function useMeetings() {
   return useQuery({
     queryKey: ["school-meetings"],
     queryFn: async (): Promise<SchoolMeeting[]> => {
-      const { data, error } = await supabase
-        .from("school_meetings")
-        .select(
-          "id, title, kind, description, scheduled_at, duration_minutes, location, meeting_url, class_id, created_by, class:classes(name)",
-        )
-        .order("scheduled_at", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as unknown as SchoolMeeting[];
+      const schoolId = await userSchoolId();
+      const rows = await findMany<Omit<SchoolMeeting, "class">>(
+        COLLECTIONS.schoolMeetings,
+        schoolId
+          ? [where("school_id", "==", schoolId), orderBy("scheduled_at", "asc")]
+          : [orderBy("scheduled_at", "asc")],
+      );
+      return Promise.all(rows.map((row) => attachClassName(row))) as Promise<SchoolMeeting[]>;
     },
   });
 }
@@ -431,10 +474,12 @@ export function useCreateMeeting(userId?: string) {
       meeting_url: string | null;
       class_id: string | null;
     }) => {
-      const { error } = await supabase
-        .from("school_meetings")
-        .insert({ ...values, created_by: userId! });
-      if (error) throw error;
+      const schoolId = await userSchoolId(userId);
+      await createDoc(COLLECTIONS.schoolMeetings, {
+        ...values,
+        created_by: userId!,
+        school_id: schoolId,
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["school-meetings"] });
@@ -447,46 +492,31 @@ export function useDeleteMeeting() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("school_meetings").delete().eq("id", id);
-      if (error) throw error;
+      await removeById(COLLECTIONS.schoolMeetings, id);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["school-meetings"] }),
   });
 }
-
-/* ------------------------------------------------------------------ */
-/* Notifications                                                       */
-/* ------------------------------------------------------------------ */
 
 export function useNotifications(userId?: string) {
   const qc = useQueryClient();
 
   useEffect(() => {
     if (!userId) return;
-    const channel = supabase
-      .channel(`notifications-${userId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
-        () => qc.invalidateQueries({ queryKey: ["notifications", userId] }),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return subscribeMany(COLLECTIONS.notifications, [where("user_id", "==", userId)], () =>
+      qc.invalidateQueries({ queryKey: ["notifications", userId] }),
+    );
   }, [qc, userId]);
 
   return useQuery({
     queryKey: ["notifications", userId],
     enabled: !!userId,
     queryFn: async (): Promise<AppNotification[]> => {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("id, title, body, kind, link, read, created_at")
-        .order("created_at", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return (data ?? []) as AppNotification[];
+      return findMany<AppNotification>(COLLECTIONS.notifications, [
+        where("user_id", "==", userId!),
+        orderBy("created_at", "desc"),
+        limit(30),
+      ]);
     },
   });
 }
@@ -495,16 +525,11 @@ export function useMarkNotificationRead(userId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("notifications").update({ read: true }).eq("id", id);
-      if (error) throw error;
+      await patchById(COLLECTIONS.notifications, id, { read: true });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications", userId] }),
   });
 }
-
-/* ------------------------------------------------------------------ */
-/* Admin helpers                                                       */
-/* ------------------------------------------------------------------ */
 
 export type StaffMember = {
   user_id: string;
@@ -517,18 +542,19 @@ export function useStaffDirectory(enabled: boolean) {
     queryKey: ["staff-directory"],
     enabled,
     queryFn: async (): Promise<StaffMember[]> => {
-      const [roles, profiles] = await Promise.all([
-        supabase.from("user_roles").select("user_id, role"),
-        supabase.from("profiles").select("id, full_name, email"),
-      ]);
-      if (roles.error) throw roles.error;
-      if (profiles.error) throw profiles.error;
-      const byId = new Map((profiles.data ?? []).map((p) => [p.id, p]));
-      return (roles.data ?? []).map((r) => ({
-        user_id: r.user_id,
-        role: r.role as string,
-        profile: byId.get(r.user_id) ?? null,
-      }));
+      const schoolId = await userSchoolId();
+      const rows = await findMany<{
+        role: string;
+        full_name: string;
+        email: string | null;
+      }>(COLLECTIONS.users, schoolId ? [where("school_id", "==", schoolId)] : []);
+      return rows
+        .filter((r) => ["teacher", "admin", "institution", "superadmin"].includes(r.role))
+        .map((r) => ({
+          user_id: r.id,
+          role: r.role,
+          profile: { id: r.id, full_name: r.full_name, email: r.email },
+        }));
     },
   });
 }
@@ -538,12 +564,29 @@ export function useAllClasses(enabled: boolean) {
     queryKey: ["all-classes"],
     enabled,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("classes")
-        .select("id, name, room, subject:subjects(name, code), teacher:profiles(id, full_name)")
-        .order("name");
-      if (error) throw error;
-      return data ?? [];
+      const schoolId = await userSchoolId();
+      const rows = await findMany<{
+        name: string;
+        room: string | null;
+        subject_id: string | null;
+        teacher_id: string | null;
+      }>(
+        COLLECTIONS.classes,
+        schoolId ? [where("school_id", "==", schoolId), orderBy("name")] : [orderBy("name")],
+      );
+      return Promise.all(
+        rows.map(async (row) => {
+          const withSubject = await attachSubject(row);
+          const withTeacher = await attachNamedUser(row, row.teacher_id, "teacher");
+          return {
+            ...row,
+            subject: withSubject.subject,
+            teacher: withTeacher.teacher
+              ? { id: withTeacher.teacher.id, full_name: withTeacher.teacher.full_name }
+              : null,
+          };
+        }),
+      );
     },
   });
 }
@@ -557,8 +600,14 @@ export function useCreateClass() {
       teacher_id: string | null;
       room: string | null;
     }) => {
-      const { error } = await supabase.from("classes").insert(values);
-      if (error) throw error;
+      const schoolId = await userSchoolId();
+      await createDoc(COLLECTIONS.classes, {
+        ...values,
+        school_id: schoolId,
+        status: "active",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["all-classes"] });

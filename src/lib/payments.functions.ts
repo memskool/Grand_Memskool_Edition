@@ -1,10 +1,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
+import {
+  adminCreate,
+  adminGetById,
+  adminIsSuspended,
+  adminUpdate,
+  adminWhere,
+} from "@/lib/firebase/admin-repo";
+import { COLLECTIONS } from "@/lib/firebase/repo";
 
 const checkoutSchema = z.object({
-  itemId: z.string().uuid(),
+  itemId: z.string().min(1),
   quantity: z.number().int().min(1).max(20),
   scheduledAt: z.string().datetime().nullable().optional(),
   notes: z.string().max(500).nullable().optional(),
@@ -17,35 +25,34 @@ export type CheckoutResult = {
   currency: string;
 };
 
-/**
- * Creates a pending order priced from the DATABASE (never from the browser)
- * and returns a Flutterwave hosted-checkout link. The order only becomes
- * `paid` after the signed webhook + server-side verification.
- */
 export const startCheckout = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireFirebaseAuth])
   .inputValidator((data: unknown) => checkoutSchema.parse(data))
   .handler(async ({ data, context }): Promise<CheckoutResult> => {
-    const { supabase, userId } = context;
+    const { userId } = context;
 
-    const { data: suspended } = await supabase.rpc("is_suspended", { _user_id: userId });
-    if (suspended) throw new Error("Your account is suspended and cannot make purchases.");
+    if (await adminIsSuspended(userId)) {
+      throw new Error("Your account is suspended and cannot make purchases.");
+    }
 
-    // Price, currency and title come from the server-side row only.
-    const { data: item, error: itemError } = await supabase
-      .from("marketplace_items")
-      .select("id, title, kind, price_cents, currency, active")
-      .eq("id", data.itemId)
-      .maybeSingle();
-    if (itemError) throw itemError;
+    const item = await adminGetById<{
+      title: string;
+      kind: string;
+      price_cents: number;
+      currency: string;
+      active: boolean;
+      school_id?: string | null;
+    }>(COLLECTIONS.marketplaceItems, data.itemId);
     if (!item || !item.active) throw new Error("This listing is no longer available.");
+    if (item.school_id && context.schoolId && item.school_id !== context.schoolId) {
+      throw new Error("You cannot buy listings from another school.");
+    }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name, email")
-      .eq("id", userId)
-      .maybeSingle();
-    const email = profile?.email;
+    const profile = await adminGetById<{ full_name: string; email: string | null }>(
+      COLLECTIONS.users,
+      userId,
+    );
+    const email = profile?.email ?? context.email;
     if (!email) throw new Error("Add an email address to your profile before paying.");
 
     const quantity = item.kind === "tutoring" ? 1 : data.quantity;
@@ -53,12 +60,11 @@ export const startCheckout = createServerFn({ method: "POST" })
 
     const { buildReference, createFlutterwaveCheckout, toProviderAmount } =
       await import("./payments.server");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const reference = buildReference();
     const origin = new URL(getRequest().url).origin;
 
-    const { error: insertError } = await supabaseAdmin.from("orders").insert({
+    const orderId = await adminCreate(COLLECTIONS.orders, {
       buyer_id: userId,
       item_id: item.id,
       item_title: item.title,
@@ -71,8 +77,8 @@ export const startCheckout = createServerFn({ method: "POST" })
       reference,
       scheduled_at: data.scheduledAt ?? null,
       notes: data.notes ?? null,
+      created_at: new Date().toISOString(),
     });
-    if (insertError) throw insertError;
 
     const paymentLink = await createFlutterwaveCheckout({
       reference,
@@ -84,28 +90,23 @@ export const startCheckout = createServerFn({ method: "POST" })
       redirectUrl: `${origin}/marketplace?ref=${reference}`,
     });
 
-    await supabaseAdmin
-      .from("orders")
-      .update({ payment_link: paymentLink })
-      .eq("reference", reference);
+    await adminUpdate(COLLECTIONS.orders, orderId, { payment_link: paymentLink });
 
     return { reference, paymentLink, amountCents, currency: item.currency };
   });
 
-/**
- * Called when the buyer returns from the hosted checkout. Re-verifies with the
- * provider rather than trusting anything in the redirect URL.
- */
 export const reconcileOrder = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireFirebaseAuth])
   .inputValidator((data: unknown) => z.object({ reference: z.string().max(64) }).parse(data))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: order } = await supabase
-      .from("orders")
-      .select("reference, status, provider_tx_id, buyer_id")
-      .eq("reference", data.reference)
-      .maybeSingle();
+    const { userId } = context;
+    const orders = await adminWhere<{
+      reference: string;
+      status: string;
+      provider_tx_id?: string | null;
+      buyer_id: string;
+    }>(COLLECTIONS.orders, "reference", "==", data.reference);
+    const order = orders[0];
     if (!order || order.buyer_id !== userId) throw new Error("Order not found.");
     if (order.status !== "pending" || !order.provider_tx_id) return { status: order.status };
 

@@ -21,7 +21,6 @@ export function AppSidebar() {
   const { role, pendingApproval } = useAccess();
   const items = navForRole(role, examActive, pendingApproval);
 
-
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="px-3 py-4">
@@ -32,7 +31,7 @@ export function AppSidebar() {
               Memskool
             </span>
             <span className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-sidebar-foreground/60">
-              eSchool
+              Institute
             </span>
           </span>
         </Link>
@@ -50,15 +49,16 @@ export function AppSidebar() {
                       asChild
                       isActive={active}
                       tooltip={item.title}
-                      className="h-11 rounded-full transition-colors data-[active=true]:bg-brand-accent data-[active=true]:font-semibold data-[active=true]:text-brand-accent-foreground data-[active=true]:hover:bg-brand-accent data-[active=true]:hover:text-brand-accent-foreground"
+                      className="h-10 rounded-full transition-[background-color,color,transform] duration-150 data-[active=true]:bg-sidebar-primary data-[active=true]:font-semibold data-[active=true]:text-sidebar-primary-foreground"
                     >
-                      <Link to={item.url}>
-                        <item.icon
-                          className={active ? "size-[18px]" : "size-[18px]"}
-                        />
+                      <Link
+                        preload="intent"
+                        to={item.url}
+                        aria-current={active ? "page" : undefined}
+                      >
+                        <item.icon className="size-[18px]" />
                         <span>{item.title}</span>
                       </Link>
-
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -69,7 +69,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="px-4 py-3 group-data-[collapsible=icon]:hidden">
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
+        <p className="text-[11px] leading-relaxed text-sidebar-foreground/55">
           Memskool eSchool
           <br />
           Learn. Track. Grow.

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatPrice, useCheckout, type MarketplaceItem } from "@/lib/marketplace-data";
+import { authErrorMessage } from "@/lib/errors/auth-errors";
 
 export function CheckoutModal({
   item,
@@ -50,7 +51,7 @@ export function CheckoutModal({
           toast.success("Redirecting to secure payment…");
           window.location.href = result.paymentLink;
         },
-        onError: (e) => toast.error(e instanceof Error ? e.message : "Checkout failed"),
+        onError: (e) => toast.error(authErrorMessage(e)),
       },
     );
   };

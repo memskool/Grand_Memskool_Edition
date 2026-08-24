@@ -1,24 +1,20 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
+import { COLLECTIONS } from "@/lib/firebase/repo";
+import { providerRoomName, type ClassroomToken } from "@/features/live-classroom/contracts";
+import { participantDocId } from "@/features/live-classroom/contracts";
+import type { SessionDoc } from "@/features/live-classroom/authz";
 
-export type ClassroomToken = {
-  token: string;
-  serverUrl: string;
-  identity: string;
-  canPublish: boolean;
-};
+export type { ClassroomToken };
 
-/**
- * Mints a short-lived LiveKit access token. Room membership, host rights and
- * suspension are all decided here on the server — the browser cannot grant
- * itself publish rights or join a class it is not enrolled in.
- */
 export const issueClassroomToken = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ sessionId: z.string().uuid() }).parse(data))
+  .middleware([requireFirebaseAuth])
+  .inputValidator((data: unknown) => z.object({ sessionId: z.string().min(1) }).parse(data))
   .handler(async ({ data, context }): Promise<ClassroomToken> => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const { adminGetById, adminIsSuspended } = await import("@/lib/firebase/admin-repo");
+    const { assertCanJoinSession } = await import("@/features/live-classroom/authz");
 
     const serverUrl = process.env["LIVEKIT_URL"];
     const apiKey = process.env["LIVEKIT_API_KEY"];
@@ -27,54 +23,53 @@ export const issueClassroomToken = createServerFn({ method: "POST" })
       throw new Error("Live video is not configured yet. Add the LiveKit credentials.");
     }
 
-    const { data: suspended } = await supabase.rpc("is_suspended", { _user_id: userId });
-    if (suspended) throw new Error("Your account is suspended and cannot join live classes.");
+    if (await adminIsSuspended(userId)) {
+      throw new Error("Your account is suspended and cannot join live classes.");
+    }
 
-    // RLS on classroom_sessions already restricts this read to the host and
-    // enrolled learners, so a missing row means "not authorised".
-    const { data: session } = await supabase
-      .from("classroom_sessions")
-      .select("id, class_id, host_id, is_active")
-      .eq("id", data.sessionId)
-      .maybeSingle();
+    const session = await adminGetById<SessionDoc>(COLLECTIONS.classroomSessions, data.sessionId);
     if (!session) throw new Error("You are not allowed to join this class.");
-    if (!session.is_active) throw new Error("This session has ended.");
 
-    const isHost = session.host_id === userId;
+    const access = await assertCanJoinSession(context.role, context.schoolId, userId, session);
 
-    // Teacher-enforced device state decides publish rights for learners.
-    const { data: participant } = await supabase
-      .from("classroom_participants")
-      .select("camera_allowed, mic_on")
-      .eq("session_id", session.id)
-      .eq("user_id", userId)
-      .maybeSingle();
+    const participant = await adminGetById<{ camera_allowed?: boolean }>(
+      COLLECTIONS.classroomParticipants,
+      participantDocId(session.id, userId),
+    );
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", userId)
-      .maybeSingle();
+    const canPublish = access.isHost || participant?.camera_allowed !== false;
+    const canShareScreen = access.isHost;
 
-    const { AccessToken } = await import("livekit-server-sdk");
+    const profile = await adminGetById<{ full_name: string }>(COLLECTIONS.users, userId);
+
+    const { AccessToken, TrackSource } = await import("livekit-server-sdk");
     const at = new AccessToken(apiKey, apiSecret, {
       identity: userId,
       name: profile?.full_name || "Memskool user",
       ttl: "2h",
     });
     at.addGrant({
-      room: `memskool-${session.id}`,
+      room: session.provider_room || providerRoomName(session.id),
       roomJoin: true,
-      canPublish: isHost || participant?.camera_allowed !== false,
+      canPublish,
       canSubscribe: true,
       canPublishData: true,
-      roomAdmin: isHost,
+      roomAdmin: access.isHost,
+      canPublishSources: canShareScreen
+        ? [
+            TrackSource.CAMERA,
+            TrackSource.MICROPHONE,
+            TrackSource.SCREEN_SHARE,
+            TrackSource.SCREEN_SHARE_AUDIO,
+          ]
+        : [TrackSource.CAMERA, TrackSource.MICROPHONE],
     });
 
     return {
       token: await at.toJwt(),
       serverUrl,
       identity: userId,
-      canPublish: isHost || participant?.camera_allowed !== false,
+      canPublish,
+      canShareScreen,
     };
   });

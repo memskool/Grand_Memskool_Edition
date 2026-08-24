@@ -1,6 +1,8 @@
-import { supabase } from "@/integrations/supabase/client";
+import { getDownloadURL, ref, uploadBytesResumable, getBlob, deleteObject } from "firebase/storage";
+import { getFirebaseAuth, getFirebaseStorage } from "@/lib/firebase/client";
+import { AppError } from "@/lib/errors/app-error";
 
-export const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
+export const MAX_FILE_BYTES = 50 * 1024 * 1024;
 export type FileCategory = "note" | "video" | "audio";
 
 export const CATEGORY_LABEL: Record<FileCategory, string> = {
@@ -41,70 +43,60 @@ export function buildObjectPath(prefix: string, fileName: string): string {
   return `${prefix}/${crypto.randomUUID()}-${safe}`;
 }
 
-const SUPABASE_URL = import.meta.env["VITE_SUPABASE_URL"] as string;
-const SUPABASE_KEY = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string;
+/** Maps legacy bucket+path calls onto Firebase Storage object paths. */
+export function storageObjectPath(bucket: string, path: string): string {
+  const uid = getFirebaseAuth().currentUser?.uid;
+  if (bucket === "locker-files") {
+    if (path.startsWith("users/")) return path;
+    return uid ? `users/${uid}/locker/${path}` : path;
+  }
+  if (bucket === "library-files") {
+    if (path.startsWith("schools/")) return path;
+    return path;
+  }
+  return path;
+}
 
-/**
- * Uploads through the Storage REST endpoint with XHR so we can report
- * real byte-level progress (the JS SDK does not expose upload progress).
- */
 export async function uploadWithProgress(
   bucket: string,
   path: string,
   file: File,
   onProgress?: (percent: number) => void,
 ): Promise<void> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error("You need to be signed in to upload files.");
-
+  const user = getFirebaseAuth().currentUser;
+  if (!user) throw new AppError("auth", "You need to be signed in to upload files.");
+  const objectPath = storageObjectPath(bucket, path);
+  const storageRef = ref(getFirebaseStorage(), objectPath);
   await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`);
-    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-    xhr.setRequestHeader("apikey", SUPABASE_KEY);
-    xhr.setRequestHeader("x-upsert", "true");
-    if (file.type) xhr.setRequestHeader("content-type", file.type);
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress?.(Math.round((event.loaded / event.total) * 100));
-      }
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
+    const task = uploadBytesResumable(storageRef, file, { contentType: file.type || undefined });
+    task.on(
+      "state_changed",
+      (snap) => {
+        if (snap.totalBytes > 0) {
+          onProgress?.(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
+        }
+      },
+      (error) => reject(error),
+      () => {
         onProgress?.(100);
         resolve();
-        return;
-      }
-      let message = `Upload failed (${xhr.status})`;
-      try {
-        const parsed = JSON.parse(xhr.responseText) as { message?: string; error?: string };
-        message = parsed.message ?? parsed.error ?? message;
-      } catch {
-        /* keep default message */
-      }
-      reject(new Error(message));
-    };
-    xhr.onerror = () => reject(new Error("Network error while uploading."));
-    xhr.send(file);
+      },
+    );
   });
 }
 
 export async function getSignedUrl(
   bucket: string,
   path: string,
-  expiresIn = 3600,
+  _expiresIn = 3600,
 ): Promise<string> {
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn);
-  if (error || !data) throw error ?? new Error("Could not create a download link.");
-  return data.signedUrl;
+  void _expiresIn;
+  return getDownloadURL(ref(getFirebaseStorage(), storageObjectPath(bucket, path)));
 }
 
 export async function downloadObject(bucket: string, path: string, fileName?: string | null) {
-  const { data, error } = await supabase.storage.from(bucket).download(path);
-  if (error || !data) throw error ?? new Error("Download failed.");
-  const url = URL.createObjectURL(data);
+  const blob = await getBlob(ref(getFirebaseStorage(), storageObjectPath(bucket, path)));
+  const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = fileName ?? path.split("/").pop() ?? "download";
@@ -112,4 +104,40 @@ export async function downloadObject(bucket: string, path: string, fileName?: st
   anchor.click();
   anchor.remove();
   URL.revokeObjectURL(url);
+}
+
+export async function removeObject(bucket: string, path: string) {
+  await deleteObject(ref(getFirebaseStorage(), storageObjectPath(bucket, path)));
+}
+
+const AVATAR_MAX = 5 * 1024 * 1024;
+
+export async function getSchoolObjectUrl(objectPath: string): Promise<string> {
+  return getDownloadURL(ref(getFirebaseStorage(), objectPath));
+}
+
+export async function uploadSchoolObject(objectPath: string, file: File): Promise<string> {
+  const user = getFirebaseAuth().currentUser;
+  if (!user) throw new AppError("auth", "You need to be signed in to upload files.");
+  const err = validateFile(file);
+  if (err) throw new AppError("validation", err);
+  const storageRef = ref(getFirebaseStorage(), objectPath);
+  await new Promise<void>((resolve, reject) => {
+    const task = uploadBytesResumable(storageRef, file, { contentType: file.type || undefined });
+    task.on("state_changed", undefined, reject, () => resolve());
+  });
+  return objectPath;
+}
+
+export async function uploadAvatar(file: File): Promise<string> {
+  const user = getFirebaseAuth().currentUser;
+  if (!user) throw new AppError("auth", "You need to be signed in to update your photo.");
+  if (!file.type.startsWith("image/")) throw new AppError("validation", "Choose an image file.");
+  if (file.size > AVATAR_MAX) throw new AppError("validation", "Photos must be 5 MB or smaller.");
+  const storageRef = ref(getFirebaseStorage(), `avatars/${user.uid}/profile`);
+  await new Promise<void>((resolve, reject) => {
+    const task = uploadBytesResumable(storageRef, file, { contentType: file.type || "image/jpeg" });
+    task.on("state_changed", undefined, reject, () => resolve());
+  });
+  return getDownloadURL(storageRef);
 }

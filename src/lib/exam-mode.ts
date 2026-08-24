@@ -1,9 +1,8 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * Tiny global store that tracks whether the student is inside an active
- * examination. While active, all AI surfaces (Crane5 webview, AI Toolkit,
- * nav entry) are hidden to prevent cheating.
+ * Client deterrent only: hides AI nav while a test/exam attempt is open.
+ * This is not a security control. Server functions still enforce attempts.
  */
 
 const KEY = "memskool:exam-active";

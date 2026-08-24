@@ -144,11 +144,11 @@ function DreamSchoolPage() {
           ) : filtered.length ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filtered.map((school) => (
-                <article key={school.id} className="surface-card flex flex-col gap-3 overflow-hidden p-0 transition-transform hover:-translate-y-1">
+                <article key={school.id} className="surface-card flex flex-col gap-3 overflow-hidden p-0">
                   <div className="relative flex items-end gap-3 bg-ink p-5 pt-10 text-ink-foreground">
                     <span
                       aria-hidden
-                      className="pointer-events-none absolute -right-8 -top-10 size-32 rounded-full bg-brand-accent/25 blur-xl"
+                      className="pointer-events-none absolute -right-8 -top-10 size-32 rounded-full bg-ink-foreground/5"
                     />
                     <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-ink-foreground/10">
                       <Building2 className="size-5" />
@@ -187,9 +187,9 @@ function DreamSchoolPage() {
                     </p>
                   ) : null}
 
-                  <div className="mx-5 rounded-2xl border border-brand-accent/25 bg-brand-accent/8 px-3 py-2">
+                  <div className="mx-5 rounded-2xl bg-secondary/60 px-3 py-2">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">Fees</p>
-                    <p className="text-sm font-semibold text-brand-accent">{feeLabel(school)}</p>
+                    <p className="text-sm font-medium">{feeLabel(school)}</p>
                     {school.fees_notes ? (
                       <p className="text-xs text-muted-foreground">{school.fees_notes}</p>
                     ) : null}

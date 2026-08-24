@@ -40,42 +40,20 @@ export function ScheduleRail({
           hint="Sessions appear here once your timetable is set."
         />
       ) : (
-        <ol className="space-y-2.5">
-          {slots.map((s, i) => {
-            const next = i === 0;
-            return (
-              <li
-                key={s.id}
-                className={
-                  next
-                    ? "accent-gradient rounded-2xl px-4 py-3 shadow-[0_12px_30px_-14px_var(--brand-accent)]"
-                    : "rounded-2xl bg-secondary/60 px-4 py-3"
-                }
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p
-                    className={
-                      next
-                        ? "text-xs font-medium tabular-nums opacity-90"
-                        : "text-xs font-medium tabular-nums text-muted-foreground"
-                    }
-                  >
-                    {formatTime(s.start_time)} – {formatTime(s.end_time)}
-                  </p>
-                  {next ? (
-                    <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
-                      Next
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-0.5 truncate text-sm font-semibold">{s.class?.name ?? "Class"}</p>
-                <p className={next ? "text-xs opacity-80" : "text-xs text-muted-foreground"}>
-                  {DAYS[s.day_of_week]}
-                  {s.class?.room ? ` · ${s.class.room}` : ""}
-                </p>
-              </li>
-            );
-          })}
+        <ol className="relative space-y-4 border-l border-border pl-5">
+          {slots.map((s) => (
+            <li key={s.id} className="relative">
+              <span className="absolute -left-[26px] top-1.5 size-2.5 rounded-full bg-gold" />
+              <p className="text-xs font-medium tabular-nums text-muted-foreground">
+                {formatTime(s.start_time)} – {formatTime(s.end_time)}
+              </p>
+              <p className="mt-0.5 truncate text-sm font-semibold">{s.class?.name ?? "Class"}</p>
+              <p className="text-xs text-muted-foreground">
+                {DAYS[s.day_of_week]}
+                {s.class?.room ? ` · ${s.class.room}` : ""}
+              </p>
+            </li>
+          ))}
         </ol>
       )}
     </aside>

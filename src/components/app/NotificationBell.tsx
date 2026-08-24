@@ -27,7 +27,7 @@ export function NotificationBell() {
         >
           <Bell className="size-[18px]" />
           {unread > 0 ? (
-            <span className="absolute right-1.5 top-1.5 flex size-2 rounded-full bg-primary" />
+            <span className="absolute right-1.5 top-1.5 flex size-2 rounded-full bg-gold" />
           ) : null}
         </Button>
       </PopoverTrigger>
@@ -39,7 +39,13 @@ export function NotificationBell() {
           </p>
         </div>
         <ScrollArea className="max-h-80">
-          {items.length ? (
+          {notifications.isLoading ? (
+            <p className="px-4 py-8 text-center text-xs text-muted-foreground">Loading…</p>
+          ) : notifications.isError ? (
+            <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+              Couldn’t load notifications. Open Settings if this keeps happening.
+            </p>
+          ) : items.length ? (
             <ul className="divide-y divide-border">
               {items.map((n) => (
                 <li key={n.id}>

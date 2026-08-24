@@ -1,6 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import type { FileCategory } from "@/lib/storage";
+import { removeObject } from "@/lib/storage";
+import {
+  COLLECTIONS,
+  createDoc,
+  findMany,
+  getById,
+  patchById,
+  removeById,
+  where,
+  orderBy,
+} from "@/lib/firebase/repo";
+import { attachClassName, attachSubject, userSchoolId } from "@/lib/firebase/hydrate";
 
 export const CLASS_LEVELS = [
   "Form One",
@@ -60,6 +71,7 @@ export type LibraryBook = {
   mime_type: string | null;
   uploaded_by: string | null;
   created_at: string;
+  subject_id?: string | null;
   subject: { name: string; code: string } | null;
 };
 
@@ -76,41 +88,38 @@ export type MissedWorkItem = {
   released_to_locker: boolean;
   class_id: string | null;
   class: { name: string } | null;
+  status?: string | null;
 };
-
-/* ------------------------------------------------------------------ */
-/* Subjects                                                            */
-/* ------------------------------------------------------------------ */
 
 export function useSubjects() {
   return useQuery({
     queryKey: ["subjects"],
     queryFn: async (): Promise<SubjectRow[]> => {
-      const { data, error } = await supabase
-        .from("subjects")
-        .select("id, name, code")
-        .order("name");
-      if (error) throw error;
-      return data ?? [];
+      const schoolId = await userSchoolId();
+      const rows = await findMany<SubjectRow>(COLLECTIONS.subjects, [
+        ...(schoolId ? [where("school_id", "==", schoolId)] : []),
+        orderBy("name"),
+      ]);
+      return rows.map((r) => ({ id: r.id, name: r.name, code: r.code }));
     },
   });
 }
-
-/* ------------------------------------------------------------------ */
-/* Locker                                                              */
-/* ------------------------------------------------------------------ */
 
 export function useLockerFolders(userId?: string) {
   return useQuery({
     queryKey: ["locker-folders", userId],
     enabled: !!userId,
     queryFn: async (): Promise<LockerFolder[]> => {
-      const { data, error } = await supabase
-        .from("locker_folders")
-        .select("id, name, class_level, subject_id, created_at, subject:subjects(name, code)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as LockerFolder[];
+      const rows = await findMany<{
+        name: string;
+        class_level: string | null;
+        subject_id: string | null;
+        created_at: string;
+      }>(COLLECTIONS.lockerFolders, [
+        where("owner_id", "==", userId!),
+        orderBy("created_at", "desc"),
+      ]);
+      return Promise.all(rows.map((row) => attachSubject(row))) as Promise<LockerFolder[]>;
     },
   });
 }
@@ -120,16 +129,11 @@ export function useLockerItems(userId?: string) {
     queryKey: ["locker-items", userId],
     enabled: !!userId,
     queryFn: async (): Promise<LockerItem[]> => {
-      const { data, error } = await supabase
-        .from("locker_items")
-        .select(
-          `id, title, kind, category, class_level, folder_id, subject_id, url, notes,
-           file_path, file_name, file_size, mime_type, from_missed_work, created_at,
-           subject:subjects(name, code)`,
-        )
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as LockerItem[];
+      const rows = await findMany<Omit<LockerItem, "subject">>(COLLECTIONS.lockerItems, [
+        where("owner_id", "==", userId!),
+        orderBy("created_at", "desc"),
+      ]);
+      return Promise.all(rows.map((row) => attachSubject(row))) as Promise<LockerItem[]>;
     },
   });
 }
@@ -142,10 +146,11 @@ export function useCreateFolder(userId?: string) {
       subject_id: string | null;
       class_level: string | null;
     }) => {
-      const { error } = await supabase
-        .from("locker_folders")
-        .insert({ ...input, owner_id: userId! });
-      if (error) throw error;
+      await createDoc(COLLECTIONS.lockerFolders, {
+        ...input,
+        owner_id: userId!,
+        created_at: new Date().toISOString(),
+      });
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["locker-folders"] }),
   });
@@ -155,8 +160,7 @@ export function useDeleteFolder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("locker_folders").delete().eq("id", id);
-      if (error) throw error;
+      await removeById(COLLECTIONS.lockerFolders, id);
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["locker-folders"] });
@@ -184,8 +188,12 @@ export function useCreateLockerItem(userId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: NewLockerItem) => {
-      const { error } = await supabase.from("locker_items").insert({ ...input, owner_id: userId! });
-      if (error) throw error;
+      await createDoc(COLLECTIONS.lockerItems, {
+        ...input,
+        owner_id: userId!,
+        from_missed_work: false,
+        created_at: new Date().toISOString(),
+      });
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["locker-items"] }),
   });
@@ -195,8 +203,7 @@ export function useUpdateLockerItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<NewLockerItem> }) => {
-      const { error } = await supabase.from("locker_items").update(patch).eq("id", id);
-      if (error) throw error;
+      await patchById(COLLECTIONS.lockerItems, id, patch);
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["locker-items"] }),
   });
@@ -206,31 +213,25 @@ export function useDeleteLockerItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, file_path }: { id: string; file_path: string | null }) => {
-      if (file_path) await supabase.storage.from("locker-files").remove([file_path]);
-      const { error } = await supabase.from("locker_items").delete().eq("id", id);
-      if (error) throw error;
+      if (file_path) await removeObject("locker-files", file_path).catch(() => undefined);
+      await removeById(COLLECTIONS.lockerItems, id);
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["locker-items"] }),
   });
 }
 
-/* ------------------------------------------------------------------ */
-/* Library                                                             */
-/* ------------------------------------------------------------------ */
-
 export function useLibraryBooks() {
   return useQuery({
     queryKey: ["library-books"],
     queryFn: async (): Promise<LibraryBook[]> => {
-      const { data, error } = await supabase
-        .from("library_books")
-        .select(
-          `id, title, author, description, category, class_level, file_path, file_name,
-           file_size, mime_type, uploaded_by, created_at, subject:subjects(name, code)`,
-        )
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as LibraryBook[];
+      const schoolId = await userSchoolId();
+      const rows = await findMany<Omit<LibraryBook, "subject"> & { subject_id?: string | null }>(
+        COLLECTIONS.libraryBooks,
+        schoolId
+          ? [where("school_id", "==", schoolId), orderBy("created_at", "desc")]
+          : [orderBy("created_at", "desc")],
+      );
+      return Promise.all(rows.map((row) => attachSubject(row))) as Promise<LibraryBook[]>;
     },
   });
 }
@@ -252,10 +253,13 @@ export function useCreateLibraryBook(userId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: NewLibraryBook) => {
-      const { error } = await supabase
-        .from("library_books")
-        .insert({ ...input, uploaded_by: userId! });
-      if (error) throw error;
+      const schoolId = await userSchoolId(userId);
+      await createDoc(COLLECTIONS.libraryBooks, {
+        ...input,
+        uploaded_by: userId!,
+        school_id: schoolId,
+        created_at: new Date().toISOString(),
+      });
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["library-books"] }),
   });
@@ -265,33 +269,23 @@ export function useDeleteLibraryBook() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, file_path }: { id: string; file_path: string | null }) => {
-      if (file_path) await supabase.storage.from("library-files").remove([file_path]);
-      const { error } = await supabase.from("library_books").delete().eq("id", id);
-      if (error) throw error;
+      if (file_path) await removeObject("library-files", file_path).catch(() => undefined);
+      await removeById(COLLECTIONS.libraryBooks, id);
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["library-books"] }),
   });
 }
-
-/* ------------------------------------------------------------------ */
-/* Missed work                                                         */
-/* ------------------------------------------------------------------ */
 
 export function useMissedWork(studentId?: string) {
   return useQuery({
     queryKey: ["missed-work", studentId],
     enabled: !!studentId,
     queryFn: async (): Promise<MissedWorkItem[]> => {
-      const { data, error } = await supabase
-        .from("missed_work")
-        .select(
-          `id, title, category, lesson_date, url, file_path, file_name, reviewed,
-           reviewed_at, released_to_locker, class_id, class:classes(name)`,
-        )
-        .eq("student_id", studentId!)
-        .order("lesson_date", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as MissedWorkItem[];
+      const rows = await findMany<Omit<MissedWorkItem, "class">>(COLLECTIONS.missedWork, [
+        where("student_id", "==", studentId!),
+        orderBy("lesson_date", "desc"),
+      ]);
+      return Promise.all(rows.map((row) => attachClassName(row))) as Promise<MissedWorkItem[]>;
     },
   });
 }
@@ -300,17 +294,15 @@ export function useMarkReviewed() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("missed_work")
-        .update({ reviewed: true, reviewed_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
+      await patchById(COLLECTIONS.missedWork, id, {
+        reviewed: true,
+        reviewed_at: new Date().toISOString(),
+      });
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["missed-work"] }),
   });
 }
 
-/** Moves a reviewed missed-work item into the main locker. */
 export function useReleaseToLocker(userId?: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -318,7 +310,7 @@ export function useReleaseToLocker(userId?: string) {
       if (!item.reviewed) {
         throw new Error("Mark this item as reviewed before moving it to your locker.");
       }
-      const { error: insertError } = await supabase.from("locker_items").insert({
+      await createDoc(COLLECTIONS.lockerItems, {
         owner_id: userId!,
         title: item.title,
         kind: item.file_path ? "file" : item.url ? "link" : "note",
@@ -327,13 +319,9 @@ export function useReleaseToLocker(userId?: string) {
         file_path: item.file_path,
         file_name: item.file_name,
         from_missed_work: true,
+        created_at: new Date().toISOString(),
       });
-      if (insertError) throw insertError;
-      const { error } = await supabase
-        .from("missed_work")
-        .update({ released_to_locker: true })
-        .eq("id", item.id);
-      if (error) throw error;
+      await patchById(COLLECTIONS.missedWork, item.id, { released_to_locker: true });
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["missed-work"] });

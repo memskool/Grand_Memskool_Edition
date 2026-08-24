@@ -1,15 +1,43 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  COLLECTIONS,
+  findMany,
+  findOne,
+  patchById,
+  subscribeMany,
+  where,
+  orderBy,
+} from "@/lib/firebase/repo";
+import { attachNamedUser } from "@/lib/firebase/hydrate";
+import { classifyFirebase } from "@/lib/errors/app-error";
+import { PRODUCT_EVENTS, trackProductEvent } from "@/lib/analytics";
+import {
+  cancelLiveSession,
+  correctLiveAttendance,
+  endLiveSession,
+  joinLiveSession,
+  leaveLiveSession,
+  moderateLiveParticipant,
+  reportLivePresence,
+  sendClassroomChat,
+  startLiveSession,
+} from "@/features/live-classroom/session.functions";
+import type { LiveSessionStatus } from "@/features/live-classroom/contracts";
 
 export type ClassroomSession = {
   id: string;
   class_id: string;
   host_id: string;
+  school_id?: string;
   title: string | null;
+  lesson_id?: string | null;
+  status?: LiveSessionStatus | string;
   started_at: string;
   ended_at: string | null;
   is_active: boolean;
+  provider?: string;
+  provider_room?: string;
 };
 
 export type Participant = {
@@ -18,6 +46,8 @@ export type Participant = {
   user_id: string;
   joined_at: string;
   left_at: string | null;
+  connected_at?: string | null;
+  duration_ms?: number;
   hand_raised: boolean;
   mic_on: boolean;
   cam_on: boolean;
@@ -36,12 +66,18 @@ export type ClassroomMessage = {
   sender: { full_name: string; avatar_url: string | null } | null;
 };
 
-/* ------------------------------ sessions ------------------------------ */
+export type SessionAttendanceRow = {
+  id: string;
+  student_id: string;
+  status: "present" | "absent" | "late" | "excused";
+  provisional?: boolean;
+  duration_ms?: number;
+  session_id?: string | null;
+  lesson_id?: string | null;
+  correction_note?: string | null;
+  profile: { full_name: string; avatar_url: string | null } | null;
+};
 
-/**
- * Live sessions across a set of classes — powers the "LIVE now" badges so a
- * learner sees the moment their teacher opens a room.
- */
 export function useLiveSessions(classIds: string[]) {
   const qc = useQueryClient();
   const key = classIds.slice().sort().join(",");
@@ -51,48 +87,47 @@ export function useLiveSessions(classIds: string[]) {
     enabled: classIds.length > 0,
     refetchInterval: 20_000,
     queryFn: async (): Promise<ClassroomSession[]> => {
-      const { data, error } = await supabase
-        .from("classroom_sessions")
-        .select("id, class_id, host_id, title, started_at, ended_at, is_active")
-        .in("class_id", classIds)
-        .eq("is_active", true);
-      if (error) throw error;
-      return (data ?? []) as ClassroomSession[];
+      return findMany<ClassroomSession>(COLLECTIONS.classroomSessions, [
+        where("class_id", "in", classIds.slice(0, 30)),
+        where("is_active", "==", true),
+      ]);
     },
   });
 
   useEffect(() => {
     if (!classIds.length) return;
-    const channel = supabase
-      .channel(`live-sessions-${key}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "classroom_sessions" },
-        () => qc.invalidateQueries({ queryKey: ["live-sessions", key] }),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [key, classIds.length, qc]);
+    return subscribeMany(
+      COLLECTIONS.classroomSessions,
+      [where("class_id", "in", classIds.slice(0, 30)), where("is_active", "==", true)],
+      () => qc.invalidateQueries({ queryKey: ["live-sessions", key] }),
+    );
+  }, [key, classIds, qc]);
 
   return query;
 }
 
 export function useActiveSession(classId?: string) {
-
   return useQuery({
     queryKey: ["classroom-session", classId],
     enabled: !!classId,
     queryFn: async (): Promise<ClassroomSession | null> => {
-      const { data, error } = await supabase
-        .from("classroom_sessions")
-        .select("id, class_id, host_id, title, started_at, ended_at, is_active")
-        .eq("class_id", classId!)
-        .eq("is_active", true)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
+      return findOne<ClassroomSession>(COLLECTIONS.classroomSessions, [
+        where("class_id", "==", classId!),
+        where("is_active", "==", true),
+      ]);
+    },
+  });
+}
+
+export function useRecentSession(classId?: string) {
+  return useQuery({
+    queryKey: ["recent-classroom-session", classId],
+    enabled: !!classId,
+    queryFn: async (): Promise<ClassroomSession | null> => {
+      return findOne<ClassroomSession>(COLLECTIONS.classroomSessions, [
+        where("class_id", "==", classId!),
+        orderBy("started_at", "desc"),
+      ]);
     },
   });
 }
@@ -100,16 +135,29 @@ export function useActiveSession(classId?: string) {
 export function useStartSession() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { classId: string; hostId: string; title?: string }) => {
-      const { data, error } = await supabase
-        .from("classroom_sessions")
-        .insert({ class_id: input.classId, host_id: input.hostId, title: input.title ?? null })
-        .select("id, class_id, host_id, title, started_at, ended_at, is_active")
-        .single();
-      if (error) throw error;
-      return data as ClassroomSession;
+    mutationFn: async (input: {
+      classId: string;
+      hostId: string;
+      title?: string;
+      lessonId?: string | null;
+    }) => {
+      void input.hostId;
+      try {
+        return await startLiveSession({
+          data: {
+            classId: input.classId,
+            lessonId: input.lessonId ?? null,
+            ...(typeof input.title === "string" ? { title: input.title } : {}),
+          },
+        });
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
     },
-    onSuccess: (s) => qc.invalidateQueries({ queryKey: ["classroom-session", s.class_id] }),
+    onSuccess: (s) => {
+      qc.invalidateQueries({ queryKey: ["classroom-session", s.class_id] });
+      qc.invalidateQueries({ queryKey: ["live-sessions"] });
+    },
   });
 }
 
@@ -117,29 +165,39 @@ export function useEndSession() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (session: ClassroomSession) => {
-      const { error } = await supabase
-        .from("classroom_sessions")
-        .update({ is_active: false, ended_at: new Date().toISOString() })
-        .eq("id", session.id);
-      if (error) throw error;
-      await supabase
-        .from("classroom_participants")
-        .update({ left_at: new Date().toISOString() })
-        .eq("session_id", session.id)
-        .is("left_at", null);
+      try {
+        await endLiveSession({ data: { sessionId: session.id } });
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
       return session;
     },
     onSuccess: (s) => {
       qc.invalidateQueries({ queryKey: ["classroom-session", s.class_id] });
       qc.invalidateQueries({ queryKey: ["classroom-participants", s.id] });
+      qc.invalidateQueries({ queryKey: ["session-attendance", s.id] });
+      qc.invalidateQueries({ queryKey: ["live-sessions"] });
     },
   });
 }
 
-/* ---------------------------- participants ---------------------------- */
-
-const PARTICIPANT_SELECT =
-  "id, session_id, user_id, joined_at, left_at, hand_raised, mic_on, cam_on, camera_allowed, warned_at, is_host, profile:profiles!classroom_participants_user_id_fkey(full_name, avatar_url)";
+export function useCancelSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (session: ClassroomSession) => {
+      try {
+        await cancelLiveSession({ data: { sessionId: session.id } });
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
+      return session;
+    },
+    onSuccess: (s) => {
+      qc.invalidateQueries({ queryKey: ["classroom-session", s.class_id] });
+      qc.invalidateQueries({ queryKey: ["live-sessions"] });
+    },
+  });
+}
 
 export function useParticipants(sessionId?: string) {
   const qc = useQueryClient();
@@ -147,63 +205,44 @@ export function useParticipants(sessionId?: string) {
     queryKey: ["classroom-participants", sessionId],
     enabled: !!sessionId,
     queryFn: async (): Promise<Participant[]> => {
-      const { data, error } = await supabase
-        .from("classroom_participants")
-        .select(PARTICIPANT_SELECT)
-        .eq("session_id", sessionId!)
-        .order("joined_at");
-      if (error) throw error;
-      return (data ?? []) as unknown as Participant[];
+      const rows = await findMany<Omit<Participant, "profile">>(COLLECTIONS.classroomParticipants, [
+        where("session_id", "==", sessionId!),
+        orderBy("joined_at"),
+      ]);
+      return Promise.all(
+        rows.map((row) => attachNamedUser(row, row.user_id, "profile")),
+      ) as Promise<Participant[]>;
     },
   });
 
   useEffect(() => {
     if (!sessionId) return;
-    const channel = supabase
-      .channel(`participants-${sessionId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "classroom_participants",
-          filter: `session_id=eq.${sessionId}`,
-        },
-        () => qc.invalidateQueries({ queryKey: ["classroom-participants", sessionId] }),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return subscribeMany(
+      COLLECTIONS.classroomParticipants,
+      [where("session_id", "==", sessionId)],
+      () => qc.invalidateQueries({ queryKey: ["classroom-participants", sessionId] }),
+    );
   }, [sessionId, qc]);
 
   return query;
 }
 
-/** Joins the room (idempotent) — the database logs attendance automatically. */
 export function useJoinRoom() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { sessionId: string; userId: string; isHost: boolean }) => {
-      const { data, error } = await supabase
-        .from("classroom_participants")
-        .upsert(
-          {
-            session_id: input.sessionId,
-            user_id: input.userId,
-            is_host: input.isHost,
-            joined_at: new Date().toISOString(),
-            left_at: null,
-          },
-          { onConflict: "session_id,user_id" },
-        )
-        .select("id")
-        .single();
-      if (error) throw error;
-      return data;
+      void input.userId;
+      void input.isHost;
+      try {
+        return await joinLiveSession({ data: { sessionId: input.sessionId } });
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
     },
-    onSuccess: (_d, v) =>
-      qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] }),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] });
+      void trackProductEvent(PRODUCT_EVENTS.classroomJoin, { outcome: "success" });
+    },
   });
 }
 
@@ -211,20 +250,27 @@ export function useLeaveRoom() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { sessionId: string; userId: string }) => {
-      const { error } = await supabase
-        .from("classroom_participants")
-        .update({
-          left_at: new Date().toISOString(),
-          hand_raised: false,
-          mic_on: false,
-          cam_on: false,
-        })
-        .eq("session_id", input.sessionId)
-        .eq("user_id", input.userId);
-      if (error) throw error;
+      void input.userId;
+      try {
+        await leaveLiveSession({ data: { sessionId: input.sessionId } });
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
     },
     onSuccess: (_d, v) =>
       qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] }),
+  });
+}
+
+export function useReportPresence() {
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      try {
+        await reportLivePresence({ data: { sessionId } });
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
+    },
   });
 }
 
@@ -236,19 +282,46 @@ export function useUpdateParticipant() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { sessionId: string; userId: string; patch: ParticipantPatch }) => {
-      const { error } = await supabase
-        .from("classroom_participants")
-        .update(input.patch)
-        .eq("session_id", input.sessionId)
-        .eq("user_id", input.userId);
-      if (error) throw error;
+      const selfKeys = new Set(["hand_raised", "mic_on", "cam_on"]);
+      const keys = Object.keys(input.patch);
+      const selfOnly = keys.every((k) => selfKeys.has(k));
+      try {
+        if (selfOnly) {
+          const existing = await findOne<{ id: string; user_id: string }>(
+            COLLECTIONS.classroomParticipants,
+            [where("session_id", "==", input.sessionId), where("user_id", "==", input.userId)],
+          );
+          if (!existing) return;
+          await patchById(COLLECTIONS.classroomParticipants, existing.id, input.patch);
+          return;
+        }
+        const patch: {
+          mic_on?: boolean;
+          camera_allowed?: boolean;
+          cam_on?: boolean;
+          warned_at?: string | null;
+        } = {};
+        if (input.patch.mic_on !== undefined) patch.mic_on = input.patch.mic_on;
+        if (input.patch.camera_allowed !== undefined)
+          patch.camera_allowed = input.patch.camera_allowed;
+        if (input.patch.cam_on !== undefined) patch.cam_on = input.patch.cam_on;
+        if (input.patch.warned_at !== undefined) patch.warned_at = input.patch.warned_at;
+        await moderateLiveParticipant({
+          data: {
+            sessionId: input.sessionId,
+            targetUserId: input.userId,
+            patch,
+          },
+        });
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
     },
     onSuccess: (_d, v) =>
       qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] }),
   });
 }
 
-/** Teacher bulk action across every learner still in the room. */
 export function useBulkParticipantUpdate() {
   const qc = useQueryClient();
   return useMutation({
@@ -257,21 +330,33 @@ export function useBulkParticipantUpdate() {
       patch: ParticipantPatch;
       exceptUserId?: string;
     }) => {
-      let q = supabase
-        .from("classroom_participants")
-        .update(input.patch)
-        .eq("session_id", input.sessionId)
-        .is("left_at", null);
-      if (input.exceptUserId) q = q.neq("user_id", input.exceptUserId);
-      const { error } = await q;
-      if (error) throw error;
+      try {
+        const patch: {
+          mic_on?: boolean;
+          camera_allowed?: boolean;
+          cam_on?: boolean;
+          warned_at?: string | null;
+        } = {};
+        if (input.patch.mic_on !== undefined) patch.mic_on = input.patch.mic_on;
+        if (input.patch.camera_allowed !== undefined)
+          patch.camera_allowed = input.patch.camera_allowed;
+        if (input.patch.cam_on !== undefined) patch.cam_on = input.patch.cam_on;
+        if (input.patch.warned_at !== undefined) patch.warned_at = input.patch.warned_at;
+        await moderateLiveParticipant({
+          data: {
+            sessionId: input.sessionId,
+            ...(input.exceptUserId ? { exceptUserId: input.exceptUserId } : {}),
+            patch,
+          },
+        });
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
     },
     onSuccess: (_d, v) =>
       qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] }),
   });
 }
-
-/* ------------------------------- chat --------------------------------- */
 
 export function useClassroomChat(sessionId?: string) {
   const qc = useQueryClient();
@@ -279,48 +364,93 @@ export function useClassroomChat(sessionId?: string) {
     queryKey: ["classroom-chat", sessionId],
     enabled: !!sessionId,
     queryFn: async (): Promise<ClassroomMessage[]> => {
-      const { data, error } = await supabase
-        .from("classroom_messages")
-        .select(
-          "id, session_id, sender_id, body, created_at, sender:profiles!classroom_messages_sender_id_fkey(full_name, avatar_url)",
-        )
-        .eq("session_id", sessionId!)
-        .order("created_at");
-      if (error) throw error;
-      return (data ?? []) as unknown as ClassroomMessage[];
+      const rows = await findMany<Omit<ClassroomMessage, "sender">>(COLLECTIONS.classroomMessages, [
+        where("session_id", "==", sessionId!),
+        orderBy("created_at"),
+      ]);
+      return Promise.all(
+        rows.map((row) => attachNamedUser(row, row.sender_id, "sender")),
+      ) as Promise<ClassroomMessage[]>;
     },
   });
 
   useEffect(() => {
     if (!sessionId) return;
-    const channel = supabase
-      .channel(`classroom-chat-${sessionId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "classroom_messages",
-          filter: `session_id=eq.${sessionId}`,
-        },
-        () => qc.invalidateQueries({ queryKey: ["classroom-chat", sessionId] }),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return subscribeMany(
+      COLLECTIONS.classroomMessages,
+      [where("session_id", "==", sessionId)],
+      () => qc.invalidateQueries({ queryKey: ["classroom-chat", sessionId] }),
+    );
   }, [sessionId, qc]);
 
   return query;
 }
 
 export function useSendClassroomMessage() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { sessionId: string; senderId: string; body: string }) => {
-      const { error } = await supabase
-        .from("classroom_messages")
-        .insert({ session_id: input.sessionId, sender_id: input.senderId, body: input.body });
-      if (error) throw error;
+      void input.senderId;
+      try {
+        await sendClassroomChat({ data: { sessionId: input.sessionId, body: input.body } });
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
+    },
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["classroom-chat", v.sessionId] }),
+  });
+}
+
+export function useSessionAttendance(sessionId?: string) {
+  return useQuery({
+    queryKey: ["session-attendance", sessionId],
+    enabled: !!sessionId,
+    queryFn: async (): Promise<SessionAttendanceRow[]> => {
+      const rows = await findMany<Omit<SessionAttendanceRow, "profile">>(COLLECTIONS.attendance, [
+        where("session_id", "==", sessionId!),
+      ]);
+      return Promise.all(
+        rows.map((row) => attachNamedUser(row, row.student_id, "profile")),
+      ) as Promise<SessionAttendanceRow[]>;
+    },
+  });
+}
+
+export function useCorrectLiveAttendance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      sessionId: string;
+      studentId: string;
+      status: SessionAttendanceRow["status"];
+      note?: string;
+    }) => {
+      try {
+        await correctLiveAttendance({
+          data: {
+            sessionId: input.sessionId,
+            studentId: input.studentId,
+            status: input.status,
+            ...(input.note ? { note: input.note } : {}),
+          },
+        });
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
+    },
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["session-attendance", v.sessionId] }),
+  });
+}
+
+export function useMyParticipation(sessionId?: string, userId?: string) {
+  return useQuery({
+    queryKey: ["my-participation", sessionId, userId],
+    enabled: !!sessionId && !!userId,
+    queryFn: async () => {
+      return findOne<{ connected_at?: string | null; left_at?: string | null }>(
+        COLLECTIONS.classroomParticipants,
+        [where("session_id", "==", sessionId!), where("user_id", "==", userId!)],
+      );
     },
   });
 }

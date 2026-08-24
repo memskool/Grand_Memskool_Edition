@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { COLLECTIONS, patchById } from "@/lib/firebase/repo";
+import { changePassword } from "@/features/auth/services/auth.service";
+import { toUserMessage } from "@/lib/errors/app-error";
+import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { useSession, useProfile, useRole } from "@/hooks/useAuth";
 import { PageHeader, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
 import { Receipt } from "lucide-react";
@@ -13,10 +16,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   useNotificationPreferences,
   useSaveNotificationPreferences,
 } from "@/lib/notifications-data";
+import { uploadAvatar } from "@/lib/storage";
+import { useTheme } from "@/components/app/ThemeToggle";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -43,12 +49,13 @@ function SettingsPage() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const orders = useMyOrders(user?.id);
 
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name ?? "");
-      setPhone((profile as { phone?: string | null }).phone ?? "");
+      setPhone(profile.phone ?? "");
     }
   }, [profile]);
 
@@ -56,17 +63,19 @@ function SettingsPage() {
     e.preventDefault();
     if (!user) return;
     setSaving(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ full_name: fullName, phone: phone.trim() || null })
-      .eq("id", user.id);
-    setSaving(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await patchById(COLLECTIONS.users, user.id, {
+        full_name: fullName,
+        phone: phone.trim() || null,
+        updated_at: new Date().toISOString(),
+      });
+      toast.success("Profile updated");
+      void qc.invalidateQueries({ queryKey: ["profile"] });
+    } catch (error) {
+      toast.error(toUserMessage(error));
+    } finally {
+      setSaving(false);
     }
-    toast.success("Profile updated");
-    void qc.invalidateQueries({ queryKey: ["profile"] });
   };
 
   return (
@@ -75,6 +84,48 @@ function SettingsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Profile" description="How you appear across the platform">
           <form onSubmit={save} className="space-y-4">
+            <div className="flex items-center gap-4">
+              <Avatar className="size-16">
+                {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt="" /> : null}
+                <AvatarFallback className="text-base">
+                  {(fullName || "M").slice(0, 1).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <Label htmlFor="st-avatar" className="text-sm font-medium">
+                  Photo
+                </Label>
+                <Input
+                  id="st-avatar"
+                  type="file"
+                  accept="image/*"
+                  className="mt-1"
+                  disabled={uploading}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file || !user) return;
+                    setUploading(true);
+                    try {
+                      const url = await uploadAvatar(file);
+                      await patchById(COLLECTIONS.users, user.id, {
+                        avatar_url: url,
+                        updated_at: new Date().toISOString(),
+                      });
+                      toast.success("Photo updated");
+                      void qc.invalidateQueries({ queryKey: ["profile"] });
+                    } catch (error) {
+                      toast.error(authErrorMessage(error));
+                    } finally {
+                      setUploading(false);
+                    }
+                  }}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {uploading ? "Uploading…" : "PNG or JPEG, up to 5 MB."}
+                </p>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="st-name">Full name</Label>
               <Input id="st-name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
@@ -115,6 +166,8 @@ function SettingsPage() {
           </dl>
         </Panel>
       </div>
+
+      <AppearancePanel />
 
       <PasswordPanel />
 
@@ -168,6 +221,23 @@ function SettingsPage() {
   );
 }
 
+function AppearancePanel() {
+  const { theme, toggle } = useTheme();
+  return (
+    <Panel className="mt-6" title="Appearance" description="Saved on this device">
+      <label className="flex items-center justify-between gap-4 text-sm">
+        <span>
+          <span className="font-medium">Dark mode</span>
+          <span className="block text-xs text-muted-foreground">
+            Follows this browser. Your choice is remembered next time you visit.
+          </span>
+        </span>
+        <Switch checked={theme === "dark"} onCheckedChange={() => toggle()} />
+      </label>
+    </Panel>
+  );
+}
+
 function PasswordPanel() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -184,15 +254,16 @@ function PasswordPanel() {
       return;
     }
     setSaving(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    setSaving(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await changePassword(password);
+      setPassword("");
+      setConfirm("");
+      toast.success("Password updated");
+    } catch (error) {
+      toast.error(toUserMessage(error));
+    } finally {
+      setSaving(false);
     }
-    setPassword("");
-    setConfirm("");
-    toast.success("Password updated");
   };
 
   return (
@@ -239,8 +310,7 @@ function NotificationPreferencesPanel({ userId }: { userId?: string | undefined 
       },
       {
         onSuccess: () => toast.success("Notification preferences saved"),
-        onError: (error) =>
-          toast.error(error instanceof Error ? error.message : "Could not save preferences"),
+        onError: (error) => toast.error(authErrorMessage(error)),
       },
     );
   };

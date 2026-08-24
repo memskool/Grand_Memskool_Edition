@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { triggerNotificationDelivery } from "@/lib/notifications-data";
+import {
+  COLLECTIONS,
+  createDoc,
+  findMany,
+  patchById,
+  where,
+  orderBy,
+  limit,
+} from "@/lib/firebase/repo";
+import { attachNamedUser, userSchoolId } from "@/lib/firebase/hydrate";
 
 export type DisciplinaryAction = {
   id: string;
@@ -15,9 +24,6 @@ export type DisciplinaryAction = {
   student: { full_name: string } | null;
 };
 
-const SELECT =
-  "id, student_id, issued_by, kind, reason, starts_at, ends_at, active, created_at, student:profiles!disciplinary_actions_student_id_fkey(full_name)";
-
 export function isActiveSuspension(a: DisciplinaryAction) {
   if (a.kind !== "suspension" || !a.active) return false;
   const now = Date.now();
@@ -26,24 +32,22 @@ export function isActiveSuspension(a: DisciplinaryAction) {
   );
 }
 
-/** Actions issued to the signed-in student (or any user). */
 export function useMyDisciplinaryActions(userId?: string) {
   return useQuery({
     queryKey: ["discipline", "mine", userId],
     enabled: !!userId,
     queryFn: async (): Promise<DisciplinaryAction[]> => {
-      const { data, error } = await supabase
-        .from("disciplinary_actions")
-        .select(SELECT)
-        .eq("student_id", userId!)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as DisciplinaryAction[];
+      const rows = await findMany<Omit<DisciplinaryAction, "student">>(COLLECTIONS.disciplinaryActions, [
+        where("student_id", "==", userId!),
+        orderBy("created_at", "desc"),
+      ]);
+      return Promise.all(rows.map((row) => attachNamedUser(row, row.student_id, "student"))) as Promise<
+        DisciplinaryAction[]
+      >;
     },
   });
 }
 
-/** True while the signed-in student is serving a suspension. */
 export function useSuspensionStatus(userId?: string) {
   const query = useMyDisciplinaryActions(userId);
   const active = (query.data ?? []).find(isActiveSuspension) ?? null;
@@ -55,13 +59,16 @@ export function useAllDisciplinaryActions(enabled: boolean) {
     queryKey: ["discipline", "all"],
     enabled,
     queryFn: async (): Promise<DisciplinaryAction[]> => {
-      const { data, error } = await supabase
-        .from("disciplinary_actions")
-        .select(SELECT)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return (data ?? []) as unknown as DisciplinaryAction[];
+      const schoolId = await userSchoolId();
+      const rows = await findMany<Omit<DisciplinaryAction, "student">>(
+        COLLECTIONS.disciplinaryActions,
+        schoolId
+          ? [where("school_id", "==", schoolId), orderBy("created_at", "desc"), limit(100)]
+          : [orderBy("created_at", "desc"), limit(100)],
+      );
+      return Promise.all(rows.map((row) => attachNamedUser(row, row.student_id, "student"))) as Promise<
+        DisciplinaryAction[]
+      >;
     },
   });
 }
@@ -73,20 +80,16 @@ export function useStudentDirectory(enabled: boolean) {
     queryKey: ["student-directory"],
     enabled,
     queryFn: async (): Promise<StudentOption[]> => {
-      const { data: roles, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "student");
-      if (rolesError) throw rolesError;
-      const ids = (roles ?? []).map((r) => r.user_id);
-      if (!ids.length) return [];
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", ids)
-        .order("full_name");
-      if (error) throw error;
-      return (data ?? []) as StudentOption[];
+      const schoolId = await userSchoolId();
+      const rows = await findMany<{ full_name: string; role: string }>(
+        COLLECTIONS.users,
+        schoolId
+          ? [where("school_id", "==", schoolId), where("role", "==", "student")]
+          : [where("role", "==", "student")],
+      );
+      return rows
+        .map((r) => ({ id: r.id, full_name: r.full_name }))
+        .sort((a, b) => a.full_name.localeCompare(b.full_name));
     },
   });
 }
@@ -106,14 +109,19 @@ export function useIssueAction(issuedBy?: string) {
         kind === "suspension" && days
           ? new Date(Date.now() + days * 86_400_000).toISOString()
           : null;
-      const { error } = await supabase.from("disciplinary_actions").insert({
+      const schoolId = await userSchoolId(issuedBy);
+      const now = new Date().toISOString();
+      await createDoc(COLLECTIONS.disciplinaryActions, {
         student_id,
         issued_by: issuedBy!,
         kind,
         reason,
+        starts_at: now,
         ends_at: endsAt,
+        active: true,
+        school_id: schoolId,
+        created_at: now,
       });
-      if (error) throw error;
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["discipline"] });
@@ -126,11 +134,7 @@ export function useLiftAction() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("disciplinary_actions")
-        .update({ active: false })
-        .eq("id", id);
-      if (error) throw error;
+      await patchById(COLLECTIONS.disciplinaryActions, id, { active: false });
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["discipline"] });
