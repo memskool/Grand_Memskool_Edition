@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatPrice, useCheckout, type MarketplaceItem } from "@/lib/marketplace-data";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
+import { usePlatformCapabilities } from "@/hooks/usePlatformCapabilities";
 
 export function CheckoutModal({
   item,
@@ -29,12 +30,18 @@ export function CheckoutModal({
   const [scheduledAt, setScheduledAt] = useState("");
   const [notes, setNotes] = useState("");
   const checkout = useCheckout(buyerId);
+  const { data: capabilities } = usePlatformCapabilities();
+  const paymentsReady = capabilities?.payments === true;
 
   const tutoring = item?.kind === "tutoring";
   const total = item ? item.price_cents * quantity : 0;
 
   const submit = () => {
     if (!item || !buyerId) return;
+    if (!paymentsReady) {
+      toast.error("Checkout is not connected yet.");
+      return;
+    }
     if (tutoring && !scheduledAt) {
       toast.error("Pick a session date and time");
       return;
@@ -92,10 +99,13 @@ export function CheckoutModal({
           )}
 
           <div className="rounded-2xl border border-border px-4 py-3">
-            <p className="text-sm font-medium">Flutterwave secure checkout</p>
+            <p className="text-sm font-medium">
+              {paymentsReady ? "Flutterwave secure checkout" : "Payments not connected yet"}
+            </p>
             <p className="text-xs text-muted-foreground">
-              Pay with MTN or Airtel mobile money, card, or bank transfer. You&apos;ll be taken to
-              Flutterwave&apos;s secure page and returned here once the payment is confirmed.
+              {paymentsReady
+                ? "Pay with MTN or Airtel mobile money, card, or bank transfer. You'll be taken to Flutterwave's secure page and returned here once the payment is confirmed."
+                : "Checkout will open when the school adds Flutterwave keys. Browsing listings still works."}
             </p>
           </div>
 
@@ -123,7 +133,11 @@ export function CheckoutModal({
           <Button variant="ghost" className="rounded-full" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button className="rounded-full" onClick={submit} disabled={checkout.isPending}>
+          <Button
+            className="rounded-full"
+            onClick={submit}
+            disabled={checkout.isPending || !paymentsReady}
+          >
             {checkout.isPending ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (

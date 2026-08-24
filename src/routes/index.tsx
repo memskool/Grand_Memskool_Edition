@@ -63,15 +63,15 @@ function LandingPage() {
           <GraduationCap className="mb-3 size-5 text-primary" />
           <h2 className="font-display text-base font-semibold">Students</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Join class, save work in a locker, sit assessments, and ask the AI Tutor when you need
-            an explanation.
+            Join class, save work in a locker, sit assessments, and — when Crane5 is connected — ask
+            the AI Tutor for an explanation.
           </p>
         </li>
         <li className="surface-card p-5 transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:brand-shadow">
           <BookOpen className="mb-3 size-5 text-primary" />
           <h2 className="font-display text-base font-semibold">Teachers</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Run live sessions, set work, mark where needed, and publish results when the class is
+            Run live lessons, set work, mark where needed, and publish results when the class is
             ready.
           </p>
         </li>

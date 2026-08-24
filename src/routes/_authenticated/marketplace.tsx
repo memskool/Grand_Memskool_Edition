@@ -4,7 +4,8 @@ import { toast } from "sonner";
 import { BookOpen, GraduationCap, Plus, ShoppingBag, Sparkles } from "lucide-react";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { useSession, useRole } from "@/hooks/useAuth";
-import { PageHeader, Panel, EmptyState } from "@/components/app/primitives";
+import { usePlatformCapabilities } from "@/hooks/usePlatformCapabilities";
+import { PageHeader, Panel, EmptyState, ServiceNotice } from "@/components/app/primitives";
 import { CheckoutModal } from "@/components/app/CheckoutModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -68,8 +69,10 @@ const KIND_ICON = {
 function MarketplacePage() {
   const { user } = useSession();
   const { data: role } = useRole(user ?? null);
+  const { data: capabilities } = usePlatformCapabilities();
   const { data: items, isLoading } = useMarketplaceItems(user?.id);
   const reconcile = useReconcileOrder(user?.id);
+  const paymentsReady = capabilities?.payments === true;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -107,6 +110,13 @@ function MarketplacePage() {
         subtitle="Extra books, revision resources and 1-on-1 tutoring."
         action={canSell ? <NewItemDialog sellerId={user?.id} /> : undefined}
       />
+
+      {capabilities && !capabilities.payments ? (
+        <ServiceNotice title="Checkout is paused">
+          Flutterwave keys are not on this server yet. You can browse listings. Buying and booking
+          will turn on as soon as the school adds payment credentials.
+        </ServiceNotice>
+      ) : null}
 
       <div className="mb-6 grid gap-3 sm:flex sm:items-center sm:justify-between">
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
@@ -184,7 +194,12 @@ function MarketplacePage() {
                   <span className="font-display text-lg font-semibold">
                     {formatPrice(item.price_cents, item.currency)}
                   </span>
-                  <Button size="sm" className="rounded-full" onClick={() => setCheckoutItem(item)}>
+                  <Button
+                    size="sm"
+                    className="rounded-full"
+                    disabled={!paymentsReady}
+                    onClick={() => setCheckoutItem(item)}
+                  >
                     {item.kind === "tutoring" ? "Book" : "Buy"}
                   </Button>
                 </div>

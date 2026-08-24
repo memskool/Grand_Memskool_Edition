@@ -24,6 +24,15 @@ export function PageHeader({
   );
 }
 
+export function ServiceNotice({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="mb-4 rounded-2xl border border-border bg-secondary/70 px-4 py-3 text-sm">
+      <p className="font-medium">{title}</p>
+      <p className="mt-1 leading-relaxed text-muted-foreground">{children}</p>
+    </div>
+  );
+}
+
 export function StatCard({
   label,
   value,

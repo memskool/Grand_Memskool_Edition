@@ -35,6 +35,10 @@ export const startCheckout = createServerFn({ method: "POST" })
       throw new Error("Your account is suspended and cannot make purchases.");
     }
 
+    const { requireFlutterwaveSecret, buildReference, createFlutterwaveCheckout, toProviderAmount } =
+      await import("./payments.server");
+    requireFlutterwaveSecret();
+
     const item = await adminGetById<{
       title: string;
       kind: string;
@@ -57,9 +61,6 @@ export const startCheckout = createServerFn({ method: "POST" })
 
     const quantity = item.kind === "tutoring" ? 1 : data.quantity;
     const amountCents = item.price_cents * quantity;
-
-    const { buildReference, createFlutterwaveCheckout, toProviderAmount } =
-      await import("./payments.server");
 
     const reference = buildReference();
     const origin = new URL(getRequest().url).origin;

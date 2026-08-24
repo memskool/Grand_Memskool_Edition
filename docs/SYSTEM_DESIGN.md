@@ -1,6 +1,14 @@
-# System design (Phase 1)
+# System design
 
-Memskool is a multi-school education product. Phase 1 replaces Supabase with Firebase **without changing the TanStack Start frontend**.
+Memskool is a multi-school digital education platform. The live stack is **TanStack Start + Vite + Firebase** (Auth, Firestore `africa-south1`, Storage). Roles come from Auth custom claims. Privileged writes go through TanStack server functions and the Admin SDK.
+
+Live video is **LiveKit**, not Daily.co. The AI Tutor is **Crane5**, called only from the server. Payments are **Flutterwave**, also server-only. Transactional email is **Resend**.
+
+This document began as the Phase 1 Firebase migration note. The architecture below is still accurate. Product surfaces (Dream School, school admin, lessons, locker, assessments, classroom) were completed in later phases; see `docs/FINAL_COMPLETION_REPORT.md`.
+
+---
+
+Memskool is a multi-school education product. Phase 1 replaced Supabase with Firebase **without changing the TanStack Start frontend**.
 
 ```text
 Browser (TanStack Start + React Query)

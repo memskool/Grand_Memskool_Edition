@@ -8,6 +8,7 @@ import {
   useLearningProfile,
 } from "@/lib/learning-memory";
 import { Badge } from "@/components/ui/badge";
+import { usePlatformCapabilities } from "@/hooks/usePlatformCapabilities";
 
 /**
  * Memskool AI insight cards. Reads the stored learning memory rather than
@@ -24,6 +25,8 @@ export function AiInsightPanel({
   const refresh = useRefreshAiInsights(scope);
   const dismiss = useDismissInsight();
   const profile = useLearningProfile(scope === "student" ? userId : undefined);
+  const { data: capabilities } = usePlatformCapabilities();
+  const insightsReady = capabilities?.insights === true;
 
   const items = insights.data ?? [];
 
@@ -51,7 +54,7 @@ export function AiInsightPanel({
           size="sm"
           variant="outline"
           className="shrink-0 rounded-full"
-          disabled={refresh.isPending}
+          disabled={!insightsReady || refresh.isPending}
           onClick={() => refresh.mutate()}
         >
           <RefreshCw className={`size-4 ${refresh.isPending ? "animate-spin" : ""}`} />
@@ -102,7 +105,9 @@ export function AiInsightPanel({
         <p className="relative rounded-2xl border border-dashed border-border/70 px-4 py-6 text-center text-xs text-muted-foreground">
           {insights.isLoading
             ? "Loading your insights…"
-            : "No insights yet. Tap Refresh and Memskool AI will study your record."}
+            : insightsReady
+              ? "No insights yet. Tap Refresh and Memskool AI will study your record."
+              : "Insights are paused until the school connects the learning-memory service. Your classes and results still appear on this dashboard."}
         </p>
       )}
     </section>

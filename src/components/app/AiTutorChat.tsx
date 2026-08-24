@@ -41,7 +41,13 @@ function speak(text: string) {
   window.speechSynthesis.speak(utter);
 }
 
-export function AiTutorChat({ launch }: { launch: TutorLaunch }) {
+export function AiTutorChat({
+  launch,
+  enabled = true,
+}: {
+  launch: TutorLaunch;
+  enabled?: boolean;
+}) {
   const conversations = useAiConversations(true);
   const memory = useAiMemory(true);
   const send = useSendTutorTurn();
@@ -61,6 +67,10 @@ export function AiTutorChat({ launch }: { launch: TutorLaunch }) {
   }, [messages.data, send.isPending]);
 
   const startVoice = () => {
+    if (!enabled) {
+      toast.error("The tutor is not connected yet.");
+      return;
+    }
     const Ctor =
       (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognition })
         .webkitSpeechRecognition ??
@@ -83,6 +93,10 @@ export function AiTutorChat({ launch }: { launch: TutorLaunch }) {
   };
 
   const submit = async () => {
+    if (!enabled) {
+      toast.error("The tutor is not connected yet.");
+      return;
+    }
     const message = text.trim();
     if (!message) return;
     setText("");
@@ -266,8 +280,9 @@ export function AiTutorChat({ launch }: { launch: TutorLaunch }) {
               rows={3}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Ask in your own words…"
+              placeholder={enabled ? "Ask in your own words…" : "Tutor not connected yet"}
               className="min-h-[72px] flex-1 resize-y"
+              disabled={!enabled}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -281,6 +296,7 @@ export function AiTutorChat({ launch }: { launch: TutorLaunch }) {
                 variant="outline"
                 className="rounded-full"
                 onClick={startVoice}
+                disabled={!enabled}
                 aria-pressed={listening}
               >
                 <Mic className="size-4" /> {listening ? "Listening" : "Voice"}
@@ -288,7 +304,7 @@ export function AiTutorChat({ launch }: { launch: TutorLaunch }) {
               <Button
                 type="submit"
                 className="rounded-full"
-                disabled={send.isPending || !text.trim()}
+                disabled={!enabled || send.isPending || !text.trim()}
               >
                 <Send className="size-4" /> Send
               </Button>

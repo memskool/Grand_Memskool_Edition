@@ -14,7 +14,14 @@ import {
 } from "@/lib/classroom-data";
 import { useLessonsForClass } from "@/features/academic/academic-data";
 import { AskAiButton } from "@/components/app/AskAiButton";
-import { PageHeader, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
+import {
+  PageHeader,
+  Panel,
+  EmptyState,
+  ListSkeleton,
+  ServiceNotice,
+} from "@/components/app/primitives";
+import { usePlatformCapabilities } from "@/hooks/usePlatformCapabilities";
 import { SuspensionNotice } from "@/components/app/SuspensionNotice";
 import { useSuspensionStatus } from "@/lib/discipline-data";
 import { Button } from "@/components/ui/button";
@@ -56,6 +63,8 @@ export const Route = createFileRoute("/_authenticated/virtual-classroom")({
 function VirtualClassroomPage() {
   const { user } = useSession();
   const { data: role } = useRole(user ?? null);
+  const { data: capabilities } = usePlatformCapabilities();
+  const liveReady = capabilities?.liveVideo !== false;
   const isTeacher = role === "teacher" || role === "admin" || role === "institution";
   const enrolled = useMyEnrolledClasses(isTeacher ? undefined : user?.id);
   const teaching = useTeachingClasses(isTeacher ? user?.id : undefined);
@@ -99,6 +108,12 @@ function VirtualClassroomPage() {
             : "Join a class when your teacher has started it."
         }
       />
+      {capabilities && !capabilities.liveVideo ? (
+        <ServiceNotice title="Live video is not connected yet">
+          LiveKit credentials are missing on this server. Class rooms still appear here. Starting or
+          joining a live session will work as soon as LiveKit is configured.
+        </ServiceNotice>
+      ) : null}
       <Panel
         title="Your rooms"
         description="Each class has its own live room, tied to the timetable and lessons"
@@ -121,7 +136,8 @@ function VirtualClassroomPage() {
                       </p>
                       {live ? (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-gold px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-gold-foreground">
-                          <span className="size-1.5 animate-pulse rounded-full bg-gold-foreground" /> Live
+                          <span className="size-1.5 animate-pulse rounded-full bg-gold-foreground" />{" "}
+                          Live
                         </span>
                       ) : (
                         <span className="text-[10px] uppercase tracking-[0.12em] text-ink-muted">
@@ -135,7 +151,7 @@ function VirtualClassroomPage() {
                   <Button
                     size="sm"
                     className="w-fit rounded-full bg-ink-foreground text-ink hover:bg-ink-foreground/90"
-                    disabled={!isTeacher && !live}
+                    disabled={!liveReady || (!isTeacher && !live)}
                     onClick={() => setOpenClass({ id: c.id, name: c.name })}
                   >
                     <Video className="size-4" />{" "}
@@ -180,6 +196,8 @@ function RoomLoader({
   const recent = useRecentSession(classId);
   const lessons = useLessonsForClass(classId);
   const start = useStartSession();
+  const { data: capabilities } = usePlatformCapabilities();
+  const liveReady = capabilities?.liveVideo !== false;
   const [lessonId, setLessonId] = useState<string>("none");
   const mine = useMyParticipation(
     recent.data && !recent.data.is_active ? recent.data.id : undefined,
@@ -256,7 +274,7 @@ function RoomLoader({
               </Select>
               <Button
                 className="rounded-full"
-                disabled={start.isPending}
+                disabled={!liveReady || start.isPending}
                 onClick={() =>
                   start.mutate(
                     {

@@ -52,6 +52,10 @@ export const sendTutorTurn = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => TutorTurnSchema.parse(data))
   .handler(async ({ data, context }) => {
     requireTutor(context);
+    const { crane5Configured } = await import("./crane5");
+    if (!crane5Configured()) {
+      throw new Error("The tutor is not connected yet. Lessons, locker and live class still work.");
+    }
     const capability = assertCapability(data.intent);
     await enforceAiRateLimit(context.userId);
 
