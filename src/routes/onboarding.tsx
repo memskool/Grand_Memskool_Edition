@@ -20,7 +20,7 @@ import { COLLECTIONS, getById } from "@/lib/firebase/repo";
 import type { UserProfile } from "@/types/user";
 import { isProfileComplete } from "@/features/auth/account-state";
 import { clearSignupIntent, loadSignupIntent } from "@/features/auth/signup-intent";
-import { seedSessionAfterSignup } from "@/features/auth/seed-session";
+import { seedSessionAfterSignup, unwrapSignupResult } from "@/features/auth/seed-session";
 
 export const Route = createFileRoute("/onboarding")({
   ssr: false,
@@ -135,19 +135,27 @@ function OnboardingPage() {
     setLoading(true);
     try {
       await refreshAuthClaims();
-      const saved = await completeSignup({
-        data: {
-          full_name: fullName.trim(),
+      const saved = unwrapSignupResult(
+        await completeSignup({
+          data: {
+            full_name: fullName.trim(),
+            role,
+            school_code: needsSchoolCode
+              ? schoolCode.trim()
+              : role === "institution" && wantedCode
+                ? wantedCode
+                : null,
+            student_code: role === "student" ? studentCode.trim() : null,
+            school_name: role === "institution" ? schoolName.trim() : null,
+          },
+        }),
+        {
           role,
-          school_code: needsSchoolCode
-            ? schoolCode.trim()
-            : role === "institution" && wantedCode
-              ? wantedCode
-              : null,
-          student_code: role === "student" ? studentCode.trim() : null,
-          school_name: role === "institution" ? schoolName.trim() : null,
+          schoolId: null,
+          membership:
+            role === "teacher" ? "pending" : role === "institution" ? "owner" : "approved",
         },
-      });
+      );
       await refreshAuthClaims();
       const user = await getCurrentAuthUser();
       if (user) {
