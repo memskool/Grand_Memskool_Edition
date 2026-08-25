@@ -4,6 +4,7 @@ import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { requireFirebaseAuth, type AuthedContext } from "@/lib/firebase/require-auth";
 import type { AppRole } from "@/types/roles";
 import { rosterLookupId, schoolCodeKey } from "@/lib/school-ids";
+import { looksLikeHtmlError } from "@/lib/errors/app-error";
 
 const SignupSchema = z.object({
   full_name: z.string().trim().min(1).max(120),
@@ -25,6 +26,7 @@ function publicSignupError(error: unknown): Error {
     if (
       first &&
       first.length <= 180 &&
+      !looksLikeHtmlError(first) &&
       !first.toLowerCase().includes("firebase") &&
       !first.toLowerCase().includes("firestore") &&
       !first.includes("http") &&

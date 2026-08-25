@@ -4,12 +4,16 @@ import { getRequest } from "@tanstack/react-start/server";
 import { renderErrorPage } from "./lib/error-page";
 import { attachFirebaseAuth } from "@/lib/firebase/auth-attacher";
 
-function isDocumentRequest(request: Request): boolean {
-  const dest = request.headers.get("sec-fetch-dest");
-  if (dest === "document" || dest === "iframe" || dest === "frame") return true;
+function isHtmlDocumentNavigation(request: Request): boolean {
   if (request.method !== "GET" && request.method !== "HEAD") return false;
+  if (request.headers.get("authorization")) return false;
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.includes("json") || contentType.includes("x-www-form-urlencoded")) return false;
+  const dest = request.headers.get("sec-fetch-dest");
+  if (dest === "empty" || dest === "cors") return false;
+  if (dest === "document" || dest === "iframe" || dest === "frame") return true;
   const accept = request.headers.get("accept") ?? "";
-  return accept.includes("text/html");
+  return accept.includes("text/html") && !accept.includes("application/json");
 }
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
@@ -19,9 +23,7 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
     if (error != null && typeof error === "object" && "statusCode" in error) {
       throw error;
     }
-    // Server functions must keep their real error payload. Wrapping them in the
-    // HTML fallback made school signup look like "email already exists".
-    if (!isDocumentRequest(getRequest())) throw error;
+    if (!isHtmlDocumentNavigation(getRequest())) throw error;
     console.error(error);
     return new Response(renderErrorPage(), {
       status: 500,

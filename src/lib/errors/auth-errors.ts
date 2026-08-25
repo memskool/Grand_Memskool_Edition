@@ -2,6 +2,7 @@ import {
   AppError,
   classifyFirebase,
   firebaseAuthCode,
+  looksLikeHtmlError,
   unwrapErrorMessage,
   toUserMessage,
 } from "@/lib/errors/app-error";
@@ -13,6 +14,9 @@ export function authErrorMessage(error: unknown): string {
   if (error instanceof AppError) return error.message;
   const unwrapped = unwrapErrorMessage(error);
   const direct = unwrapped.split(/\r?\n/)[0]?.trim() ?? "";
+  if (looksLikeHtmlError(unwrapped) || looksLikeHtmlError(direct)) {
+    return "The server hit an error while saving. Refresh the page and try again.";
+  }
   if (direct.toLowerCase().includes("csrf")) {
     return "This page expired. Refresh and try again.";
   }
@@ -22,7 +26,7 @@ export function authErrorMessage(error: unknown): string {
     !direct.toLowerCase().includes("firebase") &&
     !direct.toLowerCase().includes("firestore") &&
     !direct.toLowerCase().includes("auth/") &&
-    !direct.includes("<!doctype")
+    !looksLikeHtmlError(direct)
   ) {
     return direct;
   }
@@ -31,7 +35,7 @@ export function authErrorMessage(error: unknown): string {
     return "An account with that email already exists. Try signing in instead.";
   }
   const raw = `${code} ${error instanceof Error ? error.message : String(error)}`;
-  if (raw.includes("<!doctype") || raw.length > 400) {
+  if (looksLikeHtmlError(raw) || raw.length > 400) {
     return toUserMessage(error);
   }
   const m = raw.toLowerCase();

@@ -6,6 +6,7 @@ import { COLLECTIONS } from "@/lib/firebase/repo";
 import { adminAuth } from "@/lib/firebase/admin.server";
 import { isSchoolManager, type AppRole } from "@/types/roles";
 import { schoolCodeKey } from "@/lib/school-ids";
+import { looksLikeHtmlError } from "@/lib/errors/app-error";
 
 const optionalText = z.union([z.string(), z.null(), z.undefined()]).transform((value) => {
   if (value == null) return null;
@@ -40,6 +41,7 @@ function publicWriteError(error: unknown): Error {
     if (
       first &&
       first.length <= 180 &&
+      !looksLikeHtmlError(first) &&
       !first.toLowerCase().includes("firebase") &&
       !first.toLowerCase().includes("firestore") &&
       !first.includes("http")

@@ -68,6 +68,11 @@ assert(
   "popup blocked",
 );
 assert(
+  mapFirebaseMessage("<!DOCTYPE html>\n<html>boom</html>") ===
+    "The server hit an error while saving. Refresh the page and try again.",
+  "html error page",
+);
+assert(
   !mapFirebaseMessage(
     `<!doctype html>\n<html>auth/email-already-in-use ${"x".repeat(80)}</html>`,
   ).includes("already exists"),

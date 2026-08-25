@@ -29,10 +29,23 @@ export function firebaseAuthCode(error: unknown): string {
   return "";
 }
 
+export function looksLikeHtmlError(raw: string): boolean {
+  const s = raw.trim().toLowerCase();
+  return (
+    s.startsWith("<!doctype") ||
+    s.startsWith("<html") ||
+    s.includes("<!doctype html") ||
+    (s.startsWith("<") && s.includes("<html"))
+  );
+}
+
 export function unwrapErrorMessage(error: unknown, depth = 0): string {
   if (depth > 6 || error == null) return "";
   if (typeof error === "string") {
     const trimmed = error.trim();
+    if (looksLikeHtmlError(trimmed)) {
+      return "The server hit an error while saving. Refresh the page and try again.";
+    }
     if ((trimmed.startsWith("{") || trimmed.startsWith("[")) && trimmed.length < 8000) {
       try {
         return unwrapErrorMessage(JSON.parse(trimmed), depth + 1) || trimmed;
@@ -68,8 +81,11 @@ function firebaseErrorText(error: unknown): string {
   const code = firebaseAuthCode(error);
   const message =
     unwrapErrorMessage(error) || (error instanceof Error ? error.message : String(error));
-  if (message.includes("<!doctype") || message.length > 400) {
-    return code || firstErrorLine(message) || "Something went wrong. Please try again.";
+  if (looksLikeHtmlError(message) || message.length > 400) {
+    if (looksLikeHtmlError(message)) {
+      return "The server hit an error while saving. Refresh the page and try again.";
+    }
+    return code || "Something went wrong. Please try again.";
   }
   return `${code} ${message}`.trim();
 }
@@ -125,8 +141,10 @@ export function mapFirebaseMessage(raw: string): string {
   if (m.includes("auth/operation-not-allowed")) {
     return "Google sign-in is not enabled for this workspace yet.";
   }
-  if (m.includes("csrf") || m.includes("x-csrf")) {
-    return "This page expired. Refresh and try again.";
+  if (m.includes("csrf") || m.includes("x-csrf") || looksLikeHtmlError(raw)) {
+    return looksLikeHtmlError(raw)
+      ? "The server hit an error while saving. Refresh the page and try again."
+      : "This page expired. Refresh and try again.";
   }
   if (m.includes("unsupported field value")) {
     return "That form had an empty field the database cannot save. Check the details and try again.";
