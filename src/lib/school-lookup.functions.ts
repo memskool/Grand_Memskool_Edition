@@ -31,7 +31,9 @@ export const lookupSchoolByCode = createServerFn({ method: "POST" })
         city: (row["city"] as string | null) ?? null,
         country: (row["country"] as string | null) ?? null,
       };
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("missing Firebase admin credentials")) throw error;
       throw new Error("Could not verify that School ID right now.");
     }
   });

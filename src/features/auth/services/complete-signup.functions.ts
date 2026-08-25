@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { createServerFn } from "@tanstack/react-start";
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
-import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
+import { requireFirebaseAuth, type AuthedContext } from "@/lib/firebase/require-auth";
 import type { AppRole } from "@/types/roles";
+import { rosterLookupId, schoolCodeKey } from "@/lib/school-ids";
 
 const SignupSchema = z.object({
   full_name: z.string().trim().min(1).max(120),
@@ -12,8 +13,48 @@ const SignupSchema = z.object({
   school_name: z.string().trim().max(160).nullable(),
 });
 
+type SignupInput = z.infer<typeof SignupSchema>;
+
 function codeKey(code: string): string {
-  return code.trim().toUpperCase();
+  return schoolCodeKey(code);
+}
+
+function publicSignupError(error: unknown): Error {
+  if (error instanceof Error) {
+    const first = error.message.split(/\r?\n/)[0]?.trim() ?? "";
+    if (
+      first &&
+      first.length <= 180 &&
+      !first.toLowerCase().includes("firebase") &&
+      !first.toLowerCase().includes("firestore") &&
+      !first.includes("http") &&
+      !first.includes("at ")
+    ) {
+      return new Error(first);
+    }
+  }
+  const raw = error instanceof Error ? error.message : String(error);
+  const m = raw.toLowerCase();
+  if (
+    m.includes("could not load the default credentials") ||
+    m.includes("unable to detect a project id") ||
+    m.includes("failed to parse private key") ||
+    m.includes("invalid_grant") ||
+    m.includes("credential")
+  ) {
+    return new Error(
+      "Memskool could not finish signup because the live server is missing Firebase admin credentials.",
+    );
+  }
+  if (
+    m.includes("runquery") ||
+    m.includes("executepipeline") ||
+    m.includes("explain options") ||
+    m.includes("failed_precondition")
+  ) {
+    return new Error("Could not look up that school right now. Try again in a moment.");
+  }
+  return new Error("Could not finish creating this account. Please try again.");
 }
 
 async function allocateSignupCode(db: Firestore): Promise<string> {
@@ -25,167 +66,158 @@ async function allocateSignupCode(db: Firestore): Promise<string> {
   throw new Error("Could not allocate a School ID. Try again.");
 }
 
-export const completeSignup = createServerFn({ method: "POST" })
-  .middleware([requireFirebaseAuth])
-  .inputValidator((data: unknown) => SignupSchema.parse(data))
-  .handler(async ({ data, context }) => {
-    const { adminAuth, adminDb } = await import("@/lib/firebase/admin.server");
-    const db = adminDb();
-    const uid = context.userId;
-    const email = context.email;
+async function completeSignupHandler(data: SignupInput, context: AuthedContext) {
+  const { adminAuth, adminDb } = await import("@/lib/firebase/admin.server");
+  const db = adminDb();
+  const uid = context.userId;
+  const email = context.email;
 
-    if (data.role === "student" && !data.student_code?.trim()) {
-      throw new Error("Enter the student ID your school gave you.");
-    }
-    if ((data.role === "student" || data.role === "teacher") && !data.school_code?.trim()) {
-      throw new Error("Enter your School ID.");
-    }
-    if (data.role === "institution" && !data.school_name?.trim()) {
-      throw new Error("Enter your school's name.");
-    }
+  if (data.role === "student" && !data.student_code?.trim()) {
+    throw new Error("Enter the student ID your school gave you.");
+  }
+  if ((data.role === "student" || data.role === "teacher") && !data.school_code?.trim()) {
+    throw new Error("Enter your School ID.");
+  }
+  if (data.role === "institution" && !data.school_name?.trim()) {
+    throw new Error("Enter your school's name.");
+  }
 
-    const now = new Date().toISOString();
-    let schoolId: string | null = null;
-    let membership: "owner" | "pending" | "approved" = "approved";
-    const storedRole: AppRole = data.role === "institution" ? "institution" : data.role;
+  const now = new Date().toISOString();
+  let schoolId: string | null = null;
+  let membership: "owner" | "pending" | "approved" = "approved";
+  const storedRole: AppRole = data.role === "institution" ? "institution" : data.role;
 
-    const existingProfile = await db.collection("users").doc(uid).get();
-    const existingSchoolId =
-      existingProfile.exists && typeof existingProfile.get("school_id") === "string"
-        ? String(existingProfile.get("school_id"))
-        : null;
-    const existingRole = existingProfile.exists
-      ? (existingProfile.get("role") as string | undefined)
-      : undefined;
+  const existingProfile = await db.collection("users").doc(uid).get();
+  const existingSchoolId =
+    existingProfile.exists && typeof existingProfile.get("school_id") === "string"
+      ? String(existingProfile.get("school_id"))
+      : null;
+  const existingRole = existingProfile.exists
+    ? (existingProfile.get("role") as string | undefined)
+    : undefined;
 
-    if (data.role === "institution") {
-      if (existingSchoolId && (existingRole === "institution" || existingRole === "admin")) {
-        schoolId = existingSchoolId;
-        membership = "owner";
-      } else {
-        const owned = await db.collection("schools").where("owner_id", "==", uid).limit(1).get();
-        const ownedDoc = owned.docs[0];
-        if (ownedDoc) {
-          schoolId = ownedDoc.id;
-          membership = "owner";
-        } else {
-          const wanted = data.school_code
-            ? codeKey(data.school_code)
-            : await allocateSignupCode(db);
-          const dir = await db.collection("school_directory").doc(wanted).get();
-          if (dir.exists) {
-            const dirSchoolId = String(dir.get("school_id") ?? "");
-            const school = dirSchoolId
-              ? await db.collection("schools").doc(dirSchoolId).get()
-              : null;
-            if (school?.exists && school.get("owner_id") === uid) {
-              schoolId = school.id;
-            } else {
-              throw new Error("That School ID is already taken. Pick another one.");
-            }
-          } else {
-            const schoolRef = db.collection("schools").doc();
-            schoolId = schoolRef.id;
-            const memberRef = db.collection("school_members").doc();
-            const batch = db.batch();
-            batch.set(schoolRef, {
-              name: data.school_name,
-              code: wanted,
-              city: null,
-              country: null,
-              contact_email: email,
-              website: null,
-              logo_url: null,
-              admissions_open: true,
-              owner_id: uid,
-              created_at: now,
-              updated_at: now,
-            });
-            batch.set(db.collection("school_directory").doc(wanted), {
-              school_id: schoolId,
-              name: data.school_name,
-              city: null,
-              country: null,
-            });
-            batch.set(memberRef, {
-              school_id: schoolId,
-              user_id: uid,
-              role: "institution",
-              status: "approved",
-              student_code: null,
-              created_at: now,
-            });
-            await batch.commit();
-          }
-          membership = "owner";
-        }
-      }
-    } else if (data.school_code) {
-      const wanted = codeKey(data.school_code);
+  if (data.role === "institution") {
+    const ownedDoc = await db.collection("schools").doc(uid).get();
+    if (ownedDoc.exists) {
+      schoolId = uid;
+      membership = "owner";
+    } else if (existingSchoolId && (existingRole === "institution" || existingRole === "admin")) {
+      schoolId = existingSchoolId;
+      membership = "owner";
+    } else {
+      const wanted = data.school_code ? codeKey(data.school_code) : await allocateSignupCode(db);
       const dir = await db.collection("school_directory").doc(wanted).get();
-      if (!dir.exists)
-        throw new Error("That School ID isn't on Memskool yet. Check it with your school.");
-      schoolId = String(dir.get("school_id"));
-
-      if (data.role === "student") {
-        const roster = await db
-          .collection("school_roster")
-          .where("school_id", "==", schoolId)
-          .where("student_code", "==", data.student_code)
-          .limit(1)
-          .get();
-        if (roster.empty) {
-          throw new Error("That student ID is not on this school's roster yet.");
+      if (dir.exists) {
+        const dirSchoolId = String(dir.get("school_id") ?? "");
+        const school = dirSchoolId ? await db.collection("schools").doc(dirSchoolId).get() : null;
+        if (school?.exists && school.get("owner_id") === uid) {
+          schoolId = school.id;
+        } else {
+          throw new Error("That School ID is already taken. Pick another one.");
         }
-        const row = roster.docs[0];
-        if (row && row.get("claimed_by") && row.get("claimed_by") !== uid) {
-          throw new Error("That student ID is already linked to another account.");
-        }
-        if (row) await row.ref.update({ claimed_by: uid });
-        membership = "approved";
-      } else if (data.role === "teacher") {
-        membership = "pending";
+      } else {
+        schoolId = uid;
+        const batch = db.batch();
+        batch.set(db.collection("schools").doc(uid), {
+          name: data.school_name,
+          code: wanted,
+          city: null,
+          country: null,
+          contact_email: email,
+          website: null,
+          logo_url: null,
+          admissions_open: true,
+          owner_id: uid,
+          created_at: now,
+          updated_at: now,
+        });
+        batch.set(db.collection("school_directory").doc(wanted), {
+          school_id: schoolId,
+          name: data.school_name,
+          city: null,
+          country: null,
+        });
+        batch.set(db.collection("school_members").doc(uid), {
+          school_id: schoolId,
+          user_id: uid,
+          role: "institution",
+          status: "approved",
+          student_code: null,
+          created_at: now,
+        });
+        await batch.commit();
       }
+      membership = "owner";
+    }
+  } else if (data.school_code) {
+    const wanted = codeKey(data.school_code);
+    const dir = await db.collection("school_directory").doc(wanted).get();
+    if (!dir.exists) {
+      throw new Error("That School ID isn't on Memskool yet. Check it with your school.");
+    }
+    schoolId = String(dir.get("school_id"));
 
-      await db.collection("school_members").add({
-        school_id: schoolId,
-        user_id: uid,
-        role: storedRole,
-        status: membership === "pending" ? "pending" : "approved",
-        student_code: data.student_code,
-        created_at: now,
-      });
+    if (data.role === "student") {
+      const rosterId = rosterLookupId(schoolId, data.student_code ?? "");
+      const roster = await db.collection("school_roster").doc(rosterId).get();
+      if (!roster.exists) {
+        throw new Error("That student ID is not on this school's roster yet.");
+      }
+      if (roster.get("claimed_by") && roster.get("claimed_by") !== uid) {
+        throw new Error("That student ID is already linked to another account.");
+      }
+      await roster.ref.update({ claimed_by: uid });
+      membership = "approved";
+    } else if (data.role === "teacher") {
+      membership = "pending";
     }
 
-    const claimRole = storedRole === "institution" ? "admin" : storedRole;
-    await adminAuth().setCustomUserClaims(uid, {
-      role: claimRole,
-      schoolId,
-      approved: membership !== "pending",
-    });
-
-    await db
-      .collection("users")
-      .doc(uid)
-      .set(
-        {
-          full_name: data.full_name,
-          email,
-          avatar_url: null,
-          phone: null,
+    const memberSnap = await db.collection("school_members").doc(uid).get();
+    if (!memberSnap.exists) {
+      await db
+        .collection("school_members")
+        .doc(uid)
+        .set({
           school_id: schoolId,
-          student_code: data.student_code,
+          user_id: uid,
           role: storedRole,
-          membership_status: membership,
-          created_at:
-            existingProfile.exists && typeof existingProfile.get("created_at") === "string"
-              ? existingProfile.get("created_at")
-              : now,
-          updated_at: now,
-        },
-        { merge: true },
-      );
+          status: membership === "pending" ? "pending" : "approved",
+          student_code: data.student_code,
+          created_at: now,
+        });
+    }
+  }
 
+  const claimRole = storedRole === "institution" ? "admin" : storedRole;
+  await adminAuth().setCustomUserClaims(uid, {
+    role: claimRole,
+    schoolId,
+    approved: membership !== "pending",
+  });
+
+  await db
+    .collection("users")
+    .doc(uid)
+    .set(
+      {
+        full_name: data.full_name,
+        email,
+        avatar_url: existingProfile.exists ? (existingProfile.get("avatar_url") ?? null) : null,
+        phone: existingProfile.exists ? (existingProfile.get("phone") ?? null) : null,
+        school_id: schoolId,
+        student_code: data.student_code,
+        role: storedRole,
+        membership_status: membership,
+        created_at:
+          existingProfile.exists && typeof existingProfile.get("created_at") === "string"
+            ? existingProfile.get("created_at")
+            : now,
+        updated_at: now,
+      },
+      { merge: true },
+    );
+
+  try {
     await db.collection("audit_logs").add({
       type: "account_created",
       actor_id: uid,
@@ -195,6 +227,20 @@ export const completeSignup = createServerFn({ method: "POST" })
       created_at: now,
       created_at_server: FieldValue.serverTimestamp(),
     });
+  } catch {
+    // Audit must not block a finished signup.
+  }
 
-    return { schoolId, role: storedRole, membership };
+  return { schoolId, role: storedRole, membership };
+}
+
+export const completeSignup = createServerFn({ method: "POST" })
+  .middleware([requireFirebaseAuth])
+  .inputValidator((data: unknown) => SignupSchema.parse(data))
+  .handler(async ({ data, context }) => {
+    try {
+      return await completeSignupHandler(data, context);
+    } catch (error) {
+      throw publicSignupError(error);
+    }
   });

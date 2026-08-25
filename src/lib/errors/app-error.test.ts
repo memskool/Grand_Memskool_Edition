@@ -44,9 +44,14 @@ assert(
 );
 
 assert(
-  mapFirebaseMessage("Firebase: Error (auth/email-already-in-use).") ===
-    "An account with that email already exists. Try signing in instead.",
-  "email in use",
+  mapFirebaseMessage("Could not finish creating this account. Please try again.") ===
+    "Could not finish creating this account. Please try again.",
+  "signup product copy kept",
+);
+assert(
+  mapFirebaseMessage("Could not load the default credentials. Browse to https://example.com") ===
+    "Memskool could not finish signup because the live server is missing Firebase admin credentials.",
+  "missing admin credentials",
 );
 assert(
   mapFirebaseMessage("Firebase: Error (auth/unauthorized-domain).") ===

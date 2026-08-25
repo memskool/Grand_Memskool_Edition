@@ -1,14 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AppRole } from "@/hooks/useAuth";
+import type { UserProfile } from "@/types/user";
 import { lookupSchoolByCode } from "@/lib/school-lookup.functions";
+import { rosterLookupId } from "@/lib/school-ids";
 import {
   COLLECTIONS,
   createDoc,
   findMany,
-  findOne,
   getById,
   patchById,
   removeById,
+  setById,
   where,
   orderBy,
 } from "@/lib/firebase/repo";
@@ -36,23 +38,25 @@ export function useMySchool(userId: string | undefined) {
     queryKey: ["my-school", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const owned = await findOne<School>(COLLECTIONS.schools, [where("owner_id", "==", userId!)]);
-      if (owned) return { ...owned, membership: "owner" as const };
-
-      const member = await findOne<{
-        status: MemberStatus;
-        role: AppRole;
-        student_code: string | null;
-        school_id: string;
-      }>(COLLECTIONS.schoolMembers, [where("user_id", "==", userId!)]);
-      if (!member) return null;
-      const school = await getById<School>(COLLECTIONS.schools, member.school_id);
+      const profile = await getById<UserProfile>(COLLECTIONS.users, userId!);
+      if (!profile?.school_id) return null;
+      const school = await getById<School>(COLLECTIONS.schools, profile.school_id);
       if (!school) return null;
+      const membership: MemberStatus | "owner" =
+        profile.membership_status === "owner" ||
+        profile.role === "institution" ||
+        profile.role === "admin"
+          ? "owner"
+          : profile.membership_status === "pending" ||
+              profile.membership_status === "rejected" ||
+              profile.membership_status === "approved"
+            ? profile.membership_status
+            : "approved";
       return {
         ...school,
-        membership: member.status,
-        memberRole: member.role,
-        studentCode: member.student_code,
+        membership,
+        memberRole: profile.role,
+        studentCode: profile.student_code,
       };
     },
   });
@@ -160,14 +164,23 @@ export function useAddRoster(schoolId: string | undefined) {
       if (!schoolId) throw new Error("No school");
       const now = new Date().toISOString();
       await Promise.all(
-        rows.map((r) =>
-          createDoc(COLLECTIONS.schoolRoster, {
+        rows.map((r) => {
+          const id = r.student_code ? rosterLookupId(schoolId, r.student_code) : undefined;
+          if (id) {
+            return setById(COLLECTIONS.schoolRoster, id, {
+              ...r,
+              school_id: schoolId,
+              claimed_by: null,
+              created_at: now,
+            });
+          }
+          return createDoc(COLLECTIONS.schoolRoster, {
             ...r,
             school_id: schoolId,
             claimed_by: null,
             created_at: now,
-          }),
-        ),
+          });
+        }),
       );
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["school-roster", schoolId] }),

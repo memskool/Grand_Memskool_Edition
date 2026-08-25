@@ -17,7 +17,18 @@ function loadServiceAccount(): Record<string, unknown> | null {
   const source = raw.startsWith("{")
     ? raw
     : readFileSync(isAbsolute(raw) ? raw : resolve(process.cwd(), raw), "utf8");
-  return JSON.parse(source) as Record<string, unknown>;
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(source) as Record<string, unknown>;
+  } catch {
+    throw new Error(
+      "Memskool could not finish signup because the live server is missing Firebase admin credentials.",
+    );
+  }
+  if (typeof parsed["private_key"] === "string") {
+    parsed["private_key"] = parsed["private_key"].replace(/\\n/g, "\n");
+  }
+  return parsed;
 }
 
 function createAdminApp(): App {
@@ -41,6 +52,12 @@ function createAdminApp(): App {
       storageBucket:
         process.env["VITE_FIREBASE_STORAGE_BUCKET"] || `${projectId}.firebasestorage.app`,
     });
+  }
+
+  if (process.env["VERCEL"]) {
+    throw new Error(
+      "Memskool could not finish signup because the live server is missing Firebase admin credentials.",
+    );
   }
 
   return initializeApp({

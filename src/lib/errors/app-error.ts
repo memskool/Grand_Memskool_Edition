@@ -39,13 +39,24 @@ function firebaseErrorText(error: unknown): string {
   return `${code} ${message}`.trim();
 }
 
+export function firstErrorLine(raw: string): string {
+  return (
+    raw
+      .split(/\r?\n/)[0]
+      ?.replace(/^Error:\s*/i, "")
+      .trim() ?? ""
+  );
+}
+
 export function toUserMessage(error: unknown): string {
   if (error instanceof AppError) return error.message;
   return mapFirebaseMessage(firebaseErrorText(error));
 }
 
 export function mapFirebaseMessage(raw: string): string {
+  const first = firstErrorLine(raw);
   const m = raw.toLowerCase();
+  const f = first.toLowerCase();
   if (
     m.includes("auth/invalid-credential") ||
     m.includes("auth/invalid-login-credentials") ||
@@ -79,6 +90,21 @@ export function mapFirebaseMessage(raw: string): string {
   if (m.includes("auth/operation-not-allowed")) {
     return "Google sign-in is not enabled for this workspace yet.";
   }
+  if (
+    m.includes("could not load the default credentials") ||
+    m.includes("unable to detect a project id") ||
+    m.includes("failed to parse private key")
+  ) {
+    return "Memskool could not finish signup because the live server is missing Firebase admin credentials.";
+  }
+  if (
+    m.includes("runquery") ||
+    m.includes("executepipeline") ||
+    m.includes("explain options") ||
+    m.includes("failed_precondition")
+  ) {
+    return "Could not look up that school right now. Try again in a moment.";
+  }
   if (m.includes("app-check") || m.includes("recaptcha")) {
     return "This browser could not be verified. Refresh the page and try again.";
   }
@@ -107,18 +133,18 @@ export function mapFirebaseMessage(raw: string): string {
   if (m.includes("not-found")) {
     return "That record could not be found.";
   }
-  if (
-    m.includes("auth/") ||
-    m.includes("firebase") ||
-    m.includes("firestore") ||
-    m.includes("permission-denied")
-  ) {
-    return "Something went wrong. Please try again.";
+  if (first && first.length <= 180 && !first.includes("\n")) {
+    if (
+      f.includes("auth/") ||
+      f.includes("firebase") ||
+      f.includes("firestore") ||
+      first.includes("    at ")
+    ) {
+      return "Something went wrong. Please try again.";
+    }
+    return first;
   }
-  if (raw.includes("\n") || raw.length > 180) {
-    return "Something went wrong. Please try again.";
-  }
-  return raw;
+  return "Something went wrong. Please try again.";
 }
 
 export function classifyFirebase(error: unknown): AppError {

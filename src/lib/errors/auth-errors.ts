@@ -10,6 +10,17 @@ import {
  */
 export function authErrorMessage(error: unknown): string {
   if (error instanceof AppError) return error.message;
+  const direct = error instanceof Error ? error.message.split(/\r?\n/)[0]?.trim() : "";
+  if (
+    direct &&
+    direct.length <= 180 &&
+    !direct.toLowerCase().includes("firebase") &&
+    !direct.toLowerCase().includes("firestore") &&
+    !direct.toLowerCase().includes("auth/") &&
+    !direct.includes("<!doctype")
+  ) {
+    return direct;
+  }
   const code = firebaseAuthCode(error);
   if (code === "auth/email-already-in-use") {
     return "An account with that email already exists. Try signing in instead.";
