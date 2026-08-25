@@ -1,7 +1,16 @@
 import { createStart, createCsrfMiddleware, createMiddleware } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 
 import { renderErrorPage } from "./lib/error-page";
 import { attachFirebaseAuth } from "@/lib/firebase/auth-attacher";
+
+function isDocumentRequest(request: Request): boolean {
+  const dest = request.headers.get("sec-fetch-dest");
+  if (dest === "document" || dest === "iframe" || dest === "frame") return true;
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  const accept = request.headers.get("accept") ?? "";
+  return accept.includes("text/html");
+}
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
@@ -10,6 +19,9 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
     if (error != null && typeof error === "object" && "statusCode" in error) {
       throw error;
     }
+    // Server functions must keep their real error payload. Wrapping them in the
+    // HTML fallback made school signup look like "email already exists".
+    if (!isDocumentRequest(getRequest())) throw error;
     console.error(error);
     return new Response(renderErrorPage(), {
       status: 500,

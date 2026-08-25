@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createServerFn } from "@tanstack/react-start";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
 import type { AppRole } from "@/types/roles";
 
@@ -14,6 +14,15 @@ const SignupSchema = z.object({
 
 function codeKey(code: string): string {
   return code.trim().toUpperCase();
+}
+
+async function allocateSignupCode(db: Firestore): Promise<string> {
+  for (let i = 0; i < 8; i++) {
+    const candidate = `MS-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    const existing = await db.collection("school_directory").doc(candidate).get();
+    if (!existing.exists) return candidate;
+  }
+  throw new Error("Could not allocate a School ID. Try again.");
 }
 
 export const completeSignup = createServerFn({ method: "POST" })
@@ -40,42 +49,77 @@ export const completeSignup = createServerFn({ method: "POST" })
     let membership: "owner" | "pending" | "approved" = "approved";
     const storedRole: AppRole = data.role === "institution" ? "institution" : data.role;
 
+    const existingProfile = await db.collection("users").doc(uid).get();
+    const existingSchoolId =
+      existingProfile.exists && typeof existingProfile.get("school_id") === "string"
+        ? String(existingProfile.get("school_id"))
+        : null;
+    const existingRole = existingProfile.exists
+      ? (existingProfile.get("role") as string | undefined)
+      : undefined;
+
     if (data.role === "institution") {
-      const wanted = data.school_code
-        ? codeKey(data.school_code)
-        : `SCH-${uid.slice(0, 6).toUpperCase()}`;
-      const dir = await db.collection("school_directory").doc(wanted).get();
-      if (dir.exists) throw new Error("That School ID is already taken. Pick another one.");
-      const schoolRef = db.collection("schools").doc();
-      schoolId = schoolRef.id;
-      await schoolRef.set({
-        name: data.school_name,
-        code: wanted,
-        city: null,
-        country: null,
-        contact_email: email,
-        website: null,
-        logo_url: null,
-        admissions_open: true,
-        owner_id: uid,
-        created_at: now,
-        updated_at: now,
-      });
-      await db.collection("school_directory").doc(wanted).set({
-        school_id: schoolId,
-        name: data.school_name,
-        city: null,
-        country: null,
-      });
-      await db.collection("school_members").add({
-        school_id: schoolId,
-        user_id: uid,
-        role: "institution",
-        status: "approved",
-        student_code: null,
-        created_at: now,
-      });
-      membership = "owner";
+      if (existingSchoolId && (existingRole === "institution" || existingRole === "admin")) {
+        schoolId = existingSchoolId;
+        membership = "owner";
+      } else {
+        const owned = await db.collection("schools").where("owner_id", "==", uid).limit(1).get();
+        const ownedDoc = owned.docs[0];
+        if (ownedDoc) {
+          schoolId = ownedDoc.id;
+          membership = "owner";
+        } else {
+          const wanted = data.school_code
+            ? codeKey(data.school_code)
+            : await allocateSignupCode(db);
+          const dir = await db.collection("school_directory").doc(wanted).get();
+          if (dir.exists) {
+            const dirSchoolId = String(dir.get("school_id") ?? "");
+            const school = dirSchoolId
+              ? await db.collection("schools").doc(dirSchoolId).get()
+              : null;
+            if (school?.exists && school.get("owner_id") === uid) {
+              schoolId = school.id;
+            } else {
+              throw new Error("That School ID is already taken. Pick another one.");
+            }
+          } else {
+            const schoolRef = db.collection("schools").doc();
+            schoolId = schoolRef.id;
+            const memberRef = db.collection("school_members").doc();
+            const batch = db.batch();
+            batch.set(schoolRef, {
+              name: data.school_name,
+              code: wanted,
+              city: null,
+              country: null,
+              contact_email: email,
+              website: null,
+              logo_url: null,
+              admissions_open: true,
+              owner_id: uid,
+              created_at: now,
+              updated_at: now,
+            });
+            batch.set(db.collection("school_directory").doc(wanted), {
+              school_id: schoolId,
+              name: data.school_name,
+              city: null,
+              country: null,
+            });
+            batch.set(memberRef, {
+              school_id: schoolId,
+              user_id: uid,
+              role: "institution",
+              status: "approved",
+              student_code: null,
+              created_at: now,
+            });
+            await batch.commit();
+          }
+          membership = "owner";
+        }
+      }
     } else if (data.school_code) {
       const wanted = codeKey(data.school_code);
       const dir = await db.collection("school_directory").doc(wanted).get();
@@ -120,21 +164,27 @@ export const completeSignup = createServerFn({ method: "POST" })
       approved: membership !== "pending",
     });
 
-    await db.collection("users").doc(uid).set(
-      {
-        full_name: data.full_name,
-        email,
-        avatar_url: null,
-        phone: null,
-        school_id: schoolId,
-        student_code: data.student_code,
-        role: storedRole,
-        membership_status: membership,
-        created_at: now,
-        updated_at: now,
-      },
-      { merge: true },
-    );
+    await db
+      .collection("users")
+      .doc(uid)
+      .set(
+        {
+          full_name: data.full_name,
+          email,
+          avatar_url: null,
+          phone: null,
+          school_id: schoolId,
+          student_code: data.student_code,
+          role: storedRole,
+          membership_status: membership,
+          created_at:
+            existingProfile.exists && typeof existingProfile.get("created_at") === "string"
+              ? existingProfile.get("created_at")
+              : now,
+          updated_at: now,
+        },
+        { merge: true },
+      );
 
     await db.collection("audit_logs").add({
       type: "account_created",

@@ -43,4 +43,26 @@ assert(
   "generic not-found",
 );
 
+assert(
+  mapFirebaseMessage("Firebase: Error (auth/email-already-in-use).") ===
+    "An account with that email already exists. Try signing in instead.",
+  "email in use",
+);
+assert(
+  mapFirebaseMessage("Firebase: Error (auth/unauthorized-domain).") ===
+    "This app address is not allowed for Google or email sign-in yet. Add it in Firebase Authentication authorized domains.",
+  "unauthorized domain",
+);
+assert(
+  mapFirebaseMessage("Firebase: Error (auth/popup-blocked).") ===
+    "Your browser blocked the Google window. Allow pop-ups for Memskool, then try again.",
+  "popup blocked",
+);
+assert(
+  !mapFirebaseMessage(
+    `<!doctype html>\n<html>auth/email-already-in-use ${"x".repeat(80)}</html>`,
+  ).includes("already exists"),
+  "html body is not treated as email-already-in-use",
+);
+
 console.log("error mapping unit checks passed");

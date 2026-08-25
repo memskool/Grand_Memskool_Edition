@@ -24,6 +24,8 @@
     "authorizedDomains": [
       "localhost",
       "127.0.0.1",
+      "memskool.com",
+      "www.memskool.com",
       "memskool-4e193.firebaseapp.com",
       "memskool-4e193.web.app"
     ],

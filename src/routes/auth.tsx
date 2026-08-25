@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { BrandMark } from "@/components/app/BrandMark";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import {
   requestPasswordReset,
   resendVerification,
   signInWithGoogle,
+  completeGoogleRedirect,
   getCurrentAuthUser,
   refreshAuthClaims,
 } from "@/features/auth/services/auth.service";
@@ -18,6 +19,13 @@ import { parseAuthSearch, safeAppPath } from "@/lib/safe-redirect";
 import { COLLECTIONS, getById } from "@/lib/firebase/repo";
 import type { UserProfile } from "@/types/user";
 import { isProfileComplete } from "@/features/auth/account-state";
+import {
+  saveSignupIntent,
+  clearSignupIntent,
+  type SignupIntent,
+} from "@/features/auth/signup-intent";
+import { resolveAfterGoogleSignIn } from "@/features/auth/google-session";
+import { GoogleSignInButton } from "@/components/app/GoogleSignInButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,10 +78,53 @@ function AuthPage() {
   const [checkingSchool, setCheckingSchool] = useState(false);
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
   const [mode, setMode] = useState<"signin" | "forgot">("signin");
+  const [tab, setTab] = useState<"signin" | "signup">("signin");
+  const [bootstrapping, setBootstrapping] = useState(true);
+  const submitting = useRef(false);
 
   const needsSchoolCode = role === "student" || role === "teacher";
 
+  const currentIntent = (): SignupIntent => ({
+    role,
+    fullName,
+    schoolCode,
+    studentCode,
+    schoolName,
+  });
+
+  const finishGoogle = async (user: Awaited<ReturnType<typeof signInWithGoogle>>) => {
+    if (user === "redirecting") return;
+    const result = await resolveAfterGoogleSignIn(user, continueTo);
+    if (result.notice) toast.error(result.notice);
+    navigate({ to: result.to, replace: true });
+  };
+
   useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const redirected = await completeGoogleRedirect();
+        if (cancelled) return;
+        if (redirected) {
+          setLoading(true);
+          await finishGoogle(redirected);
+          return;
+        }
+      } catch (error) {
+        if (!cancelled) toast.error(friendlyAuthError(error));
+      } finally {
+        if (!cancelled) setBootstrapping(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Run once on mount to finish Google redirect sign-in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (loading || bootstrapping) return;
     void getCurrentAuthUser().then(async (user) => {
       if (!user) return;
       let profile: UserProfile | null = null;
@@ -84,7 +135,7 @@ function AuthPage() {
       }
       navigate({ to: isProfileComplete(profile) ? continueTo : "/onboarding", replace: true });
     });
-  }, [navigate, continueTo]);
+  }, [navigate, continueTo, loading, bootstrapping]);
 
   // Live School-ID verification while typing.
   useEffect(() => {
@@ -135,6 +186,7 @@ function AuthPage() {
 
   const signUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting.current) return;
     if (password.length < 6) {
       toast.error("Passwords must be at least 6 characters.");
       return;
@@ -163,8 +215,10 @@ function AuthPage() {
       }
     }
     setLoading(true);
+    submitting.current = true;
     try {
       const { needsEmailConfirm } = await signUpEmail(email.trim(), password);
+      await refreshAuthClaims();
       await completeSignup({
         data: {
           full_name: fullName.trim(),
@@ -196,6 +250,7 @@ function AuthPage() {
     } catch (error) {
       toast.error(friendlyAuthError(error));
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   };
@@ -233,20 +288,25 @@ function AuthPage() {
   };
 
   const google = async () => {
+    if (tab === "signup") {
+      saveSignupIntent(currentIntent());
+    } else {
+      clearSignupIntent();
+    }
+    let redirected = false;
     setLoading(true);
     try {
       const signedIn = await signInWithGoogle();
-      let profile: UserProfile | null = null;
-      try {
-        profile = await getById<UserProfile>(COLLECTIONS.users, signedIn.id);
-      } catch {
-        profile = null;
+      if (signedIn === "redirecting") {
+        redirected = true;
+        toast.message("Taking you to Google to finish signing in…");
+        return;
       }
-      navigate({ to: isProfileComplete(profile) ? continueTo : "/onboarding", replace: true });
+      await finishGoogle(signedIn);
     } catch (error) {
       toast.error(friendlyAuthError(error));
     } finally {
-      setLoading(false);
+      if (!redirected) setLoading(false);
     }
   };
 
@@ -302,7 +362,10 @@ function AuthPage() {
                 </Button>
               </form>
             ) : (
-              <Tabs defaultValue="signin">
+              <Tabs
+                value={tab}
+                onValueChange={(value) => setTab(value === "signup" ? "signup" : "signin")}
+              >
                 <TabsList className="grid w-full grid-cols-2 rounded-full">
                   <TabsTrigger value="signin" className="rounded-full">
                     Sign in
@@ -358,7 +421,12 @@ function AuthPage() {
                           <button
                             key={t.value}
                             type="button"
-                            onClick={() => setRole(t.value)}
+                            onClick={() => {
+                              setRole(t.value);
+                              setSchoolCode("");
+                              setFoundSchool(null);
+                              setStudentCode("");
+                            }}
                             aria-pressed={role === t.value}
                             className={`rounded-2xl border px-3 py-2 text-left text-xs font-medium transition-colors ${
                               role === t.value
@@ -518,15 +586,19 @@ function AuthPage() {
               </div>
             ) : null}
 
-            <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="h-px flex-1 bg-border" />
-              OR
-              <span className="h-px flex-1 bg-border" />
-            </div>
-
-            <Button variant="outline" className="w-full rounded-full" onClick={google}>
-              Continue with Google
-            </Button>
+            {mode !== "forgot" ? (
+              <>
+                <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="h-px flex-1 bg-border" />
+                  OR
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+                <GoogleSignInButton
+                  loading={loading || bootstrapping}
+                  onClick={() => void google()}
+                />
+              </>
+            ) : null}
             <p className="mt-4 text-center text-xs text-muted-foreground">
               By continuing you agree to our{" "}
               <a href="/terms" className="underline-offset-2 hover:underline">

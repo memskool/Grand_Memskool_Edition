@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { COLLECTIONS, patchById } from "@/lib/firebase/repo";
-import { changePassword } from "@/features/auth/services/auth.service";
+import { changePassword, hasPasswordProvider } from "@/features/auth/services/auth.service";
 import { toUserMessage } from "@/lib/errors/app-error";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { useSession, useProfile, useRole } from "@/hooks/useAuth";
@@ -242,6 +242,7 @@ function PasswordPanel() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [saving, setSaving] = useState(false);
+  const canSetPassword = hasPasswordProvider();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,11 +261,27 @@ function PasswordPanel() {
       setConfirm("");
       toast.success("Password updated");
     } catch (error) {
-      toast.error(toUserMessage(error));
+      toast.error(authErrorMessage(error));
     } finally {
       setSaving(false);
     }
   };
+
+  if (!canSetPassword) {
+    return (
+      <Panel
+        className="mt-6"
+        title="Sign-in"
+        description="This account uses Google, not a Memskool password"
+      >
+        <p className="text-sm text-muted-foreground">
+          You signed in with Google, so there is no password to change here. Use{" "}
+          <span className="font-medium text-foreground">Continue with Google</span> next time you
+          sign in.
+        </p>
+      </Panel>
+    );
+  }
 
   return (
     <Panel className="mt-6" title="Password" description="Change your password at any time">

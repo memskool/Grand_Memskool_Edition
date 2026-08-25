@@ -18,6 +18,7 @@ import { lookupSchool, type SchoolSummary } from "@/lib/school-membership";
 import { COLLECTIONS, getById } from "@/lib/firebase/repo";
 import type { UserProfile } from "@/types/user";
 import { isProfileComplete } from "@/features/auth/account-state";
+import { clearSignupIntent, loadSignupIntent } from "@/features/auth/signup-intent";
 
 export const Route = createFileRoute("/onboarding")({
   ssr: false,
@@ -54,12 +55,26 @@ function OnboardingPage() {
         navigate({ to: "/auth", replace: true });
         return;
       }
-      const profile = await getById<UserProfile>(COLLECTIONS.users, user.id);
+      let profile: UserProfile | null = null;
+      try {
+        profile = await getById<UserProfile>(COLLECTIONS.users, user.id);
+      } catch {
+        profile = null;
+      }
       if (isProfileComplete(profile)) {
         navigate({ to: "/dashboard", replace: true });
         return;
       }
-      setFullName(user.displayName ?? "");
+      const intent = loadSignupIntent();
+      if (intent) {
+        setRole(intent.role);
+        setFullName(intent.fullName.trim() || user.displayName || "");
+        setSchoolCode(intent.schoolCode);
+        setStudentCode(intent.studentCode);
+        setSchoolName(intent.schoolName);
+      } else {
+        setFullName(user.displayName ?? "");
+      }
       setReady(true);
     })();
   }, [navigate]);
@@ -116,6 +131,7 @@ function OnboardingPage() {
     }
     setLoading(true);
     try {
+      await refreshAuthClaims();
       await completeSignup({
         data: {
           full_name: fullName.trim(),
@@ -130,6 +146,7 @@ function OnboardingPage() {
         },
       });
       await refreshAuthClaims();
+      clearSignupIntent();
       toast.success(
         role === "teacher"
           ? "Profile saved. Your school still needs to approve your teacher account."
