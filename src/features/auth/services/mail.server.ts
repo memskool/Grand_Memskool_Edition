@@ -42,24 +42,38 @@ export async function sendVerificationEmailHandler({
   if (!email) throw new Error("This account has no email address to confirm.");
   if (record.emailVerified) return { ok: true, alreadyVerified: true };
 
-  if (await recentlyLocked(`verifymail_${context.userId}`, VERIFY_COOLDOWN_MS)) {
-    return { ok: true };
+  try {
+    if (await recentlyLocked(`verifymail_${context.userId}`, VERIFY_COOLDOWN_MS)) {
+      return { ok: true };
+    }
+    const firebaseLink = await adminAuth().generateEmailVerificationLink(email, {
+      url: `${firebaseContinueOrigin()}/dashboard`,
+      handleCodeInApp: false,
+    });
+    const actionUrl = brandedActionLink(firebaseLink, origin, "/verify-email");
+    await sendResendEmail(
+      email,
+      renderAuthEmail({
+        heading: "Confirm your Memskool email",
+        body: "Tap the button to confirm this address. That lets us recover your account if you forget the password.",
+        actionLabel: "Confirm email",
+        actionUrl,
+      }),
+    );
+  } catch (error) {
+    console.error(error);
+    const message = error instanceof Error ? error.message : String(error);
+    const m = message.toLowerCase();
+    if (m.includes("unauthorized-continue-uri") || m.includes("continue url")) {
+      throw new Error(
+        "This app address is not allowed for email links yet. Add memskool.com in Firebase Authentication authorized domains.",
+      );
+    }
+    if (m.includes("resend")) {
+      throw new Error("Could not send the confirmation email just now. Try again in a moment.");
+    }
+    throw new Error("Could not send the confirmation email. Refresh the page and try again.");
   }
-
-  const firebaseLink = await adminAuth().generateEmailVerificationLink(email, {
-    url: `${firebaseContinueOrigin()}/dashboard`,
-    handleCodeInApp: false,
-  });
-  const actionUrl = brandedActionLink(firebaseLink, origin, "/verify-email");
-  await sendResendEmail(
-    email,
-    renderAuthEmail({
-      heading: "Confirm your Memskool email",
-      body: "Tap the button to confirm this address. That lets us recover your account if you forget the password.",
-      actionLabel: "Confirm email",
-      actionUrl,
-    }),
-  );
   return { ok: true };
 }
 

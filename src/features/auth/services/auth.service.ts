@@ -209,6 +209,7 @@ export async function resendVerification(): Promise<void> {
   const user = getFirebaseAuth().currentUser;
   if (!user)
     throw new AppError("auth", "Sign in first, then we can resend the confirmation email.");
+  await user.getIdToken(true);
   const { sendVerificationEmail } = await import("./mail.functions");
   await sendVerificationEmail({
     data: { origin: window.location.origin },

@@ -5,9 +5,12 @@ import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
 export const sendVerificationEmail = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
   .inputValidator((data: unknown) => z.object({ origin: z.string().url().max(500) }).parse(data))
-  .handler(async (opts) => {
+  .handler(async ({ data, context }) => {
+    if (!context?.userId) {
+      throw new Error("Sign in again, then resend the confirmation email.");
+    }
     const { sendVerificationEmailHandler } = await import("./mail.server");
-    return sendVerificationEmailHandler(opts);
+    return sendVerificationEmailHandler({ data, context });
   });
 
 export const sendPasswordResetMail = createServerFn({ method: "POST" })

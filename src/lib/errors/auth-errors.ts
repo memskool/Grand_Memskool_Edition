@@ -17,6 +17,9 @@ export function authErrorMessage(error: unknown): string {
   if (looksLikeHtmlError(unwrapped) || looksLikeHtmlError(direct)) {
     return "The server hit an error while saving. Refresh the page and try again.";
   }
+  if (/cannot read propert/i.test(direct) || /reading ['"]role['"]/i.test(direct)) {
+    return "Could not finish that request. Refresh the page and try again.";
+  }
   if (direct === "HTTPError" || unwrapped.toLowerCase().includes('"unhandled":true')) {
     return "The server hit an error while saving. Refresh the page and try again.";
   }
