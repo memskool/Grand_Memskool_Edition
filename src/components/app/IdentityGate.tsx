@@ -9,11 +9,12 @@ export function IdentityGate({ children }: { children: ReactNode }) {
   const { accountState } = useAccess();
 
   useEffect(() => {
-    if (accountState === "incomplete") {
-      navigate({ to: "/onboarding", replace: true });
-    }
     if (accountState === "unauthenticated") {
       navigate({ to: "/auth", replace: true });
+      return;
+    }
+    if (accountState === "incomplete") {
+      navigate({ to: "/onboarding", replace: true });
     }
   }, [accountState, navigate]);
 

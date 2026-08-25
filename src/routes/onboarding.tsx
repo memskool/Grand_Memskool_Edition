@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { BrandMark } from "@/components/app/BrandMark";
 import { SiteFooter } from "@/components/app/SiteFooter";
@@ -19,6 +20,7 @@ import { COLLECTIONS, getById } from "@/lib/firebase/repo";
 import type { UserProfile } from "@/types/user";
 import { isProfileComplete } from "@/features/auth/account-state";
 import { clearSignupIntent, loadSignupIntent } from "@/features/auth/signup-intent";
+import { seedSessionAfterSignup } from "@/features/auth/seed-session";
 
 export const Route = createFileRoute("/onboarding")({
   ssr: false,
@@ -36,6 +38,7 @@ export const Route = createFileRoute("/onboarding")({
 
 function OnboardingPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -132,7 +135,7 @@ function OnboardingPage() {
     setLoading(true);
     try {
       await refreshAuthClaims();
-      await completeSignup({
+      const saved = await completeSignup({
         data: {
           full_name: fullName.trim(),
           role,
@@ -146,13 +149,25 @@ function OnboardingPage() {
         },
       });
       await refreshAuthClaims();
+      const user = await getCurrentAuthUser();
+      if (user) {
+        seedSessionAfterSignup(queryClient, {
+          userId: user.id,
+          email: user.email,
+          fullName: fullName.trim(),
+          role: saved.role,
+          schoolId: saved.schoolId,
+          membership: saved.membership,
+          studentCode: role === "student" ? studentCode.trim() : null,
+        });
+      }
       clearSignupIntent();
       toast.success(
         role === "teacher"
           ? "Profile saved. Your school still needs to approve your teacher account."
           : "Profile saved. Welcome to Memskool.",
       );
-      navigate({ to: "/dashboard", replace: true });
+      await navigate({ to: "/dashboard", replace: true });
     } catch (error) {
       toast.error(authErrorMessage(error));
     } finally {

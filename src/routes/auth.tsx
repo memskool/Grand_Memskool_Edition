@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { BrandMark } from "@/components/app/BrandMark";
 import { toast } from "sonner";
 import {
@@ -24,7 +25,7 @@ import {
   clearSignupIntent,
   type SignupIntent,
 } from "@/features/auth/signup-intent";
-import { resolveAfterGoogleSignIn } from "@/features/auth/google-session";
+import { seedSessionAfterSignup } from "@/features/auth/seed-session";
 import { GoogleSignInButton } from "@/components/app/GoogleSignInButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,7 @@ function friendlyAuthError(error: unknown): string {
 
 function AuthPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { redirect: redirectTo } = Route.useSearch();
   const continueTo = safeAppPath(redirectTo) ?? "/dashboard";
   const [loading, setLoading] = useState(false);
@@ -219,7 +221,7 @@ function AuthPage() {
     try {
       const { needsEmailConfirm } = await signUpEmail(email.trim(), password);
       await refreshAuthClaims();
-      await completeSignup({
+      const saved = await completeSignup({
         data: {
           full_name: fullName.trim(),
           role,
@@ -233,6 +235,18 @@ function AuthPage() {
         },
       });
       await refreshAuthClaims();
+      const user = await getCurrentAuthUser();
+      if (user) {
+        seedSessionAfterSignup(queryClient, {
+          userId: user.id,
+          email: user.email,
+          fullName: fullName.trim(),
+          role: saved.role,
+          schoolId: saved.schoolId,
+          membership: saved.membership,
+          studentCode: role === "student" ? studentCode.trim() : null,
+        });
+      }
       if (needsEmailConfirm) {
         try {
           await resendVerification();
@@ -246,7 +260,7 @@ function AuthPage() {
             : "Account created. Check notifications@memskool.com in your inbox (and spam), then continue.",
         );
       }
-      navigate({ to: continueTo, replace: true });
+      await navigate({ to: continueTo, replace: true });
     } catch (error) {
       toast.error(friendlyAuthError(error));
     } finally {
