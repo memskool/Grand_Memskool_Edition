@@ -2,6 +2,7 @@ import {
   AppError,
   classifyFirebase,
   firebaseAuthCode,
+  unwrapErrorMessage,
   toUserMessage,
 } from "@/lib/errors/app-error";
 
@@ -10,7 +11,11 @@ import {
  */
 export function authErrorMessage(error: unknown): string {
   if (error instanceof AppError) return error.message;
-  const direct = error instanceof Error ? error.message.split(/\r?\n/)[0]?.trim() : "";
+  const unwrapped = unwrapErrorMessage(error);
+  const direct = unwrapped.split(/\r?\n/)[0]?.trim() ?? "";
+  if (direct.toLowerCase().includes("csrf")) {
+    return "This page expired. Refresh and try again.";
+  }
   if (
     direct &&
     direct.length <= 180 &&

@@ -1,5 +1,6 @@
 import type { DocumentData, Query, WhereFilterOp } from "firebase-admin/firestore";
 import { adminDb } from "./admin.server";
+import { plainFirestoreData } from "./plain-data";
 
 export function adminCol(name: string) {
   return adminDb().collection(name);
@@ -15,16 +16,33 @@ export async function adminGetById<T extends DocumentData>(
 }
 
 export async function adminCreate(name: string, data: DocumentData): Promise<string> {
-  const ref = await adminCol(name).add(data);
+  const ref = await adminCol(name).add(plainFirestoreData(data as Record<string, unknown>));
   return ref.id;
 }
 
 export async function adminSet(name: string, id: string, data: DocumentData, merge = true) {
-  await adminCol(name).doc(id).set(data, { merge });
+  await adminCol(name)
+    .doc(id)
+    .set(plainFirestoreData(data as Record<string, unknown>), { merge });
 }
 
 export async function adminUpdate(name: string, id: string, data: DocumentData) {
-  await adminCol(name).doc(id).update(data);
+  await adminCol(name)
+    .doc(id)
+    .update(plainFirestoreData(data as Record<string, unknown>));
+}
+
+/** List documents without a RunQuery (Firestore Enterprise). */
+export async function adminListAll<T extends DocumentData>(
+  name: string,
+  max = 80,
+): Promise<Array<T & { id: string }>> {
+  const refs = await adminCol(name).listDocuments();
+  if (refs.length === 0) return [];
+  const snaps = await adminDb().getAll(...refs.slice(0, max));
+  return snaps
+    .filter((snap) => snap.exists)
+    .map((snap) => ({ ...(snap.data() as T), id: snap.id }));
 }
 
 export async function adminDelete(name: string, id: string) {

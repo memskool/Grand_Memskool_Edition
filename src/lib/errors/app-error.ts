@@ -29,12 +29,47 @@ export function firebaseAuthCode(error: unknown): string {
   return "";
 }
 
+export function unwrapErrorMessage(error: unknown, depth = 0): string {
+  if (depth > 6 || error == null) return "";
+  if (typeof error === "string") {
+    const trimmed = error.trim();
+    if ((trimmed.startsWith("{") || trimmed.startsWith("[")) && trimmed.length < 8000) {
+      try {
+        return unwrapErrorMessage(JSON.parse(trimmed), depth + 1) || trimmed;
+      } catch {
+        return trimmed;
+      }
+    }
+    return trimmed;
+  }
+  if (error instanceof Error) {
+    const nested = unwrapErrorMessage(error.message, depth + 1);
+    const fromCause = error.cause ? unwrapErrorMessage(error.cause, depth + 1) : "";
+    return nested || fromCause || error.name;
+  }
+  if (typeof error === "object") {
+    const o = error as Record<string, unknown>;
+    if (Array.isArray(o["issues"]) && o["issues"][0] && typeof o["issues"][0] === "object") {
+      const issue = o["issues"][0] as { message?: unknown };
+      if (typeof issue.message === "string" && issue.message.trim()) return issue.message.trim();
+    }
+    for (const key of ["message", "data", "error", "cause", "statusText"]) {
+      if (key in o) {
+        const inner = unwrapErrorMessage(o[key], depth + 1);
+        if (inner) return inner;
+      }
+    }
+  }
+  return "";
+}
+
 function firebaseErrorText(error: unknown): string {
   if (error instanceof AppError) return error.message;
   const code = firebaseAuthCode(error);
-  const message = error instanceof Error && error.message ? error.message : String(error);
+  const message =
+    unwrapErrorMessage(error) || (error instanceof Error ? error.message : String(error));
   if (message.includes("<!doctype") || message.length > 400) {
-    return code || "Something went wrong. Please try again.";
+    return code || firstErrorLine(message) || "Something went wrong. Please try again.";
   }
   return `${code} ${message}`.trim();
 }
@@ -89,6 +124,12 @@ export function mapFirebaseMessage(raw: string): string {
   }
   if (m.includes("auth/operation-not-allowed")) {
     return "Google sign-in is not enabled for this workspace yet.";
+  }
+  if (m.includes("csrf") || m.includes("x-csrf")) {
+    return "This page expired. Refresh and try again.";
+  }
+  if (m.includes("unsupported field value")) {
+    return "That form had an empty field the database cannot save. Check the details and try again.";
   }
   if (
     m.includes("could not load the default credentials") ||

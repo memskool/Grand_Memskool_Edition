@@ -54,6 +54,10 @@ assert(
   "missing admin credentials",
 );
 assert(
+  mapFirebaseMessage("CSRF token mismatch") === "This page expired. Refresh and try again.",
+  "csrf copy",
+);
+assert(
   mapFirebaseMessage("Firebase: Error (auth/unauthorized-domain).") ===
     "This app address is not allowed for Google or email sign-in yet. Add it in Firebase Authentication authorized domains.",
   "unauthorized domain",

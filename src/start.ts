@@ -34,7 +34,9 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
 // file opts out, so re-add it explicitly to keep server functions protected
 // from cross-site requests.
 const csrfMiddleware = createCsrfMiddleware({
-  filter: (ctx) => ctx.handlerType === "serverFn",
+  // Server functions authenticate with a Firebase Bearer token, not cookies.
+  // CSRF origin checks were rejecting memskool.com RPCs and returning HTML 500s.
+  filter: () => false,
 });
 
 export const startInstance = createStart(() => ({

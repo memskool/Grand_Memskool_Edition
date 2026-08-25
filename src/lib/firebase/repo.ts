@@ -20,6 +20,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { getDb } from "./client";
+import { plainFirestoreData } from "./plain-data";
 
 /** Collection IDs. Keep snake_case names that match the previous Postgres tables where practical. */
 export const COLLECTIONS = {
@@ -136,7 +137,7 @@ export async function createDoc<T extends DocumentData>(
   name: CollectionName,
   data: T,
 ): Promise<string> {
-  const ref = await addDoc(col(name), data);
+  const ref = await addDoc(col(name), plainFirestoreData(data as Record<string, unknown>));
   return ref.id;
 }
 
@@ -146,7 +147,7 @@ export async function setById<T extends DocumentData>(
   data: T,
   merge = true,
 ): Promise<void> {
-  await setDoc(docRef(name, id), data, { merge });
+  await setDoc(docRef(name, id), plainFirestoreData(data as Record<string, unknown>), { merge });
 }
 
 export async function patchById(
@@ -154,7 +155,7 @@ export async function patchById(
   id: string,
   data: Record<string, unknown>,
 ): Promise<void> {
-  await updateDoc(docRef(name, id), data);
+  await updateDoc(docRef(name, id), plainFirestoreData(data));
 }
 
 export async function removeById(name: CollectionName, id: string): Promise<void> {

@@ -19,7 +19,11 @@ import {
   attachNamedUser,
   userSchoolId,
 } from "@/lib/firebase/hydrate";
-import { deleteDigitalSchool, registerDigitalSchool } from "@/lib/school-register.functions";
+import {
+  deleteDigitalSchool,
+  listDirectorySchools,
+  registerDigitalSchool,
+} from "@/lib/school-register.functions";
 import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 
 export const SCHOOL_CATEGORIES = [
@@ -150,7 +154,7 @@ export function useSchools() {
   return useQuery({
     queryKey: ["schools"],
     queryFn: async (): Promise<School[]> => {
-      return findMany<School>(COLLECTIONS.schools, [orderBy("name", "asc")]);
+      return listDirectorySchools();
     },
   });
 }
