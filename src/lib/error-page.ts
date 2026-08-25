@@ -1,3 +1,24 @@
+/** True only for a real browser page load. Server-fn POSTs must stay JSON. */
+export function isBrowserDocumentRequest(request: Request): boolean {
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  if (request.headers.get("authorization")) return false;
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.includes("json")) return false;
+  const dest = request.headers.get("sec-fetch-dest");
+  if (dest === "empty" || dest === "cors") return false;
+  const accept = request.headers.get("accept") ?? "";
+  if (accept.includes("application/json") && !accept.includes("text/html")) return false;
+  if (dest === "document" || dest === "iframe" || dest === "frame") return true;
+  return accept.includes("text/html") && !accept.includes("application/json");
+}
+
+export function jsonServerError(message: string, status = 500): Response {
+  return new Response(JSON.stringify({ message }), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
+}
+
 export function renderErrorPage(): string {
   return `<!doctype html>
 <html lang="en">

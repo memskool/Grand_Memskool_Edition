@@ -5,6 +5,9 @@ import { requireFirebaseAuth, type AuthedContext } from "@/lib/firebase/require-
 import type { AppRole } from "@/types/roles";
 import { rosterLookupId, schoolCodeKey } from "@/lib/school-ids";
 import { looksLikeHtmlError } from "@/lib/errors/app-error";
+import { adminSet } from "@/lib/firebase/admin-repo";
+import { COLLECTIONS } from "@/lib/firebase/repo";
+import { plainFirestoreData } from "@/lib/firebase/plain-data";
 
 const SignupSchema = z.object({
   full_name: z.string().trim().min(1).max(120),
@@ -119,35 +122,26 @@ async function completeSignupHandler(data: SignupInput, context: AuthedContext) 
         }
       } else {
         schoolId = uid;
-        const batch = db.batch();
-        batch.set(db.collection("schools").doc(uid), {
+        await adminSet(COLLECTIONS.schools, uid, {
           name: data.school_name,
           code: wanted,
-          city: null,
-          country: null,
           contact_email: email,
-          website: null,
-          logo_url: null,
           admissions_open: true,
           owner_id: uid,
           created_at: now,
           updated_at: now,
         });
-        batch.set(db.collection("school_directory").doc(wanted), {
+        await adminSet(COLLECTIONS.schoolDirectory, wanted, {
           school_id: schoolId,
           name: data.school_name,
-          city: null,
-          country: null,
         });
-        batch.set(db.collection("school_members").doc(uid), {
+        await adminSet(COLLECTIONS.schoolMembers, uid, {
           school_id: schoolId,
           user_id: uid,
           role: "institution",
           status: "approved",
-          student_code: null,
           created_at: now,
         });
-        await batch.commit();
       }
       membership = "owner";
     }
@@ -197,27 +191,25 @@ async function completeSignupHandler(data: SignupInput, context: AuthedContext) 
     approved: membership !== "pending",
   });
 
-  await db
-    .collection("users")
-    .doc(uid)
-    .set(
-      {
-        full_name: data.full_name,
-        email,
-        avatar_url: existingProfile.exists ? (existingProfile.get("avatar_url") ?? null) : null,
-        phone: existingProfile.exists ? (existingProfile.get("phone") ?? null) : null,
-        school_id: schoolId,
-        student_code: data.student_code,
-        role: storedRole,
-        membership_status: membership,
-        created_at:
-          existingProfile.exists && typeof existingProfile.get("created_at") === "string"
-            ? existingProfile.get("created_at")
-            : now,
-        updated_at: now,
-      },
-      { merge: true },
-    );
+  await adminSet(
+    COLLECTIONS.users,
+    uid,
+    plainFirestoreData({
+      full_name: data.full_name,
+      email,
+      avatar_url: existingProfile.exists ? (existingProfile.get("avatar_url") ?? null) : null,
+      phone: existingProfile.exists ? (existingProfile.get("phone") ?? null) : null,
+      school_id: schoolId,
+      student_code: data.student_code,
+      role: storedRole,
+      membership_status: membership,
+      created_at:
+        existingProfile.exists && typeof existingProfile.get("created_at") === "string"
+          ? existingProfile.get("created_at")
+          : now,
+      updated_at: now,
+    }),
+  );
 
   try {
     await db.collection("audit_logs").add({
@@ -243,6 +235,7 @@ export const completeSignup = createServerFn({ method: "POST" })
     try {
       return await completeSignupHandler(data, context);
     } catch (error) {
+      console.error(error);
       throw publicSignupError(error);
     }
   });

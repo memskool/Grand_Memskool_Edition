@@ -17,6 +17,9 @@ export function authErrorMessage(error: unknown): string {
   if (looksLikeHtmlError(unwrapped) || looksLikeHtmlError(direct)) {
     return "The server hit an error while saving. Refresh the page and try again.";
   }
+  if (direct === "HTTPError" || unwrapped.toLowerCase().includes('"unhandled":true')) {
+    return "The server hit an error while saving. Refresh the page and try again.";
+  }
   if (direct.toLowerCase().includes("csrf")) {
     return "This page expired. Refresh and try again.";
   }
