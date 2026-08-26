@@ -1,12 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
-import { adminGetById, adminListAll, adminSet, adminDelete } from "@/lib/firebase/admin-repo";
+import { adminGetById, adminSet, adminDelete } from "@/lib/firebase/admin-repo";
 import { COLLECTIONS } from "@/lib/firebase/repo";
 import { adminAuth } from "@/lib/firebase/admin.server";
 import { isSchoolManager, type AppRole } from "@/types/roles";
 import { schoolCodeKey } from "@/lib/school-ids";
 import { looksLikeHtmlError } from "@/lib/errors/app-error";
+import {
+  forgetSchoolInCatalog,
+  listDiscoverableSchools,
+  rememberSchoolInCatalog,
+} from "@/lib/school-catalog.server";
 
 const optionalText = z.union([z.string(), z.null(), z.undefined()]).transform((value) => {
   if (value == null) return null;
@@ -139,7 +144,10 @@ export const registerDigitalSchool = createServerFn({ method: "POST" })
         name: data.name,
         city: data.city,
         country: data.country,
+        category: data.category,
+        admissions_open: existing?.admissions_open ?? true,
       });
+      await rememberSchoolInCatalog(schoolId);
 
       if (!existing) {
         await adminSet(COLLECTIONS.schoolMembers, context.userId, {
@@ -174,32 +182,9 @@ export const listDirectorySchools = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
   .handler(async () => {
     try {
-      const rows = await adminListAll<{
-        school_id?: string;
-        name?: string;
-        city?: string | null;
-        country?: string | null;
-      }>(COLLECTIONS.schoolDirectory, 80);
-      return rows.map((row) => ({
-        id: String(row.school_id || row.id),
-        name: String(row.name || "School"),
-        category: "secondary",
-        country: row.country ? String(row.country) : "",
-        city: row.city ?? null,
-        description: null,
-        website: null,
-        logo_url: null,
-        fees_min: null,
-        fees_max: null,
-        fees_currency: "UGX",
-        fees_notes: null,
-        badges: [] as string[],
-        is_international: false,
-        admissions_open: true,
-        contact_email: null,
-        created_at: "",
-      }));
+      return await listDiscoverableSchools();
     } catch (error) {
+      console.error(error);
       throw publicWriteError(error);
     }
   });
@@ -229,6 +214,7 @@ export const deleteDigitalSchool = createServerFn({ method: "POST" })
         }
       }
       await adminDelete(COLLECTIONS.schools, data.schoolId);
+      await forgetSchoolInCatalog(data.schoolId);
 
       if (context.role !== "superadmin" && context.schoolId === data.schoolId) {
         const now = new Date().toISOString();

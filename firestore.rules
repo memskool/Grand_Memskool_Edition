@@ -100,12 +100,14 @@ service cloud.firestore {
     }
 
     match /schools/{schoolId} {
-      allow read: if isAuthenticated() && (sameSchool(schoolId) || isSuperAdmin());
+      // Signed-in users can discover schools (Dream School / directory).
+      // Writes stay admin-only via Admin SDK or school-admin updates below.
+      allow read: if isAuthenticated();
       allow create: if false;
       allow update: if isSchoolAdmin() && sameSchool(schoolId)
         && request.resource.data.owner_id == resource.data.owner_id
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'city', 'country', 'contact_email', 'website', 'logo_url', 'admissions_open', 'code', 'updated_at', 'academic_period_label', 'current_academic_year_id']);
+          .hasOnly(['name', 'city', 'country', 'contact_email', 'website', 'logo_url', 'admissions_open', 'code', 'updated_at', 'academic_period_label', 'current_academic_year_id', 'category', 'description', 'fees_min', 'fees_max', 'fees_currency', 'badges', 'is_international']);
       allow delete: if isSuperAdmin();
     }
 

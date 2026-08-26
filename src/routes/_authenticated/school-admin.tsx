@@ -316,6 +316,12 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
       <Panel title="Listed schools" description="Institutions currently in the directory">
         {schools.isLoading ? (
           <ListSkeleton rows={3} />
+        ) : schools.isError ? (
+          <EmptyState
+            icon={Building2}
+            title="Could not load schools"
+            hint="Refresh the page, or register the school again if it still does not appear."
+          />
         ) : schools.data?.length ? (
           <ul className="space-y-2">
             {schools.data.map((s) => (
@@ -326,7 +332,8 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{s.name}</p>
                   <p className="truncate text-xs capitalize text-muted-foreground">
-                    {s.category} · {[s.city, s.country].filter(Boolean).join(", ")}
+                    {s.category} ·{" "}
+                    {[s.city, s.country].filter(Boolean).join(", ") || "Location TBA"}
                   </p>
                 </div>
                 <Badge variant={s.admissions_open ? "default" : "outline"}>
@@ -344,7 +351,11 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
             ))}
           </ul>
         ) : (
-          <EmptyState icon={Building2} title="No schools listed yet" />
+          <EmptyState
+            icon={Building2}
+            title="No schools listed yet"
+            hint="Use Register school above. Once saved, it appears here and in Dream School for students."
+          />
         )}
       </Panel>
     </div>

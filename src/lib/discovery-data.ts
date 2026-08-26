@@ -150,11 +150,23 @@ async function hydrateApplication(
   };
 }
 
+export function unwrapSchoolList(raw: unknown): School[] {
+  if (Array.isArray(raw)) return raw as School[];
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    for (const key of ["data", "result", "payload", "value", "schools"]) {
+      const inner = obj[key];
+      if (Array.isArray(inner)) return inner as School[];
+    }
+  }
+  return [];
+}
+
 export function useSchools() {
   return useQuery({
     queryKey: ["schools"],
     queryFn: async (): Promise<School[]> => {
-      return listDirectorySchools();
+      return unwrapSchoolList(await listDirectorySchools());
     },
   });
 }

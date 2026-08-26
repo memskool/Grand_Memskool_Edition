@@ -141,6 +141,12 @@ function DreamSchoolPage() {
                 <Skeleton key={i} className="h-56 rounded-2xl" />
               ))}
             </div>
+          ) : schools.isError ? (
+            <EmptyState
+              icon={Building2}
+              title="Could not load schools"
+              hint="Refresh the page and try again. If this keeps happening, ask your admin to re-save the school listing."
+            />
           ) : filtered.length ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filtered.map((school) => (
@@ -225,8 +231,16 @@ function DreamSchoolPage() {
           ) : (
             <EmptyState
               icon={Sparkles}
-              title="No schools match your search"
-              hint="Try a different category or clear the filters. School admins can add their institution from the Admin panel."
+              title={
+                (schools.data?.length ?? 0) === 0
+                  ? "No schools listed yet"
+                  : "No schools match your search"
+              }
+              hint={
+                (schools.data?.length ?? 0) === 0
+                  ? "When a school registers on Memskool, it shows up here so you can explore and apply."
+                  : "Try a different category or clear the filters."
+              }
             />
           )}
         </TabsContent>
