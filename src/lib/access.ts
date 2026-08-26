@@ -3,6 +3,7 @@ import { useMySchool } from "@/lib/school-membership";
 import { useSuspensionStatus } from "@/lib/discipline-data";
 import type { AppRole } from "@/hooks/useAuth";
 import { accountState, isProfileComplete, type AccountState } from "@/features/auth/account-state";
+import { isSchoolManager } from "@/types/roles";
 
 export const PENDING_ALLOWED = ["/dashboard", "/messages", "/settings"];
 
@@ -32,17 +33,23 @@ export function useAccess() {
     suspended: suspension.suspended,
   });
 
+  // School managers with a live claims role must not be yanked to onboarding
+  // when a profile refetch is briefly empty after Register school.
+  const gateState: AccountState | "loading" | "unauthenticated" =
+    loading || !profileReady || !roleReady
+      ? "loading"
+      : !user
+        ? "unauthenticated"
+        : state === "incomplete" && r && isSchoolManager(r)
+          ? "active"
+          : state;
+
   return {
     user,
     role: r,
     profile: profile.data,
     profileExists: isProfileComplete(profile.data),
-    accountState:
-      loading || !profileReady || !roleReady
-        ? ("loading" as const)
-        : !user
-          ? ("unauthenticated" as const)
-          : state,
+    accountState: gateState,
     loading: loading || !profileReady || !roleReady || (needsApproval && school.isLoading),
     schoolName: school.data?.name ?? null,
     schoolId: school.data?.id ?? null,

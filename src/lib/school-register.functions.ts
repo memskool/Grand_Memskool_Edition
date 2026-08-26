@@ -81,6 +81,12 @@ export const registerDigitalSchool = createServerFn({ method: "POST" })
       const profile = await adminGetById<{
         role?: AppRole;
         school_id?: string | null;
+        full_name?: string | null;
+        email?: string | null;
+        avatar_url?: string | null;
+        phone?: string | null;
+        student_code?: string | null;
+        created_at?: string;
       }>(COLLECTIONS.users, context.userId);
       const role: AppRole =
         isSchoolManager(context.role) || context.role === "superadmin"
@@ -158,18 +164,32 @@ export const registerDigitalSchool = createServerFn({ method: "POST" })
           student_code: null,
           created_at: now,
         });
-        await adminSet(COLLECTIONS.users, context.userId, {
-          school_id: schoolId,
-          membership_status: "owner",
-          updated_at: now,
+      }
+
+      // Always keep a complete profile so IdentityGate does not bounce to onboarding.
+      const storedRole: AppRole =
+        role === "superadmin" ? "superadmin" : role === "admin" ? "admin" : "institution";
+      await adminSet(COLLECTIONS.users, context.userId, {
+        full_name:
+          (typeof profile?.full_name === "string" && profile.full_name.trim()) ||
+          data.name ||
+          "School admin",
+        email: profile?.email ?? context.email,
+        avatar_url: profile?.avatar_url ?? null,
+        phone: profile?.phone ?? null,
+        school_id: schoolId,
+        student_code: profile?.student_code ?? null,
+        role: storedRole,
+        membership_status: "owner",
+        created_at: profile?.created_at ?? now,
+        updated_at: now,
+      });
+      if (role !== "superadmin") {
+        await adminAuth().setCustomUserClaims(context.userId, {
+          role: "admin",
+          schoolId,
+          approved: true,
         });
-        if (role !== "superadmin") {
-          await adminAuth().setCustomUserClaims(context.userId, {
-            role: "admin",
-            schoolId,
-            approved: true,
-          });
-        }
       }
 
       return { schoolId, code };
