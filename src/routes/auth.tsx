@@ -26,6 +26,7 @@ import {
   type SignupIntent,
 } from "@/features/auth/signup-intent";
 import { seedSessionAfterSignup, unwrapSignupResult } from "@/features/auth/seed-session";
+import { resolveAfterGoogleSignIn } from "@/features/auth/google-session";
 import { GoogleSignInButton } from "@/components/app/GoogleSignInButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
