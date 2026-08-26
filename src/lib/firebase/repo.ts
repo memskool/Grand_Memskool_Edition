@@ -25,6 +25,8 @@ import { plainFirestoreData } from "./plain-data";
 /** Collection IDs. Keep snake_case names that match the previous Postgres tables where practical. */
 export const COLLECTIONS = {
   users: "users",
+  /** email (lowercased) → current Auth uid — survives Auth UID recreation */
+  userDirectory: "user_directory",
   schools: "schools",
   schoolDirectory: "school_directory",
   schoolMembers: "school_members",

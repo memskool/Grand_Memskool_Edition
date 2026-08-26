@@ -9,6 +9,7 @@ import { adminSet } from "@/lib/firebase/admin-repo";
 import { COLLECTIONS } from "@/lib/firebase/repo";
 import { plainFirestoreData } from "@/lib/firebase/plain-data";
 import { rememberSchoolInCatalog } from "@/lib/school-catalog.server";
+import { rememberUserDirectory } from "@/features/auth/services/session-account.server";
 
 const SignupSchema = z.object({
   full_name: z.string().trim().min(1).max(120),
@@ -243,6 +244,7 @@ async function completeSignupHandler(data: SignupInput, context: AuthedContext) 
       updated_at: now,
     }),
   );
+  await rememberUserDirectory(email, uid, { role: storedRole, schoolId });
 
   try {
     await db.collection("audit_logs").add({

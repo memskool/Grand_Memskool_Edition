@@ -33,14 +33,16 @@ export function useAccess() {
     suspended: suspension.suspended,
   });
 
-  // School managers with a live claims role must not be yanked to onboarding
+  // School managers with a live claims/profile role must not be yanked to onboarding
   // when a profile refetch is briefly empty after Register school.
   const gateState: AccountState | "loading" | "unauthenticated" =
     loading || !profileReady || !roleReady
       ? "loading"
       : !user
         ? "unauthenticated"
-        : state === "incomplete" && r && isSchoolManager(r)
+        : state === "incomplete" &&
+            ((r && isSchoolManager(r)) ||
+              (profile.data?.role && isSchoolManager(profile.data.role === "admin" ? "institution" : profile.data.role)))
           ? "active"
           : state;
 

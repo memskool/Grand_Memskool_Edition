@@ -6,6 +6,8 @@ import { COLLECTIONS, getById } from "@/lib/firebase/repo";
 import type { AppRole, AuthUser } from "@/types/roles";
 import type { UserProfile } from "@/types/user";
 import { claimsRoleToAppRole } from "@/types/roles";
+import { loadMyAccount } from "@/features/auth/services/session-account.functions";
+import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 
 export type { AppRole, AuthUser };
 
@@ -57,23 +59,60 @@ export function useSession(): SessionValue {
   return { session: null, user: null, loading: true };
 }
 
+function unwrapProfile(raw: unknown): UserProfile | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj["full_name"] === "string" && typeof obj["role"] === "string") {
+    return raw as UserProfile;
+  }
+  for (const key of ["data", "result", "payload", "value"]) {
+    const inner = obj[key];
+    if (inner && typeof inner === "object") {
+      const nested = unwrapProfile(inner);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
 export function useProfile(user: AuthUser | null) {
   const id = user?.id;
   return useQuery({
     queryKey: ["profile", id],
     enabled: !!id,
     staleTime: 5 * 60_000,
-    queryFn: async () => getById<UserProfile>(COLLECTIONS.users, id!),
+    retry: 2,
+    queryFn: async (): Promise<UserProfile | null> => {
+      try {
+        const fromServer = unwrapProfile(await loadMyAccount());
+        if (fromServer) {
+          // Claims may have been repaired server-side (reattach / sync).
+          void refreshAuthClaims().catch(() => undefined);
+          return fromServer;
+        }
+      } catch (error) {
+        console.error("[profile] loadMyAccount failed:", error);
+      }
+      try {
+        return await getById<UserProfile>(COLLECTIONS.users, id!);
+      } catch {
+        return null;
+      }
+    },
   });
 }
 
 export function useRole(user: AuthUser | null) {
   const id = user?.id;
+  const profile = useProfile(user);
   return useQuery({
-    queryKey: ["role", id],
-    enabled: !!id,
+    queryKey: ["role", id, profile.dataUpdatedAt],
+    enabled: !!id && profile.isFetched,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<AppRole | null> => {
+      if (profile.data?.role) {
+        return profile.data.role === "admin" ? "institution" : profile.data.role;
+      }
       let fromClaims: AppRole | null = null;
       const authUser = getFirebaseAuth().currentUser;
       if (authUser) {
@@ -82,21 +121,7 @@ export function useRole(user: AuthUser | null) {
           fromClaims = claimsRoleToAppRole(token.claims["role"]);
         }
       }
-      let fromProfile: AppRole | null = null;
-      try {
-        const row = await getById<UserProfile>(COLLECTIONS.users, id!);
-        if (row?.role) {
-          fromProfile = row.role === "admin" ? "institution" : row.role;
-        }
-      } catch {
-        fromProfile = null;
-      }
-      // Prefer the Firestore school-operator role when claims are stale (e.g. still "student").
-      if (fromProfile === "institution" || fromProfile === "superadmin") {
-        return fromProfile;
-      }
-      if (fromClaims) return fromClaims;
-      return fromProfile;
+      return fromClaims;
     },
   });
 }

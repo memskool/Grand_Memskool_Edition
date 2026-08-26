@@ -27,6 +27,7 @@ import {
 } from "@/features/auth/signup-intent";
 import { seedSessionAfterSignup, unwrapSignupResult } from "@/features/auth/seed-session";
 import { resolveAfterGoogleSignIn } from "@/features/auth/google-session";
+import { loadMyAccount } from "@/features/auth/services/session-account.functions";
 import { GoogleSignInButton } from "@/components/app/GoogleSignInButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,36 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SiteFooter } from "@/components/app/SiteFooter";
 import { lookupSchool, type SchoolSummary } from "@/lib/school-membership";
+
+function unwrapProfile(raw: unknown): UserProfile | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj["full_name"] === "string" && typeof obj["role"] === "string") {
+    return raw as UserProfile;
+  }
+  for (const key of ["data", "result", "payload", "value"]) {
+    const inner = obj[key];
+    if (inner && typeof inner === "object") {
+      const nested = unwrapProfile(inner);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+async function readAccountProfile(userId: string): Promise<UserProfile | null> {
+  try {
+    const fromServer = unwrapProfile(await loadMyAccount());
+    if (fromServer) return fromServer;
+  } catch {
+    // fall through
+  }
+  try {
+    return await getById<UserProfile>(COLLECTIONS.users, userId);
+  } catch {
+    return null;
+  }
+}
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -130,12 +161,7 @@ function AuthPage() {
     if (loading || bootstrapping) return;
     void getCurrentAuthUser().then(async (user) => {
       if (!user) return;
-      let profile: UserProfile | null = null;
-      try {
-        profile = await getById<UserProfile>(COLLECTIONS.users, user.id);
-      } catch {
-        profile = null;
-      }
+      const profile = await readAccountProfile(user.id);
       navigate({ to: isProfileComplete(profile) ? continueTo : "/onboarding", replace: true });
     });
   }, [navigate, continueTo, loading, bootstrapping]);
@@ -172,13 +198,7 @@ function AuthPage() {
     try {
       await signInEmail(email.trim(), password);
       const user = await getCurrentAuthUser();
-      let profile: UserProfile | null = null;
-      try {
-        profile = user ? await getById<UserProfile>(COLLECTIONS.users, user.id) : null;
-      } catch {
-        // Auth succeeded; a missing/unreadable profile still belongs on onboarding.
-        profile = null;
-      }
+      const profile = user ? await readAccountProfile(user.id) : null;
       navigate({ to: isProfileComplete(profile) ? continueTo : "/onboarding", replace: true });
     } catch (error) {
       toast.error(friendlyAuthError(error));

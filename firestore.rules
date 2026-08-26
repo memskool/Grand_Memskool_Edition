@@ -82,6 +82,10 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /user_directory/{email} {
+      allow read, write: if false;
+    }
+
     match /users/{userId} {
       allow read: if isAuthenticated() && (
         isOwner(userId) || isSuperAdmin() || sameSchool(resource.data.school_id)

@@ -6,6 +6,7 @@ import type { AuthUser } from "@/types/roles";
 import { isProfileComplete } from "@/features/auth/account-state";
 import { completeSignup } from "@/features/auth/services/complete-signup.functions";
 import { refreshAuthClaims } from "@/features/auth/services/auth.service";
+import { loadMyAccount } from "@/features/auth/services/session-account.functions";
 import {
   clearSignupIntent,
   loadSignupIntent,
@@ -13,19 +14,43 @@ import {
   signupPayload,
 } from "@/features/auth/signup-intent";
 
+function unwrapProfile(raw: unknown): UserProfile | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj["full_name"] === "string" && typeof obj["role"] === "string") {
+    return raw as UserProfile;
+  }
+  for (const key of ["data", "result", "payload", "value"]) {
+    const inner = obj[key];
+    if (inner && typeof inner === "object") {
+      const nested = unwrapProfile(inner);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
 export async function resolveAfterGoogleSignIn(
   user: AuthUser,
   continueTo: string,
 ): Promise<{ to: string; notice?: string }> {
   let profile: UserProfile | null = null;
   try {
-    profile = await getById<UserProfile>(COLLECTIONS.users, user.id);
+    profile = unwrapProfile(await loadMyAccount());
   } catch {
     profile = null;
+  }
+  if (!profile) {
+    try {
+      profile = await getById<UserProfile>(COLLECTIONS.users, user.id);
+    } catch {
+      profile = null;
+    }
   }
 
   if (isProfileComplete(profile)) {
     clearSignupIntent();
+    await refreshAuthClaims().catch(() => undefined);
     return { to: continueTo };
   }
 

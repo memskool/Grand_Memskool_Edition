@@ -12,6 +12,7 @@ import {
   listDiscoverableSchools,
   rememberSchoolInCatalog,
 } from "@/lib/school-catalog.server";
+import { rememberUserDirectory } from "@/features/auth/services/session-account.server";
 
 const optionalText = z.union([z.string(), z.null(), z.undefined()]).transform((value) => {
   if (value == null) return null;
@@ -183,6 +184,10 @@ export const registerDigitalSchool = createServerFn({ method: "POST" })
         membership_status: "owner",
         created_at: profile?.created_at ?? now,
         updated_at: now,
+      });
+      await rememberUserDirectory(profile?.email ?? context.email, context.userId, {
+        role: storedRole,
+        schoolId,
       });
       if (role !== "superadmin") {
         await adminAuth().setCustomUserClaims(context.userId, {

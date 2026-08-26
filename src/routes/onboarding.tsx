@@ -16,13 +16,12 @@ import {
 import { ACCOUNT_TYPES, type AccountType } from "@/features/auth/account-types";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { lookupSchool, type SchoolSummary } from "@/lib/school-membership";
-import { COLLECTIONS, getById } from "@/lib/firebase/repo";
 import type { UserProfile } from "@/types/user";
 import { isProfileComplete } from "@/features/auth/account-state";
-import { claimsRoleToAppRole, isSchoolManager } from "@/types/roles";
-import { getFirebaseAuth } from "@/lib/firebase/client";
+import { isSchoolManager } from "@/types/roles";
 import { clearSignupIntent, loadSignupIntent } from "@/features/auth/signup-intent";
 import { seedSessionAfterSignup, unwrapSignupResult } from "@/features/auth/seed-session";
+import { loadMyAccount } from "@/features/auth/services/session-account.functions";
 
 export const Route = createFileRoute("/onboarding")({
   ssr: false,
@@ -42,6 +41,22 @@ function workspaceHome(role: string | null | undefined): "/school-admin" | "/das
   return role === "institution" || role === "admin" || role === "superadmin"
     ? "/school-admin"
     : "/dashboard";
+}
+
+function unwrapProfile(raw: unknown): UserProfile | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj["full_name"] === "string" && typeof obj["role"] === "string") {
+    return raw as UserProfile;
+  }
+  for (const key of ["data", "result", "payload", "value"]) {
+    const inner = obj[key];
+    if (inner && typeof inner === "object") {
+      const nested = unwrapProfile(inner);
+      if (nested) return nested;
+    }
+  }
+  return null;
 }
 
 function OnboardingPage() {
@@ -68,27 +83,15 @@ function OnboardingPage() {
       }
       let profile: UserProfile | null = null;
       try {
-        profile = await getById<UserProfile>(COLLECTIONS.users, user.id);
+        profile = unwrapProfile(await loadMyAccount());
       } catch {
         profile = null;
-      }
-      let claimsRole: string | null = null;
-      try {
-        const authUser = getFirebaseAuth().currentUser;
-        if (authUser) {
-          const token = await authUser.getIdTokenResult(true);
-          if (typeof token.claims["role"] === "string") {
-            claimsRole = claimsRoleToAppRole(token.claims["role"]);
-          }
-        }
-      } catch {
-        claimsRole = null;
       }
       const effectiveRole = profile?.role
         ? profile.role === "admin"
           ? "institution"
           : profile.role
-        : claimsRole;
+        : null;
       if (
         isProfileComplete(profile) ||
         (profile?.full_name && isSchoolManager(effectiveRole as never))
@@ -98,12 +101,13 @@ function OnboardingPage() {
             userId: user.id,
             email: user.email,
             fullName: profile.full_name,
-            role: (effectiveRole === "admin" ? "institution" : effectiveRole) as never,
+            role: effectiveRole as never,
             schoolId: profile.school_id,
             membership: profile.membership_status ?? "approved",
             studentCode: profile.student_code,
           });
         }
+        await refreshAuthClaims().catch(() => undefined);
         navigate({ to: workspaceHome(effectiveRole), replace: true });
         return;
       }
@@ -114,7 +118,7 @@ function OnboardingPage() {
         setSchoolCode(intent.schoolCode);
         setStudentCode(intent.studentCode);
         setSchoolName(intent.schoolName);
-      } else if (effectiveRole === "institution" || effectiveRole === "admin") {
+      } else if (effectiveRole === "institution") {
         setRole("institution");
         setFullName(profile?.full_name || user.displayName || "");
         setSchoolName(profile?.full_name || "");
