@@ -2,7 +2,8 @@ export const ACCOUNT_TYPES = [
   {
     value: "student",
     label: "Student",
-    blurb: "Classes, locker, library, AI tutor, Dream School and the book store.",
+    blurb:
+      "Create your account, confirm your email, then explore Dream School, the library, AI tutor and more from your dashboard.",
   },
   {
     value: "parent",

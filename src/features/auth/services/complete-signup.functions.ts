@@ -77,10 +77,8 @@ async function completeSignupHandler(data: SignupInput, context: AuthedContext) 
   const uid = context.userId;
   const email = context.email;
 
-  if (data.role === "student" && !data.student_code?.trim()) {
-    throw new Error("Enter the student ID your school gave you.");
-  }
-  if ((data.role === "student" || data.role === "teacher") && !data.school_code?.trim()) {
+  // Students create a free account first; school / student IDs are optional later.
+  if (data.role === "teacher" && !data.school_code?.trim()) {
     throw new Error("Enter your School ID.");
   }
   if (data.role === "institution" && !data.school_name?.trim()) {
@@ -145,42 +143,54 @@ async function completeSignupHandler(data: SignupInput, context: AuthedContext) 
       }
       membership = "owner";
     }
-  } else if (data.school_code) {
+  } else if (data.role === "teacher" && data.school_code) {
     const wanted = codeKey(data.school_code);
     const dir = await db.collection("school_directory").doc(wanted).get();
     if (!dir.exists) {
       throw new Error("That School ID isn't on Memskool yet. Check it with your school.");
     }
     schoolId = String(dir.get("school_id"));
-
-    if (data.role === "student") {
-      const rosterId = rosterLookupId(schoolId, data.student_code ?? "");
-      const roster = await db.collection("school_roster").doc(rosterId).get();
-      if (!roster.exists) {
-        throw new Error("That student ID is not on this school's roster yet.");
-      }
-      if (roster.get("claimed_by") && roster.get("claimed_by") !== uid) {
-        throw new Error("That student ID is already linked to another account.");
-      }
-      await roster.ref.update({ claimed_by: uid });
-      membership = "approved";
-    } else if (data.role === "teacher") {
-      membership = "pending";
-    }
+    membership = "pending";
 
     const memberSnap = await db.collection("school_members").doc(uid).get();
     if (!memberSnap.exists) {
-      await db
-        .collection("school_members")
-        .doc(uid)
-        .set({
-          school_id: schoolId,
-          user_id: uid,
-          role: storedRole,
-          status: membership === "pending" ? "pending" : "approved",
-          student_code: data.student_code,
-          created_at: now,
-        });
+      await db.collection("school_members").doc(uid).set({
+        school_id: schoolId,
+        user_id: uid,
+        role: storedRole,
+        status: "pending",
+        student_code: null,
+        created_at: now,
+      });
+    }
+  } else if (data.role === "student" && data.school_code && data.student_code?.trim()) {
+    // Optional legacy join path if both IDs are supplied (not required at signup).
+    const wanted = codeKey(data.school_code);
+    const dir = await db.collection("school_directory").doc(wanted).get();
+    if (!dir.exists) {
+      throw new Error("That School ID isn't on Memskool yet. Check it with your school.");
+    }
+    schoolId = String(dir.get("school_id"));
+    const rosterId = rosterLookupId(schoolId, data.student_code);
+    const roster = await db.collection("school_roster").doc(rosterId).get();
+    if (!roster.exists) {
+      throw new Error("That student ID is not on this school's roster yet.");
+    }
+    if (roster.get("claimed_by") && roster.get("claimed_by") !== uid) {
+      throw new Error("That student ID is already linked to another account.");
+    }
+    await roster.ref.update({ claimed_by: uid });
+    membership = "approved";
+    const memberSnap = await db.collection("school_members").doc(uid).get();
+    if (!memberSnap.exists) {
+      await db.collection("school_members").doc(uid).set({
+        school_id: schoolId,
+        user_id: uid,
+        role: storedRole,
+        status: "approved",
+        student_code: data.student_code,
+        created_at: now,
+      });
     }
   }
 

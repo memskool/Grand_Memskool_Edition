@@ -52,13 +52,10 @@ export function clearSignupIntent(): void {
 }
 
 export function signupIntentError(intent: SignupIntent): string | null {
-  const needsSchoolCode = intent.role === "student" || intent.role === "teacher";
   if (!intent.fullName.trim()) return "Enter your name.";
-  if (needsSchoolCode && intent.schoolCode.trim().length < 3) {
+  // Students register freely; school join happens later from the workspace.
+  if (intent.role === "teacher" && intent.schoolCode.trim().length < 3) {
     return "Enter the School ID your school gave you.";
-  }
-  if (intent.role === "student" && !intent.studentCode.trim()) {
-    return "Enter the student ID your school gave you.";
   }
   if (intent.role === "institution" && !intent.schoolName.trim()) {
     return "Enter your school's name.";
@@ -72,16 +69,16 @@ export function signupIntentError(intent: SignupIntent): string | null {
 
 export function signupPayload(intent: SignupIntent) {
   const wanted = intent.schoolCode.trim().toUpperCase();
-  const needsSchoolCode = intent.role === "student" || intent.role === "teacher";
   return {
     full_name: intent.fullName.trim(),
     role: intent.role,
-    school_code: needsSchoolCode
-      ? intent.schoolCode.trim()
-      : intent.role === "institution" && wanted
-        ? wanted
-        : null,
-    student_code: intent.role === "student" ? intent.studentCode.trim() : null,
+    school_code:
+      intent.role === "teacher"
+        ? intent.schoolCode.trim()
+        : intent.role === "institution" && wanted
+          ? wanted
+          : null,
+    student_code: null,
     school_name: intent.role === "institution" ? intent.schoolName.trim() : null,
   };
 }

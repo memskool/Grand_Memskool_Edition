@@ -49,7 +49,7 @@ function OnboardingPage() {
   const [foundSchool, setFoundSchool] = useState<SchoolSummary | null>(null);
   const [checkingSchool, setCheckingSchool] = useState(false);
 
-  const needsSchoolCode = role === "student" || role === "teacher";
+  const needsSchoolCode = role === "teacher";
 
   useEffect(() => {
     void (async () => {
@@ -113,10 +113,6 @@ function OnboardingPage() {
       toast.error("That School ID isn't on Memskool yet. Check it with your school.");
       return;
     }
-    if (role === "student" && !studentCode.trim()) {
-      toast.error("Enter the student ID your school gave you.");
-      return;
-    }
     if (role === "institution" && !schoolName.trim()) {
       toast.error("Enter your school's name.");
       return;
@@ -145,7 +141,7 @@ function OnboardingPage() {
               : role === "institution" && wantedCode
                 ? wantedCode
                 : null,
-            student_code: role === "student" ? studentCode.trim() : null,
+            student_code: null,
             school_name: role === "institution" ? schoolName.trim() : null,
           },
         }),
@@ -166,7 +162,7 @@ function OnboardingPage() {
           role: saved.role,
           schoolId: saved.schoolId,
           membership: saved.membership,
-          studentCode: role === "student" ? studentCode.trim() : null,
+          studentCode: null,
         });
       }
       clearSignupIntent();
@@ -288,15 +284,10 @@ function OnboardingPage() {
               </div>
             ) : null}
             {role === "student" ? (
-              <div className="space-y-2">
-                <Label htmlFor="ob-student-code">Student ID</Label>
-                <Input
-                  id="ob-student-code"
-                  required
-                  value={studentCode}
-                  onChange={(e) => setStudentCode(e.target.value)}
-                />
-              </div>
+              <p className="rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
+                No School ID needed. After you continue, confirm your email, then explore Dream
+                School and the rest of Memskool from your dashboard.
+              </p>
             ) : null}
             {role === "teacher" ? (
               <p className="rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">

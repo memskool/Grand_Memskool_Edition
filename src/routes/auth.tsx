@@ -84,7 +84,7 @@ function AuthPage() {
   const [bootstrapping, setBootstrapping] = useState(true);
   const submitting = useRef(false);
 
-  const needsSchoolCode = role === "student" || role === "teacher";
+  const needsSchoolCode = role === "teacher";
 
   const currentIntent = (): SignupIntent => ({
     role,
@@ -197,10 +197,6 @@ function AuthPage() {
       toast.error("That School ID isn't on Memskool yet. Check it with your school.");
       return;
     }
-    if (role === "student" && !studentCode.trim()) {
-      toast.error("Enter the student ID your school gave you.");
-      return;
-    }
     if (role === "institution" && !schoolName.trim()) {
       toast.error("Enter your school's name.");
       return;
@@ -231,7 +227,7 @@ function AuthPage() {
               : role === "institution" && wantedCode
                 ? wantedCode
                 : null,
-            student_code: role === "student" ? studentCode.trim() : null,
+            student_code: null,
             school_name: role === "institution" ? schoolName.trim() : null,
           },
         }),
@@ -252,7 +248,7 @@ function AuthPage() {
           role: saved.role,
           schoolId: saved.schoolId,
           membership: saved.membership,
-          studentCode: role === "student" ? studentCode.trim() : null,
+          studentCode: null,
         });
       }
       if (needsEmailConfirm) {
@@ -265,7 +261,9 @@ function AuthPage() {
         toast.success(
           role === "teacher"
             ? "Account created. Confirm the email from notifications@memskool.com — your school still needs to approve your request."
-            : "Account created. Check notifications@memskool.com in your inbox (and spam), then continue.",
+            : role === "student"
+              ? "Account created. Confirm the email from notifications@memskool.com, then open your dashboard to explore Dream School and more."
+              : "Account created. Check notifications@memskool.com in your inbox (and spam), then continue.",
         );
       }
       await navigate({ to: continueTo, replace: true });
@@ -535,16 +533,10 @@ function AuthPage() {
                     ) : null}
 
                     {role === "student" ? (
-                      <div className="space-y-2">
-                        <Label htmlFor="su-student-code">Student ID</Label>
-                        <Input
-                          id="su-student-code"
-                          required
-                          placeholder="e.g. STU-2026-0142"
-                          value={studentCode}
-                          onChange={(e) => setStudentCode(e.target.value)}
-                        />
-                      </div>
+                      <p className="rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
+                        No School ID needed to join. After you confirm your email, open your
+                        dashboard to explore Dream School, the library, AI tutor and more.
+                      </p>
                     ) : null}
 
                     <div className="space-y-2">

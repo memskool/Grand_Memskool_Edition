@@ -34,7 +34,7 @@ export async function resolveAfterGoogleSignIn(
     return { to: "/onboarding" };
   }
 
-  if (intent.role === "student" || intent.role === "teacher") {
+  if (intent.role === "teacher") {
     const school = await lookupSchool(intent.schoolCode);
     if (!school) return { to: "/onboarding" };
   }

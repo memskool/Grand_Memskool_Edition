@@ -62,10 +62,13 @@ export function StudentDashboard({ user }: { user: AuthUser }) {
             <ClassCardGrid
               classes={classes.data ?? []}
               loading={classes.isLoading}
-              emptyHint="Once your school enrols you in a class it shows up here. Until then, open your locker or ask the AI Tutor a question from a lesson you already have."
+              emptyHint="You are not in a school class yet. Explore Dream School, open your locker, or ask the AI Tutor — join a school later when you have one."
             />
             {!classes.isLoading && !classes.data?.length ? (
               <div className="mt-4 flex flex-wrap gap-2">
+                <Button asChild className="rounded-full" variant="outline" size="sm">
+                  <Link to="/dream-school">Explore Dream School</Link>
+                </Button>
                 <Button asChild className="rounded-full" variant="outline" size="sm">
                   <Link to="/locker">Open locker</Link>
                 </Button>
@@ -73,7 +76,7 @@ export function StudentDashboard({ user }: { user: AuthUser }) {
                   <Link to="/ai-tutor">Ask the AI Tutor</Link>
                 </Button>
                 <Button asChild className="rounded-full" variant="outline" size="sm">
-                  <Link to="/messages">Message your school</Link>
+                  <Link to="/marketplace">Book store</Link>
                 </Button>
               </div>
             ) : null}

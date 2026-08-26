@@ -15,9 +15,13 @@ const parent: SignupIntent = {
 assert(signupIntentError(parent) === null, "parent intent is complete");
 assert(signupIntentError({ ...parent, fullName: "  " }) === "Enter your name.", "name required");
 assert(
-  signupIntentError({ ...parent, role: "student", schoolCode: "MS-1" }) ===
-    "Enter the student ID your school gave you.",
-  "student id required",
+  signupIntentError({ ...parent, role: "student", schoolCode: "", studentCode: "" }) === null,
+  "student can register without school or student id",
+);
+assert(
+  signupIntentError({ ...parent, role: "teacher", schoolCode: "MS" }) ===
+    "Enter the School ID your school gave you.",
+  "teacher still needs school id",
 );
 assert(
   signupIntentError({
@@ -40,5 +44,15 @@ const payload = signupPayload({
 assert(payload.full_name === "Jane", "name trimmed");
 assert(payload.school_code === "ms-4f91a2", "teacher school code kept");
 assert(payload.student_code === null, "teacher has no student code");
+
+const studentPayload = signupPayload({
+  role: "student",
+  fullName: "Ada",
+  schoolCode: "MS-IGNORE",
+  studentCode: "STU-IGNORE",
+  schoolName: "",
+});
+assert(studentPayload.school_code === null, "student signup ignores school code");
+assert(studentPayload.student_code === null, "student signup ignores student code");
 
 console.log("signup intent unit checks passed");
