@@ -105,11 +105,15 @@ async function completeSignupHandler(data: SignupInput, context: AuthedContext) 
     if (ownedDoc.exists) {
       schoolId = uid;
       membership = "owner";
-      await rememberSchoolInCatalog(schoolId);
+      await rememberSchoolInCatalog(schoolId, ownedDoc.get("code") ? String(ownedDoc.get("code")) : null);
     } else if (existingSchoolId && (existingRole === "institution" || existingRole === "admin")) {
       schoolId = existingSchoolId;
       membership = "owner";
-      await rememberSchoolInCatalog(schoolId);
+      const existingSchool = await db.collection("schools").doc(existingSchoolId).get();
+      await rememberSchoolInCatalog(
+        schoolId,
+        existingSchool.exists && existingSchool.get("code") ? String(existingSchool.get("code")) : null,
+      );
     } else {
       const wanted = data.school_code ? codeKey(data.school_code) : await allocateSignupCode(db);
       const dir = await db.collection("school_directory").doc(wanted).get();
@@ -118,7 +122,7 @@ async function completeSignupHandler(data: SignupInput, context: AuthedContext) 
         const school = dirSchoolId ? await db.collection("schools").doc(dirSchoolId).get() : null;
         if (school?.exists && school.get("owner_id") === uid) {
           schoolId = school.id;
-          await rememberSchoolInCatalog(schoolId);
+          await rememberSchoolInCatalog(schoolId, wanted);
         } else {
           throw new Error("That School ID is already taken. Pick another one.");
         }
@@ -158,7 +162,7 @@ async function completeSignupHandler(data: SignupInput, context: AuthedContext) 
           status: "approved",
           created_at: now,
         });
-        await rememberSchoolInCatalog(schoolId);
+        await rememberSchoolInCatalog(schoolId, wanted);
       }
       membership = "owner";
     }

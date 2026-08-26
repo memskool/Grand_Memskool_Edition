@@ -153,7 +153,7 @@ export const registerDigitalSchool = createServerFn({ method: "POST" })
         category: data.category,
         admissions_open: existing?.admissions_open ?? true,
       });
-      await rememberSchoolInCatalog(schoolId);
+      await rememberSchoolInCatalog(schoolId, code);
 
       if (!existing) {
         await adminSet(COLLECTIONS.schoolMembers, context.userId, {
@@ -234,7 +234,7 @@ export const deleteDigitalSchool = createServerFn({ method: "POST" })
         }
       }
       await adminDelete(COLLECTIONS.schools, data.schoolId);
-      await forgetSchoolInCatalog(data.schoolId);
+      await forgetSchoolInCatalog(data.schoolId, school.code ? String(school.code) : null);
 
       if (context.role !== "superadmin" && context.schoolId === data.schoolId) {
         const now = new Date().toISOString();
