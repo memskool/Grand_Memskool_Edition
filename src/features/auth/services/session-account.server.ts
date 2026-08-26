@@ -7,6 +7,7 @@ import { plainFirestoreData } from "@/lib/firebase/plain-data";
 import type { AppRole } from "@/types/roles";
 import type { UserProfile } from "@/types/user";
 import { DIRECTORY_INDEX_ID } from "@/lib/school-catalog.server";
+import type { School } from "@/types/school";
 
 export function emailDirectoryId(email: string): string {
   return email.trim().toLowerCase();
@@ -52,6 +53,101 @@ export async function rememberUserDirectory(
   });
 }
 
+async function listedSchoolIds(db: Firestore): Promise<string[]> {
+  const index = await db.collection(COLLECTIONS.schoolDirectory).doc(DIRECTORY_INDEX_ID).get();
+  const fromIndex = Array.isArray(index.get("school_ids"))
+    ? (index.get("school_ids") as string[]).filter(Boolean)
+    : [];
+  if (fromIndex.length > 0) return fromIndex.slice(0, 100);
+
+  const catalog = await db.collection("ops").doc("school_catalog").get();
+  const fromCatalog = Array.isArray(catalog.get("school_ids"))
+    ? (catalog.get("school_ids") as string[]).filter(Boolean)
+    : [];
+  return fromCatalog.slice(0, 100);
+}
+
+async function canTakeSchoolOwnership(
+  db: Firestore,
+  school: DocumentData,
+  currentUid: string,
+  email: string,
+): Promise<boolean> {
+  if (emailsMatch(school["contact_email"], email)) return true;
+  const ownerId = String(school["owner_id"] ?? "");
+  if (!ownerId) return true;
+  if (ownerId === currentUid) return true;
+  const owner = await db.collection(COLLECTIONS.users).doc(ownerId).get();
+  if (!owner.exists) return emailsMatch(school["contact_email"], email);
+  return emailsMatch(owner.get("email"), email);
+}
+
+async function writeOwnerProfile(
+  db: Firestore,
+  currentUid: string,
+  email: string,
+  schoolId: string,
+  extras: {
+    fullName: string;
+    phone?: string | null;
+    avatarUrl?: string | null;
+    createdAt?: string;
+    orphanId?: string | null;
+  },
+): Promise<UserProfile> {
+  const now = new Date().toISOString();
+  const payload = plainFirestoreData({
+    full_name: extras.fullName,
+    email,
+    avatar_url: extras.avatarUrl ?? null,
+    phone: extras.phone ?? null,
+    school_id: schoolId,
+    student_code: null,
+    role: "institution" as AppRole,
+    membership_status: "owner",
+    created_at: extras.createdAt ?? now,
+    updated_at: now,
+    ...(extras.orphanId ? { reattached_from: extras.orphanId } : {}),
+  });
+  await adminSet(COLLECTIONS.users, currentUid, payload);
+
+  const school = await db.collection(COLLECTIONS.schools).doc(schoolId).get();
+  if (school.exists) {
+    await school.ref.set(
+      {
+        owner_id: currentUid,
+        created_by: currentUid,
+        contact_email: email,
+        updated_at: now,
+      },
+      { merge: true },
+    );
+  }
+
+  await adminSet(
+    COLLECTIONS.schoolMembers,
+    currentUid,
+    plainFirestoreData({
+      school_id: schoolId,
+      user_id: currentUid,
+      role: "institution",
+      status: "approved",
+      student_code: null,
+      created_at: now,
+      updated_at: now,
+    }),
+  );
+
+  await adminAuth().setCustomUserClaims(currentUid, {
+    role: "admin",
+    schoolId,
+    approved: true,
+  });
+  await rememberUserDirectory(email, currentUid, { role: "institution", schoolId });
+
+  return mapProfile(currentUid, payload)!;
+}
+
 async function findOrphanUserId(db: Firestore, email: string, currentUid: string): Promise<string | null> {
   const dir = await db.collection(COLLECTIONS.userDirectory).doc(emailDirectoryId(email)).get();
   if (dir.exists) {
@@ -59,11 +155,7 @@ async function findOrphanUserId(db: Firestore, email: string, currentUid: string
     if (mapped && mapped !== currentUid) return mapped;
   }
 
-  const index = await db.collection(COLLECTIONS.schoolDirectory).doc(DIRECTORY_INDEX_ID).get();
-  const schoolIds = Array.isArray(index.get("school_ids"))
-    ? (index.get("school_ids") as string[]).filter(Boolean)
-    : [];
-  for (const schoolId of schoolIds.slice(0, 100)) {
+  for (const schoolId of await listedSchoolIds(db)) {
     const school = await db.collection(COLLECTIONS.schools).doc(schoolId).get();
     if (!school.exists) continue;
     if (!emailsMatch(school.get("contact_email"), email)) continue;
@@ -84,85 +176,51 @@ async function reattachOrphanProfile(
   const orphan = await db.collection(COLLECTIONS.users).doc(orphanId).get();
   if (!orphan.exists || !emailsMatch(orphan.get("email"), email)) return null;
 
-  const now = new Date().toISOString();
   const data = orphan.data() ?? {};
   const schoolId = typeof data["school_id"] === "string" ? data["school_id"] : null;
-  const roleRaw = typeof data["role"] === "string" ? data["role"] : "student";
-  const role: AppRole = roleRaw === "admin" ? "institution" : (roleRaw as AppRole);
-  const membership =
-    data["membership_status"] === "owner" ||
-    data["membership_status"] === "pending" ||
-    data["membership_status"] === "approved" ||
-    data["membership_status"] === "rejected"
-      ? data["membership_status"]
-      : role === "institution"
-        ? "owner"
-        : "approved";
-
-  await adminSet(
-    COLLECTIONS.users,
-    currentUid,
-    plainFirestoreData({
-      full_name: data["full_name"],
-      email,
-      avatar_url: data["avatar_url"] ?? null,
-      phone: data["phone"] ?? null,
-      school_id: schoolId,
-      student_code: data["student_code"] ?? null,
-      role,
-      membership_status: membership,
-      created_at: data["created_at"] ?? now,
-      updated_at: now,
-      reattached_from: orphanId,
-    }),
-  );
-
-  if (schoolId) {
-    const school = await db.collection(COLLECTIONS.schools).doc(schoolId).get();
-    if (school.exists && String(school.get("owner_id") ?? "") === orphanId) {
-      await school.ref.set(
-        {
-          owner_id: currentUid,
-          created_by: currentUid,
-          updated_at: now,
-        },
-        { merge: true },
-      );
-    }
-    const oldMember = await db.collection(COLLECTIONS.schoolMembers).doc(orphanId).get();
-    const memberPayload = oldMember.exists
-      ? {
-          ...oldMember.data(),
-          user_id: currentUid,
-          school_id: schoolId,
-          updated_at: now,
-        }
-      : {
-          school_id: schoolId,
-          user_id: currentUid,
-          role,
-          status: membership === "owner" ? "approved" : membership,
-          created_at: now,
-        };
-    await adminSet(COLLECTIONS.schoolMembers, currentUid, plainFirestoreData(memberPayload));
+  if (!schoolId) {
+    // Fall through to contact-email claim below.
+    return null;
   }
 
-  const claimRole = role === "institution" ? "admin" : role;
-  await adminAuth().setCustomUserClaims(currentUid, {
-    role: claimRole,
-    schoolId,
-    approved: membership !== "pending",
+  return writeOwnerProfile(db, currentUid, email, schoolId, {
+    fullName: String(data["full_name"] || email),
+    phone: (data["phone"] as string | null) ?? null,
+    avatarUrl: (data["avatar_url"] as string | null) ?? null,
+    ...(typeof data["created_at"] === "string" ? { createdAt: data["created_at"] } : {}),
+    orphanId,
   });
+}
 
-  await rememberUserDirectory(email, currentUid, { role, schoolId });
-  return mapProfile(currentUid, {
-    ...data,
-    email,
-    role,
-    membership_status: membership,
-    school_id: schoolId,
-    updated_at: now,
-  });
+/** Take ownership of a school whose contact email matches the signed-in user. */
+async function claimSchoolByContactEmail(
+  db: Firestore,
+  currentUid: string,
+  email: string,
+  preferredSchoolId?: string | null,
+): Promise<UserProfile | null> {
+  const ids = preferredSchoolId
+    ? [preferredSchoolId, ...(await listedSchoolIds(db)).filter((id) => id !== preferredSchoolId)]
+    : await listedSchoolIds(db);
+
+  for (const schoolId of ids) {
+    const school = await db.collection(COLLECTIONS.schools).doc(schoolId).get();
+    if (!school.exists) continue;
+    const data = school.data() ?? {};
+    if (!(await canTakeSchoolOwnership(db, data, currentUid, email))) continue;
+    if (!emailsMatch(data["contact_email"], email) && String(data["owner_id"] ?? "") !== currentUid) {
+      continue;
+    }
+
+    const display =
+      (await db.collection(COLLECTIONS.users).doc(currentUid).get()).get("full_name") ||
+      String(data["name"] || "School admin");
+
+    return writeOwnerProfile(db, currentUid, email, schoolId, {
+      fullName: String(display),
+    });
+  }
+  return null;
 }
 
 async function ensureClaimsMatchProfile(profile: UserProfile): Promise<void> {
@@ -171,8 +229,7 @@ async function ensureClaimsMatchProfile(profile: UserProfile): Promise<void> {
     const claims = user.customClaims ?? {};
     const wantRole = profile.role === "institution" ? "admin" : profile.role;
     const haveRole = typeof claims["role"] === "string" ? claims["role"] : null;
-    const haveSchool =
-      typeof claims["schoolId"] === "string" ? claims["schoolId"] : claims["schoolId"] === null ? null : undefined;
+    const haveSchool = typeof claims["schoolId"] === "string" ? claims["schoolId"] : null;
     if (haveRole === wantRole && haveSchool === profile.school_id) return;
     await adminAuth().setCustomUserClaims(profile.id, {
       role: wantRole,
@@ -186,8 +243,7 @@ async function ensureClaimsMatchProfile(profile: UserProfile): Promise<void> {
 
 /**
  * Load the signed-in user's profile via Admin SDK.
- * If Auth was recreated (new UID) but an older profile exists for the same email,
- * reattach that profile and school ownership so refresh no longer dumps them on onboarding.
+ * Recovers when Auth was recreated (new UID) and the school still lists their email.
  */
 export async function resolveSessionAccount(input: {
   userId: string;
@@ -195,22 +251,114 @@ export async function resolveSessionAccount(input: {
 }): Promise<UserProfile | null> {
   const db = adminDb();
   const existing = await db.collection(COLLECTIONS.users).doc(input.userId).get();
-  if (existing.exists) {
-    const profile = mapProfile(input.userId, existing.data());
-    if (profile) {
-      if (input.email) {
-        void rememberUserDirectory(input.email, input.userId, {
-          role: profile.role,
-          schoolId: profile.school_id,
-        });
+  let profile = existing.exists ? mapProfile(input.userId, existing.data()) : null;
+
+  if (profile?.school_id) {
+    if (input.email) {
+      void rememberUserDirectory(input.email, input.userId, {
+        role: profile.role,
+        schoolId: profile.school_id,
+      });
+      // Keep school.owner_id aligned when Auth UID was recreated.
+      try {
+        const school = await db.collection(COLLECTIONS.schools).doc(profile.school_id).get();
+        if (
+          school.exists &&
+          String(school.get("owner_id") ?? "") !== input.userId &&
+          (await canTakeSchoolOwnership(db, school.data() ?? {}, input.userId, input.email))
+        ) {
+          await school.ref.set(
+            {
+              owner_id: input.userId,
+              created_by: input.userId,
+              contact_email: input.email,
+              updated_at: new Date().toISOString(),
+            },
+            { merge: true },
+          );
+        }
+      } catch (error) {
+        console.error("[session] failed to realign school owner:", error);
       }
-      await ensureClaimsMatchProfile(profile);
-      return profile;
+    }
+    await ensureClaimsMatchProfile(profile);
+    return profile;
+  }
+
+  if (!input.email?.trim()) return profile;
+
+  if (!profile) {
+    const orphanId = await findOrphanUserId(db, input.email, input.userId);
+    if (orphanId) {
+      profile = await reattachOrphanProfile(db, input.userId, input.email, orphanId);
+      if (profile?.school_id) return profile;
     }
   }
 
-  if (!input.email?.trim()) return null;
-  const orphanId = await findOrphanUserId(db, input.email, input.userId);
-  if (!orphanId) return null;
-  return reattachOrphanProfile(db, input.userId, input.email, orphanId);
+  const claimed = await claimSchoolByContactEmail(db, input.userId, input.email, profile?.school_id);
+  if (claimed) return claimed;
+  if (profile) await ensureClaimsMatchProfile(profile);
+  return profile;
+}
+
+/** Open / manage a listed school — only if this account owns it or contact email matches. */
+export async function adoptManagedSchool(input: {
+  userId: string;
+  email: string | null;
+  schoolId: string;
+}): Promise<{ profile: UserProfile; school: School & { id: string } }> {
+  if (!input.email?.trim()) {
+    throw new Error("Your account needs an email before you can manage a school.");
+  }
+  const db = adminDb();
+  const school = await db.collection(COLLECTIONS.schools).doc(input.schoolId).get();
+  if (!school.exists) throw new Error("That school was not found.");
+  const data = school.data() ?? {};
+  if (!(await canTakeSchoolOwnership(db, data, input.userId, input.email))) {
+    throw new Error("You can only open schools registered to your email.");
+  }
+
+  const profile = await writeOwnerProfile(db, input.userId, input.email, input.schoolId, {
+    fullName: String(
+      (await db.collection(COLLECTIONS.users).doc(input.userId).get()).get("full_name") ||
+        data["name"] ||
+        "School admin",
+    ),
+  });
+
+  return {
+    profile,
+    school: {
+      ...(data as School),
+      id: school.id,
+      owner_id: input.userId,
+      contact_email: input.email,
+    },
+  };
+}
+
+export async function loadManagedSchool(input: {
+  userId: string;
+  email: string | null;
+}): Promise<(School & { id: string; membership: "owner" | "approved" | "pending" | "rejected"; memberRole: AppRole }) | null> {
+  const profile = await resolveSessionAccount(input);
+  if (!profile?.school_id) return null;
+  const school = await adminDb().collection(COLLECTIONS.schools).doc(profile.school_id).get();
+  if (!school.exists) return null;
+  const membership =
+    profile.membership_status === "owner" ||
+    profile.role === "institution" ||
+    profile.role === "admin"
+      ? "owner"
+      : profile.membership_status === "pending" ||
+          profile.membership_status === "rejected" ||
+          profile.membership_status === "approved"
+        ? profile.membership_status
+        : "approved";
+  return {
+    ...(school.data() as School),
+    id: school.id,
+    membership,
+    memberRole: profile.role,
+  };
 }

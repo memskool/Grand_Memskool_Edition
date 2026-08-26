@@ -4,7 +4,7 @@ import { Building2, CalendarPlus, Loader2, Plus, ShieldAlert, Trash2, Users } fr
 import { toast } from "sonner";
 import { useSession, useRole } from "@/hooks/useAuth";
 import { canManageSchool } from "@/lib/nav";
-import { useMySchool } from "@/lib/school-membership";
+import { useMySchool, useOpenManagedSchool } from "@/lib/school-membership";
 import {
   AcademicStructurePanel,
   CurriculumPanel,
@@ -177,6 +177,8 @@ function SchoolAdminPage() {
 function SchoolSection({ userId }: { userId?: string | undefined }) {
   const navigate = useNavigate();
   const schools = useSchools();
+  const mySchool = useMySchool(userId);
+  const openSchool = useOpenManagedSchool(userId);
   const create = useCreateSchool(userId);
   const remove = useDeleteSchool();
 
@@ -215,7 +217,17 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
       setName("");
       setDescription("");
       toast.success("School registered. Opening school management…");
-      await navigate({ to: "/school-admin", replace: true });
+      await navigate({ to: "/dashboard", replace: true });
+    } catch (err) {
+      toast.error(authErrorMessage(err));
+    }
+  };
+
+  const openForManage = async (schoolId: string) => {
+    try {
+      await openSchool.mutateAsync(schoolId);
+      toast.success("School opened for management");
+      await navigate({ to: "/dashboard", replace: true });
     } catch (err) {
       toast.error(authErrorMessage(err));
     }
@@ -326,31 +338,49 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
           />
         ) : schools.data?.length ? (
           <ul className="space-y-2">
-            {schools.data.map((s) => (
-              <li
-                key={s.id}
-                className="flex items-center gap-3 rounded-xl bg-secondary/50 px-4 py-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{s.name}</p>
-                  <p className="truncate text-xs capitalize text-muted-foreground">
-                    {s.category} ·{" "}
-                    {[s.city, s.country].filter(Boolean).join(", ") || "Location TBA"}
-                  </p>
-                </div>
-                <Badge variant={s.admissions_open ? "default" : "outline"}>
-                  {s.admissions_open ? "Open" : "Closed"}
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Delete school"
-                  onClick={() => remove.mutate(s.id)}
+            {schools.data.map((s) => {
+              const isMine = mySchool.data?.id === s.id;
+              return (
+                <li
+                  key={s.id}
+                  className="flex items-center gap-3 rounded-xl bg-secondary/50 px-4 py-3"
                 >
-                  <Trash2 className="size-4" />
-                </Button>
-              </li>
-            ))}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{s.name}</p>
+                    <p className="truncate text-xs capitalize text-muted-foreground">
+                      {s.category} ·{" "}
+                      {[s.city, s.country].filter(Boolean).join(", ") || "Location TBA"}
+                      {isMine ? " · Your school" : ""}
+                    </p>
+                  </div>
+                  <Badge variant={s.admissions_open ? "default" : "outline"}>
+                    {s.admissions_open ? "Admissions open" : "Admissions closed"}
+                  </Badge>
+                  <Button
+                    size="sm"
+                    className="rounded-full"
+                    disabled={openSchool.isPending}
+                    onClick={() => void openForManage(s.id)}
+                  >
+                    {openSchool.isPending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : isMine ? (
+                      "Manage"
+                    ) : (
+                      "Open"
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Delete school"
+                    onClick={() => remove.mutate(s.id)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <EmptyState

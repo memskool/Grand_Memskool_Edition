@@ -16,6 +16,12 @@ import {
 } from "@/lib/firebase/repo";
 import type { School } from "@/types/school";
 import { classifyFirebase } from "@/lib/errors/app-error";
+import {
+  loadMyManagedSchool,
+  openManagedSchool,
+} from "@/features/auth/services/session-account.functions";
+import { refreshAuthClaims } from "@/features/auth/services/auth.service";
+import { seedSessionAfterSignup } from "@/features/auth/seed-session";
 
 export type MemberStatus = "pending" | "approved" | "rejected";
 
@@ -33,11 +39,51 @@ export async function lookupSchool(code: string): Promise<SchoolSummary | null> 
   return row ? (row as SchoolSummary) : null;
 }
 
+function unwrapManagedSchool(raw: unknown):
+  | (School & {
+      id: string;
+      membership: MemberStatus | "owner";
+      memberRole: AppRole;
+    })
+  | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj["id"] === "string" && typeof obj["name"] === "string") {
+    return raw as School & {
+      id: string;
+      membership: MemberStatus | "owner";
+      memberRole: AppRole;
+    };
+  }
+  for (const key of ["data", "result", "payload", "value"]) {
+    const nested = obj[key];
+    const inner = unwrapManagedSchool(nested);
+    if (inner) return inner;
+  }
+  return null;
+}
+
 export function useMySchool(userId: string | undefined) {
   return useQuery({
     queryKey: ["my-school", userId],
     enabled: !!userId,
+    staleTime: 60_000,
+    retry: 2,
     queryFn: async () => {
+      try {
+        const fromServer = unwrapManagedSchool(await loadMyManagedSchool());
+        if (fromServer) {
+          void refreshAuthClaims().catch(() => undefined);
+          return {
+            ...fromServer,
+            membership: fromServer.membership,
+            memberRole: fromServer.memberRole,
+            studentCode: null as string | null,
+          };
+        }
+      } catch (error) {
+        console.error("[my-school] server load failed:", error);
+      }
       const profile = await getById<UserProfile>(COLLECTIONS.users, userId!);
       if (!profile?.school_id) return null;
       const school = await getById<School>(COLLECTIONS.schools, profile.school_id);
@@ -58,6 +104,40 @@ export function useMySchool(userId: string | undefined) {
         memberRole: profile.role,
         studentCode: profile.student_code,
       };
+    },
+  });
+}
+
+export function useOpenManagedSchool(userId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (schoolId: string) => {
+      const raw = await openManagedSchool({ data: { schoolId } });
+      const payload = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+      const nested =
+        payload && payload["data"] && typeof payload["data"] === "object"
+          ? (payload["data"] as Record<string, unknown>)
+          : payload;
+      const profile = nested?.["profile"] as UserProfile | undefined;
+      if (profile?.id) {
+        seedSessionAfterSignup(qc, {
+          userId: profile.id,
+          email: profile.email,
+          fullName: profile.full_name,
+          role: profile.role === "admin" ? "institution" : profile.role,
+          schoolId: profile.school_id,
+          membership: profile.membership_status ?? "owner",
+          studentCode: profile.student_code,
+        });
+      }
+      await refreshAuthClaims();
+      return nested;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["my-school", userId] });
+      void qc.invalidateQueries({ queryKey: ["profile", userId] });
+      void qc.invalidateQueries({ queryKey: ["role", userId] });
+      void qc.invalidateQueries({ queryKey: ["schools"] });
     },
   });
 }
