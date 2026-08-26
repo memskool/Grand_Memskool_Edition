@@ -74,16 +74,29 @@ export function useRole(user: AuthUser | null) {
     enabled: !!id,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<AppRole | null> => {
+      let fromClaims: AppRole | null = null;
       const authUser = getFirebaseAuth().currentUser;
       if (authUser) {
-        const token = await authUser.getIdTokenResult();
+        const token = await authUser.getIdTokenResult(true);
         if (typeof token.claims["role"] === "string" && token.claims["role"]) {
-          return claimsRoleToAppRole(token.claims["role"]);
+          fromClaims = claimsRoleToAppRole(token.claims["role"]);
         }
       }
-      const row = await getById<UserProfile>(COLLECTIONS.users, id!);
-      if (!row?.role) return null;
-      return row.role === "admin" ? "institution" : row.role;
+      let fromProfile: AppRole | null = null;
+      try {
+        const row = await getById<UserProfile>(COLLECTIONS.users, id!);
+        if (row?.role) {
+          fromProfile = row.role === "admin" ? "institution" : row.role;
+        }
+      } catch {
+        fromProfile = null;
+      }
+      // Prefer the Firestore school-operator role when claims are stale (e.g. still "student").
+      if (fromProfile === "institution" || fromProfile === "superadmin") {
+        return fromProfile;
+      }
+      if (fromClaims) return fromClaims;
+      return fromProfile;
     },
   });
 }

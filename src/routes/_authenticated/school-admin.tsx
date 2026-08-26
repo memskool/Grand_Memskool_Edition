@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Building2, CalendarPlus, Loader2, Plus, ShieldAlert, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useSession, useRole } from "@/hooks/useAuth";
@@ -175,6 +175,7 @@ function SchoolAdminPage() {
 /* ---------------------------------------------------------------- */
 
 function SchoolSection({ userId }: { userId?: string | undefined }) {
+  const navigate = useNavigate();
   const schools = useSchools();
   const create = useCreateSchool(userId);
   const remove = useDeleteSchool();
@@ -213,7 +214,8 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
       });
       setName("");
       setDescription("");
-      toast.success("School registered");
+      toast.success("School registered. Opening school management…");
+      await navigate({ to: "/school-admin", replace: true });
     } catch (err) {
       toast.error(authErrorMessage(err));
     }

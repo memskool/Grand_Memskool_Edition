@@ -25,6 +25,9 @@ import {
   registerDigitalSchool,
 } from "@/lib/school-register.functions";
 import { refreshAuthClaims } from "@/features/auth/services/auth.service";
+import { getFirebaseAuth } from "@/lib/firebase/client";
+import { seedSessionAfterSignup } from "@/features/auth/seed-session";
+import type { AppRole } from "@/types/roles";
 
 export const SCHOOL_CATEGORIES = [
   { value: "nursery", label: "Nursery" },
@@ -175,7 +178,7 @@ export function useCreateSchool(_userId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (values: Partial<School> & { name: string }) => {
-      const result = await registerDigitalSchool({
+      const raw = await registerDigitalSchool({
         data: {
           name: values.name,
           category: values.category ?? "secondary",
@@ -190,7 +193,28 @@ export function useCreateSchool(_userId?: string) {
         },
       });
       await refreshAuthClaims();
-      return result;
+      const payload = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+      const nested =
+        payload && payload["data"] && typeof payload["data"] === "object"
+          ? (payload["data"] as Record<string, unknown>)
+          : payload;
+      const schoolId = nested && typeof nested["schoolId"] === "string" ? nested["schoolId"] : null;
+      const user = getFirebaseAuth().currentUser;
+      if (user) {
+        seedSessionAfterSignup(qc, {
+          userId: user.uid,
+          email: user.email,
+          fullName: user.displayName?.trim() || values.name,
+          role: "institution" as AppRole,
+          schoolId,
+          membership: "owner",
+          studentCode: null,
+        });
+      }
+      return {
+        schoolId,
+        code: nested && typeof nested["code"] === "string" ? nested["code"] : null,
+      };
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["schools"] });

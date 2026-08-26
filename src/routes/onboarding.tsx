@@ -19,6 +19,8 @@ import { lookupSchool, type SchoolSummary } from "@/lib/school-membership";
 import { COLLECTIONS, getById } from "@/lib/firebase/repo";
 import type { UserProfile } from "@/types/user";
 import { isProfileComplete } from "@/features/auth/account-state";
+import { claimsRoleToAppRole, isSchoolManager } from "@/types/roles";
+import { getFirebaseAuth } from "@/lib/firebase/client";
 import { clearSignupIntent, loadSignupIntent } from "@/features/auth/signup-intent";
 import { seedSessionAfterSignup, unwrapSignupResult } from "@/features/auth/seed-session";
 
@@ -35,6 +37,12 @@ export const Route = createFileRoute("/onboarding")({
   }),
   component: OnboardingPage,
 });
+
+function workspaceHome(role: string | null | undefined): "/school-admin" | "/dashboard" {
+  return role === "institution" || role === "admin" || role === "superadmin"
+    ? "/school-admin"
+    : "/dashboard";
+}
 
 function OnboardingPage() {
   const navigate = useNavigate();
@@ -64,8 +72,39 @@ function OnboardingPage() {
       } catch {
         profile = null;
       }
-      if (isProfileComplete(profile)) {
-        navigate({ to: "/dashboard", replace: true });
+      let claimsRole: string | null = null;
+      try {
+        const authUser = getFirebaseAuth().currentUser;
+        if (authUser) {
+          const token = await authUser.getIdTokenResult(true);
+          if (typeof token.claims["role"] === "string") {
+            claimsRole = claimsRoleToAppRole(token.claims["role"]);
+          }
+        }
+      } catch {
+        claimsRole = null;
+      }
+      const effectiveRole = profile?.role
+        ? profile.role === "admin"
+          ? "institution"
+          : profile.role
+        : claimsRole;
+      if (
+        isProfileComplete(profile) ||
+        (profile?.full_name && isSchoolManager(effectiveRole as never))
+      ) {
+        if (profile && effectiveRole) {
+          seedSessionAfterSignup(queryClient, {
+            userId: user.id,
+            email: user.email,
+            fullName: profile.full_name,
+            role: (effectiveRole === "admin" ? "institution" : effectiveRole) as never,
+            schoolId: profile.school_id,
+            membership: profile.membership_status ?? "approved",
+            studentCode: profile.student_code,
+          });
+        }
+        navigate({ to: workspaceHome(effectiveRole), replace: true });
         return;
       }
       const intent = loadSignupIntent();
@@ -75,12 +114,16 @@ function OnboardingPage() {
         setSchoolCode(intent.schoolCode);
         setStudentCode(intent.studentCode);
         setSchoolName(intent.schoolName);
+      } else if (effectiveRole === "institution" || effectiveRole === "admin") {
+        setRole("institution");
+        setFullName(profile?.full_name || user.displayName || "");
+        setSchoolName(profile?.full_name || "");
       } else {
-        setFullName(user.displayName ?? "");
+        setFullName(profile?.full_name || user.displayName || "");
       }
       setReady(true);
     })();
-  }, [navigate]);
+  }, [navigate, queryClient]);
 
   useEffect(() => {
     if ((!needsSchoolCode && role !== "institution") || schoolCode.trim().length < 3) {
@@ -171,7 +214,10 @@ function OnboardingPage() {
           ? "Profile saved. Your school still needs to approve your teacher account."
           : "Profile saved. Welcome to Memskool.",
       );
-      await navigate({ to: "/dashboard", replace: true });
+      await navigate({
+        to: role === "institution" ? "/school-admin" : "/dashboard",
+        replace: true,
+      });
     } catch (error) {
       toast.error(authErrorMessage(error));
     } finally {

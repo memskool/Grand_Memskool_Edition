@@ -6,23 +6,24 @@ import { ListSkeleton } from "@/components/app/primitives";
 /** Keeps incomplete profiles out of the workspace until onboarding finishes. */
 export function IdentityGate({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
-  const { accountState } = useAccess();
+  const { accountState, role } = useAccess();
+  const isOperator = role === "institution" || role === "admin" || role === "superadmin";
 
   useEffect(() => {
     if (accountState === "unauthenticated") {
       navigate({ to: "/auth", replace: true });
       return;
     }
-    if (accountState === "incomplete") {
+    if (accountState === "incomplete" && !isOperator) {
       navigate({ to: "/onboarding", replace: true });
     }
-  }, [accountState, navigate]);
+  }, [accountState, isOperator, navigate]);
 
-  if (
-    accountState === "loading" ||
-    accountState === "incomplete" ||
-    accountState === "unauthenticated"
-  ) {
+  if (accountState === "loading" || accountState === "unauthenticated") {
+    return <ListSkeleton rows={4} />;
+  }
+  // School operators must stay in School Admin even if profile cache blips.
+  if (accountState === "incomplete" && !isOperator) {
     return <ListSkeleton rows={4} />;
   }
 
