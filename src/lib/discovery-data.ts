@@ -24,6 +24,10 @@ import {
   listDirectorySchools,
   registerDigitalSchool,
 } from "@/lib/school-register.functions";
+import {
+  listSchoolApplications,
+  reviewSchoolApplication,
+} from "@/lib/applications.functions";
 import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { seedSessionAfterSignup } from "@/features/auth/seed-session";
@@ -345,17 +349,27 @@ export function useMyApplications(studentId?: string) {
   });
 }
 
-export function useAllApplications(enabled: boolean) {
+export function useAllApplications(schoolId: string | undefined) {
   return useQuery({
-    queryKey: ["all-applications"],
-    enabled,
+    queryKey: ["all-applications", schoolId],
+    enabled: !!schoolId,
     queryFn: async (): Promise<SchoolApplication[]> => {
-      const schoolId = await userSchoolId();
+      try {
+        const raw = await listSchoolApplications();
+        if (Array.isArray(raw)) return raw as SchoolApplication[];
+        if (raw && typeof raw === "object") {
+          const obj = raw as Record<string, unknown>;
+          for (const key of ["data", "result", "payload", "value"]) {
+            const inner = obj[key];
+            if (Array.isArray(inner)) return inner as SchoolApplication[];
+          }
+        }
+      } catch (error) {
+        console.error("[applications] server list failed:", error);
+      }
       const rows = await findMany<Omit<SchoolApplication, "school">>(
         COLLECTIONS.schoolApplications,
-        schoolId
-          ? [where("school_id", "==", schoolId), orderBy("created_at", "desc")]
-          : [orderBy("created_at", "desc")],
+        [where("school_id", "==", schoolId!), orderBy("created_at", "desc")],
       );
       return Promise.all(rows.map(hydrateApplication));
     },
@@ -415,16 +429,20 @@ export function useUpdateApplicationStatus() {
       status: ApplicationStatus;
       notes?: string;
     }) => {
-      await patchById(COLLECTIONS.schoolApplications, id, {
-        status,
-        review_notes: notes ?? null,
-        reviewed_at: new Date().toISOString(),
+      await reviewSchoolApplication({
+        data: {
+          applicationId: id,
+          status,
+          notes: notes ?? null,
+        },
       });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["all-applications"] });
       qc.invalidateQueries({ queryKey: ["applications"] });
-      triggerNotificationDelivery();
+      qc.invalidateQueries({ queryKey: ["school-members"] });
+      qc.invalidateQueries({ queryKey: ["my-school"] });
+      qc.invalidateQueries({ queryKey: ["profile"] });
     },
   });
 }

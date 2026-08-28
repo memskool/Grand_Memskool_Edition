@@ -4,7 +4,7 @@ import { Building2, CalendarPlus, Loader2, Plus, ShieldAlert, Trash2, Users } fr
 import { toast } from "sonner";
 import { useSession, useRole } from "@/hooks/useAuth";
 import { canManageSchool } from "@/lib/nav";
-import { useMySchool, useOpenManagedSchool } from "@/lib/school-membership";
+import { useMySchool, useOpenManagedSchool, useSchoolMembers, useSetMemberStatus } from "@/lib/school-membership";
 import {
   AcademicStructurePanel,
   CurriculumPanel,
@@ -159,7 +159,7 @@ function SchoolAdminPage() {
           <StaffSection />
         </TabsContent>
         <TabsContent value="admissions">
-          <AdmissionsSection />
+          <AdmissionsSection schoolId={school.data?.id} />
         </TabsContent>
         <TabsContent value="meetings">
           <MeetingsSection userId={user?.id} />
@@ -625,37 +625,186 @@ function StaffSection() {
 
 /* ---------------------------------------------------------------- */
 
-function AdmissionsSection() {
-  const applications = useAllApplications(true);
+function AdmissionsSection({ schoolId }: { schoolId?: string | undefined }) {
+  const applications = useAllApplications(schoolId);
   const update = useUpdateApplicationStatus();
+  const members = useSchoolMembers(schoolId);
+  const setStatus = useSetMemberStatus(schoolId);
+  const [notesFor, setNotesFor] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<ApplicationStatus | null>(null);
+  const [draftNotes, setDraftNotes] = useState("");
+
+  const pendingMembers = (members.data ?? []).filter((m) => m.status === "pending");
+
+  if (!schoolId) {
+    return (
+      <EmptyState
+        icon={Building2}
+        title="Open your school first"
+        hint="Go to the School tab, click Open on your institution, then return here to review applications and join requests."
+      />
+    );
+  }
+
+  const review = async (appId: string, status: ApplicationStatus) => {
+    try {
+      await update.mutateAsync({
+        id: appId,
+        status,
+        ...(draftNotes.trim() ? { notes: draftNotes.trim() } : {}),
+      });
+      setNotesFor(null);
+      setPendingStatus(null);
+      setDraftNotes("");
+      toast.success(
+        status === "approved"
+          ? "Application approved — student enrolled and notified."
+          : "Application updated — applicant notified.",
+      );
+    } catch (err) {
+      toast.error(authErrorMessage(err));
+    }
+  };
 
   return (
-    <Panel title="Admission applications" description="Review and decide on incoming applications">
-      <ApplicationsTracker
-        applications={applications.data ?? []}
-        loading={applications.isLoading}
-        action={(app) => (
-          <Select
-            value={app.status}
-            onValueChange={async (status) => {
-              await update.mutateAsync({ id: app.id, status: status as ApplicationStatus });
-              toast.success("Applicant notified");
-            }}
-          >
-            <SelectTrigger className="w-36 shrink-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {APPLICATION_STATUSES.map((s) => (
-                <SelectItem key={s} value={s} className="capitalize">
-                  {s.replace("_", " ")}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <div className="space-y-6">
+      <Panel
+        title="Join requests"
+        description="Teachers and staff waiting for your approval"
+      >
+        {members.isLoading ? (
+          <ListSkeleton rows={2} />
+        ) : pendingMembers.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="No pending join requests"
+            hint="When teachers sign up with your School ID, they appear here for approval."
+          />
+        ) : (
+          <ul className="space-y-2">
+            {pendingMembers.map((m) => (
+              <li
+                key={m.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-secondary/50 px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    {m.user?.full_name || m.user?.email || "New member"}
+                  </p>
+                  <p className="text-xs capitalize text-muted-foreground">
+                    {m.role}
+                    {m.student_code ? ` · ${m.student_code}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    className="rounded-full"
+                    disabled={setStatus.isPending}
+                    onClick={() =>
+                      setStatus.mutate(
+                        { id: m.id, status: "approved" },
+                        {
+                          onSuccess: () => toast.success("Member approved"),
+                          onError: (err) => toast.error(authErrorMessage(err)),
+                        },
+                      )
+                    }
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full"
+                    disabled={setStatus.isPending}
+                    onClick={() =>
+                      setStatus.mutate(
+                        { id: m.id, status: "rejected" },
+                        {
+                          onSuccess: () => toast.success("Request declined"),
+                          onError: (err) => toast.error(authErrorMessage(err)),
+                        },
+                      )
+                    }
+                  >
+                    Decline
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
-      />
-    </Panel>
+      </Panel>
+
+      <Panel title="Admission applications" description="Dream School applications to your institution">
+        <ApplicationsTracker
+          variant="admin"
+          applications={applications.data ?? []}
+          loading={applications.isLoading}
+          action={(app) => (
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <Select
+                value={app.status}
+                onValueChange={(status) => {
+                  const next = status as ApplicationStatus;
+                  if (next === "rejected" || next === "approved") {
+                    setNotesFor(app.id);
+                    setPendingStatus(next);
+                    setDraftNotes(app.review_notes ?? "");
+                  } else {
+                    void review(app.id, next);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {APPLICATION_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s} className="capitalize">
+                      {s.replace("_", " ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {notesFor === app.id ? (
+                <div className="w-56 space-y-2 rounded-xl border border-border bg-background p-3">
+                  <Textarea
+                    rows={2}
+                    placeholder="Optional note to the applicant"
+                    value={draftNotes}
+                    onChange={(e) => setDraftNotes(e.target.value)}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setNotesFor(null);
+                        setPendingStatus(null);
+                        setDraftNotes("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={update.isPending || !pendingStatus}
+                      onClick={() => {
+                        if (pendingStatus) void review(app.id, pendingStatus);
+                      }}
+                    >
+                      Confirm
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+        />
+      </Panel>
+    </div>
   );
 }
 

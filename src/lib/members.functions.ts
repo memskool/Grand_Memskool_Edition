@@ -4,6 +4,7 @@ import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
 import {
   adminDelete,
   adminGetById,
+  adminListAll,
   adminSet,
   adminUpdate,
   adminWhere,
@@ -12,6 +13,7 @@ import { parentLinkId } from "@/lib/parent-link";
 import { COLLECTIONS } from "@/lib/firebase/repo";
 import { isSchoolManager } from "@/types/roles";
 import { adminAuth } from "@/lib/firebase/admin.server";
+import { managedSchoolIdFor } from "@/lib/firebase/school-context.server";
 
 export const setSchoolMemberStatus = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
@@ -33,13 +35,15 @@ export const setSchoolMemberStatus = createServerFn({ method: "POST" })
       role: string;
     }>(COLLECTIONS.schoolMembers, data.memberId);
     if (!member) throw new Error("That membership was not found.");
-    if (context.role !== "superadmin" && member.school_id !== context.schoolId) {
+    const schoolId = await managedSchoolIdFor(context);
+    if (context.role !== "superadmin" && member.school_id !== schoolId) {
       throw new Error("You do not have permission to perform this action.");
     }
 
     const now = new Date().toISOString();
     await adminUpdate(COLLECTIONS.schoolMembers, member.id, { status: data.status });
     await adminSet(COLLECTIONS.users, member.user_id, {
+      school_id: member.school_id,
       membership_status: data.status,
       updated_at: now,
     });
@@ -75,6 +79,58 @@ export const setSchoolMemberStatus = createServerFn({ method: "POST" })
     void dispatchNotifications();
 
     return { ok: true as const, status: data.status };
+  });
+
+type MemberRow = {
+  id: string;
+  school_id: string;
+  user_id: string;
+  role: string;
+  status: string;
+  student_code: string | null;
+  created_at: string;
+};
+
+async function loadMembersForSchool(schoolId: string): Promise<MemberRow[]> {
+  try {
+    const rows = await adminWhere<MemberRow>(
+      COLLECTIONS.schoolMembers,
+      "school_id",
+      "==",
+      schoolId,
+    );
+    return rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  } catch {
+    const all = await adminListAll<MemberRow>(COLLECTIONS.schoolMembers, 500);
+    return all
+      .filter((row) => row.school_id === schoolId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+}
+
+/** School admin: list members with basic profile info. */
+export const listSchoolMembers = createServerFn({ method: "POST" })
+  .middleware([requireFirebaseAuth])
+  .handler(async ({ context }) => {
+    if (!isSchoolManager(context.role)) {
+      throw new Error("You do not have permission to perform this action.");
+    }
+    const schoolId = await managedSchoolIdFor(context);
+    const members = await loadMembersForSchool(schoolId);
+    return Promise.all(
+      members.map(async (member) => {
+        const user = await adminGetById<{ full_name: string; email: string | null }>(
+          COLLECTIONS.users,
+          member.user_id,
+        );
+        return {
+          ...member,
+          user: user
+            ? { id: user.id, full_name: user.full_name, email: user.email ?? null }
+            : null,
+        };
+      }),
+    );
   });
 
 export const remindSchoolApproval = createServerFn({ method: "POST" })

@@ -22,6 +22,7 @@ import {
 } from "@/features/auth/services/session-account.functions";
 import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 import { seedSessionAfterSignup } from "@/features/auth/seed-session";
+import { listSchoolMembers, setSchoolMemberStatus } from "@/lib/members.functions";
 
 export type MemberStatus = "pending" | "approved" | "rejected";
 
@@ -180,6 +181,22 @@ export function useSchoolMembers(schoolId: string | undefined) {
     queryKey: ["school-members", schoolId],
     enabled: !!schoolId,
     queryFn: async () => {
+      try {
+        const raw = await listSchoolMembers();
+        if (Array.isArray(raw)) {
+          return raw as Array<{
+            id: string;
+            role: AppRole;
+            status: MemberStatus;
+            student_code: string | null;
+            created_at: string;
+            user_id: string;
+            user: { id: string; full_name: string; email: string | null } | null;
+          }>;
+        }
+      } catch (error) {
+        console.error("[school-members] server list failed:", error);
+      }
       const members = await findMany<{
         role: AppRole;
         status: MemberStatus;
@@ -210,10 +227,13 @@ export function useSetMemberStatus(schoolId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: MemberStatus }) => {
-      const { setSchoolMemberStatus } = await import("@/lib/members.functions");
       await setSchoolMemberStatus({ data: { memberId: id, status } });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["school-members", schoolId] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["school-members", schoolId] });
+      void qc.invalidateQueries({ queryKey: ["profile"] });
+      void qc.invalidateQueries({ queryKey: ["my-school"] });
+    },
   });
 }
 

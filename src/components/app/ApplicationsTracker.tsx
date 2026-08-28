@@ -20,10 +20,13 @@ export function ApplicationsTracker({
   applications,
   loading,
   action,
+  variant = "student",
 }: {
   applications: SchoolApplication[];
   loading?: boolean;
   action?: (app: SchoolApplication) => ReactNode;
+  /** student = Dream School view; admin = School Admin admissions view */
+  variant?: "student" | "admin";
 }) {
   if (loading) return <ListSkeleton rows={3} />;
 
@@ -42,10 +45,24 @@ export function ApplicationsTracker({
       {applications.map((app) => (
         <li key={app.id} className="flex items-start gap-3 rounded-xl bg-secondary/50 px-4 py-3">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{app.school?.name ?? "School"}</p>
+            <p className="truncate text-sm font-medium">
+              {variant === "admin"
+                ? app.applicant_name || "Applicant"
+                : (app.school?.name ?? "School")}
+            </p>
             <p className="truncate text-xs text-muted-foreground">
-              {app.intended_program || app.class_level || "General admission"} · applied{" "}
-              {formatDateTime(app.created_at)}
+              {variant === "admin" ? (
+                <>
+                  {[app.intended_program, app.class_level, app.email].filter(Boolean).join(" · ") ||
+                    "General admission"}{" "}
+                  · applied {formatDateTime(app.created_at)}
+                </>
+              ) : (
+                <>
+                  {app.intended_program || app.class_level || "General admission"} · applied{" "}
+                  {formatDateTime(app.created_at)}
+                </>
+              )}
             </p>
             {app.documents?.length ? (
               <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
