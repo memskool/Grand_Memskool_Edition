@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Building2, CalendarPlus, Loader2, Plus, ShieldAlert, Trash2, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { Building2, CalendarPlus, Copy, Loader2, Plus, ShieldAlert, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useSession, useRole } from "@/hooks/useAuth";
 import { canManageSchool } from "@/lib/nav";
-import { useMySchool, useOpenManagedSchool, useSchoolMembers, useSetMemberStatus } from "@/lib/school-membership";
+import { useMySchool, useSchoolMembers, useSetMemberStatus } from "@/lib/school-membership";
 import {
   AcademicStructurePanel,
   CurriculumPanel,
@@ -14,9 +14,7 @@ import { FamilyLinkPanel } from "@/components/app/FamilyLinkPanel";
 import { useCreateSlotSafe } from "@/features/academic/academic-data";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import {
-  useSchools,
   useCreateSchool,
-  useDeleteSchool,
   useAllApplications,
   useUpdateApplicationStatus,
   useAllClasses,
@@ -107,7 +105,7 @@ function SchoolAdminPage() {
     <>
       <PageHeader
         title="School Administration"
-        subtitle="Run your digital school from one place."
+        subtitle="Run your school from one place — one online school per institution account."
       />
       <Tabs defaultValue="school" className="space-y-6">
         <TabsList className="flex-wrap">
@@ -174,13 +172,29 @@ function SchoolAdminPage() {
 
 /* ---------------------------------------------------------------- */
 
+/* ---------------------------------------------------------------- */
+
+type SchoolProfileFields = {
+  id?: string;
+  name?: string;
+  code?: string;
+  category?: string;
+  city?: string | null;
+  country?: string | null;
+  website?: string | null;
+  description?: string | null;
+  fees_min?: number | null;
+  fees_max?: number | null;
+  badges?: string[];
+  is_international?: boolean;
+  admissions_open?: boolean;
+};
+
 function SchoolSection({ userId }: { userId?: string | undefined }) {
-  const navigate = useNavigate();
-  const schools = useSchools();
   const mySchool = useMySchool(userId);
-  const openSchool = useOpenManagedSchool(userId);
-  const create = useCreateSchool(userId);
-  const remove = useDeleteSchool();
+  const save = useCreateSchool(userId);
+  const school = (mySchool.data ?? null) as SchoolProfileFields | null;
+  const hasSchool = Boolean(school?.id);
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("secondary");
@@ -192,6 +206,22 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
   const [feesMax, setFeesMax] = useState("");
   const [badges, setBadges] = useState("");
   const [international, setInternational] = useState(false);
+  const [admissionsOpen, setAdmissionsOpen] = useState(true);
+
+  useEffect(() => {
+    if (!school?.id) return;
+    setName(school.name ?? "");
+    setCategory(school.category || "secondary");
+    setCity(school.city ?? "");
+    setCountry(school.country || "Uganda");
+    setWebsite(school.website ?? "");
+    setDescription(school.description ?? "");
+    setFeesMin(school.fees_min != null ? String(school.fees_min) : "");
+    setFeesMax(school.fees_max != null ? String(school.fees_max) : "");
+    setBadges(Array.isArray(school.badges) ? school.badges.join(", ") : "");
+    setInternational(Boolean(school.is_international));
+    setAdmissionsOpen(school.admissions_open !== false);
+  }, [school?.id]);
 
   const submit = async () => {
     if (!name.trim()) {
@@ -199,7 +229,7 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
       return;
     }
     try {
-      await create.mutateAsync({
+      await save.mutateAsync({
         name: name.trim(),
         category,
         city: city.trim() || null,
@@ -213,32 +243,64 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
           .map((b) => b.trim())
           .filter(Boolean),
         is_international: international,
+        admissions_open: admissionsOpen,
       });
-      setName("");
-      setDescription("");
-      toast.success("School registered. Opening school management…");
-      await navigate({ to: "/dashboard", replace: true });
+      toast.success(
+        hasSchool
+          ? "School profile updated"
+          : "School created. Use the tabs above to manage classes, admissions and staff.",
+      );
     } catch (err) {
       toast.error(authErrorMessage(err));
     }
   };
 
-  const openForManage = async (schoolId: string) => {
-    try {
-      await openSchool.mutateAsync(schoolId);
-      toast.success("School opened for management");
-      await navigate({ to: "/dashboard", replace: true });
-    } catch (err) {
-      toast.error(authErrorMessage(err));
-    }
-  };
+  if (mySchool.isLoading) {
+    return <ListSkeleton rows={4} />;
+  }
+
+  const code = school?.code ?? "";
 
   return (
     <div className="space-y-6">
       <Panel
-        title="Register a digital school"
-        description="Publish your institution to the Dream School directory"
+        title={hasSchool ? school?.name || "Your school" : "Create your online school"}
+        description={
+          hasSchool
+            ? "This account runs one school. Students find it in Dream School; you manage it here."
+            : "Each institution account can create one school. After that you receive applications and run classes from this workspace."
+        }
       >
+        {hasSchool ? (
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-secondary/50 px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">School ID</p>
+              <p className="font-display text-xl font-bold tracking-tight">{code || "—"}</p>
+              <p className="text-xs text-muted-foreground">
+                Share this with teachers and students so they can join.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={admissionsOpen ? "default" : "outline"}>
+                {admissionsOpen ? "Admissions open" : "Admissions closed"}
+              </Badge>
+              {code ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(code);
+                    toast.success("School ID copied");
+                  }}
+                >
+                  <Copy className="size-4" /> Copy ID
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1.5">
             <Label htmlFor="s-name">School name</Label>
@@ -307,6 +369,10 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
             <Switch id="s-intl" checked={international} onCheckedChange={setInternational} />
             <Label htmlFor="s-intl">International school</Label>
           </div>
+          <div className="flex items-center gap-3 pt-6">
+            <Switch id="s-adm" checked={admissionsOpen} onCheckedChange={setAdmissionsOpen} />
+            <Label htmlFor="s-adm">Admissions open</Label>
+          </div>
           <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
             <Label htmlFor="s-desc">Description</Label>
             <Textarea
@@ -317,78 +383,14 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
             />
           </div>
         </div>
-        <Button className="mt-4" onClick={submit} disabled={create.isPending}>
-          {create.isPending ? (
+        <Button className="mt-4" onClick={() => void submit()} disabled={save.isPending}>
+          {save.isPending ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (
             <Building2 className="size-4" />
           )}
-          Register school
+          {hasSchool ? "Save changes" : "Create school"}
         </Button>
-      </Panel>
-
-      <Panel title="Listed schools" description="Institutions currently in the directory">
-        {schools.isLoading ? (
-          <ListSkeleton rows={3} />
-        ) : schools.isError ? (
-          <EmptyState
-            icon={Building2}
-            title="Could not load schools"
-            hint="Refresh the page, or register the school again if it still does not appear."
-          />
-        ) : schools.data?.length ? (
-          <ul className="space-y-2">
-            {schools.data.map((s) => {
-              const isMine = mySchool.data?.id === s.id;
-              return (
-                <li
-                  key={s.id}
-                  className="flex items-center gap-3 rounded-xl bg-secondary/50 px-4 py-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{s.name}</p>
-                    <p className="truncate text-xs capitalize text-muted-foreground">
-                      {s.category} ·{" "}
-                      {[s.city, s.country].filter(Boolean).join(", ") || "Location TBA"}
-                      {isMine ? " · Your school" : ""}
-                    </p>
-                  </div>
-                  <Badge variant={s.admissions_open ? "default" : "outline"}>
-                    {s.admissions_open ? "Admissions open" : "Admissions closed"}
-                  </Badge>
-                  <Button
-                    size="sm"
-                    className="rounded-full"
-                    disabled={openSchool.isPending}
-                    onClick={() => void openForManage(s.id)}
-                  >
-                    {openSchool.isPending ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : isMine ? (
-                      "Manage"
-                    ) : (
-                      "Open"
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Delete school"
-                    onClick={() => remove.mutate(s.id)}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <EmptyState
-            icon={Building2}
-            title="No schools listed yet"
-            hint="Use Register school above. Once saved, it appears here and in Dream School for students."
-          />
-        )}
       </Panel>
     </div>
   );
@@ -641,7 +643,7 @@ function AdmissionsSection({ schoolId }: { schoolId?: string | undefined }) {
       <EmptyState
         icon={Building2}
         title="Open your school first"
-        hint="Go to the School tab, click Open on your institution, then return here to review applications and join requests."
+        hint="Create your school on the School tab, then return here to review applications and join requests."
       />
     );
   }

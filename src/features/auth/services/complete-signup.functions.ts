@@ -73,6 +73,51 @@ async function allocateSignupCode(db: Firestore): Promise<string> {
   throw new Error("Could not allocate a School ID. Try again.");
 }
 
+async function provisionInstitutionSchool(
+  uid: string,
+  email: string | null,
+  schoolName: string | null,
+  code: string,
+  now: string,
+): Promise<string> {
+  await adminSet(COLLECTIONS.schools, uid, {
+    name: schoolName,
+    code,
+    category: "secondary",
+    city: null,
+    country: null,
+    website: null,
+    description: null,
+    logo_url: null,
+    fees_currency: "UGX",
+    badges: [],
+    is_international: false,
+    contact_email: email,
+    admissions_open: true,
+    owner_id: uid,
+    created_by: uid,
+    created_at: now,
+    updated_at: now,
+  });
+  await adminSet(COLLECTIONS.schoolDirectory, code, {
+    school_id: uid,
+    name: schoolName,
+    city: null,
+    country: null,
+    category: "secondary",
+    admissions_open: true,
+  });
+  await adminSet(COLLECTIONS.schoolMembers, uid, {
+    school_id: uid,
+    user_id: uid,
+    role: "institution",
+    status: "approved",
+    created_at: now,
+  });
+  await rememberSchoolInCatalog(uid, code);
+  return uid;
+}
+
 async function completeSignupHandler(data: SignupInput, context: AuthedContext) {
   const { adminAuth, adminDb } = await import("@/lib/firebase/admin.server");
   const db = adminDb();
@@ -108,13 +153,26 @@ async function completeSignupHandler(data: SignupInput, context: AuthedContext) 
       membership = "owner";
       await rememberSchoolInCatalog(schoolId, ownedDoc.get("code") ? String(ownedDoc.get("code")) : null);
     } else if (existingSchoolId && (existingRole === "institution" || existingRole === "admin")) {
-      schoolId = existingSchoolId;
-      membership = "owner";
       const existingSchool = await db.collection("schools").doc(existingSchoolId).get();
-      await rememberSchoolInCatalog(
-        schoolId,
-        existingSchool.exists && existingSchool.get("code") ? String(existingSchool.get("code")) : null,
-      );
+      const ownsExisting =
+        existingSchool.exists &&
+        (String(existingSchool.get("owner_id") ?? "") === uid || existingSchoolId === uid);
+      if (ownsExisting) {
+        schoolId = existingSchoolId;
+        membership = "owner";
+        await rememberSchoolInCatalog(
+          schoolId,
+          existingSchool.get("code") ? String(existingSchool.get("code")) : null,
+        );
+      } else {
+        const wanted = data.school_code ? codeKey(data.school_code) : await allocateSignupCode(db);
+        const dir = await db.collection("school_directory").doc(wanted).get();
+        if (dir.exists && String(dir.get("school_id") ?? "") !== uid) {
+          throw new Error("That School ID is already taken. Pick another one.");
+        }
+        schoolId = await provisionInstitutionSchool(uid, email, data.school_name, wanted, now);
+        membership = "owner";
+      }
     } else {
       const wanted = data.school_code ? codeKey(data.school_code) : await allocateSignupCode(db);
       const dir = await db.collection("school_directory").doc(wanted).get();
@@ -128,42 +186,7 @@ async function completeSignupHandler(data: SignupInput, context: AuthedContext) 
           throw new Error("That School ID is already taken. Pick another one.");
         }
       } else {
-        schoolId = uid;
-        await adminSet(COLLECTIONS.schools, uid, {
-          name: data.school_name,
-          code: wanted,
-          category: "secondary",
-          city: null,
-          country: null,
-          website: null,
-          description: null,
-          logo_url: null,
-          fees_currency: "UGX",
-          badges: [],
-          is_international: false,
-          contact_email: email,
-          admissions_open: true,
-          owner_id: uid,
-          created_by: uid,
-          created_at: now,
-          updated_at: now,
-        });
-        await adminSet(COLLECTIONS.schoolDirectory, wanted, {
-          school_id: schoolId,
-          name: data.school_name,
-          city: null,
-          country: null,
-          category: "secondary",
-          admissions_open: true,
-        });
-        await adminSet(COLLECTIONS.schoolMembers, uid, {
-          school_id: schoolId,
-          user_id: uid,
-          role: "institution",
-          status: "approved",
-          created_at: now,
-        });
-        await rememberSchoolInCatalog(schoolId, wanted);
+        schoolId = await provisionInstitutionSchool(uid, email, data.school_name, wanted, now);
       }
       membership = "owner";
     }

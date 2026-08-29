@@ -131,7 +131,7 @@ export async function forgetSchoolInCatalog(schoolId: string, code?: string | nu
   });
 }
 
-async function loadByIds(ids: string[]): Promise<DiscoverableSchool[]> {
+export async function loadDiscoverableSchoolsByIds(ids: string[]): Promise<DiscoverableSchool[]> {
   const unique = [...new Set(ids.filter(Boolean))].slice(0, 100);
   if (unique.length === 0) return [];
   const refs = unique.map((id) => adminCol(COLLECTIONS.schools).doc(id));
@@ -167,7 +167,7 @@ async function loadFromDirectoryCodes(codes: string[]): Promise<DiscoverableScho
       );
     }
   }
-  const fromSchools = await loadByIds(schoolIds);
+  const fromSchools = await loadDiscoverableSchoolsByIds(schoolIds);
   if (fromSchools.length > 0) return fromSchools;
   return directoryOnly.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -221,7 +221,8 @@ async function listCollectionViaRest(collectionId: string): Promise<Array<Record
 }
 
 /**
- * Public directory of schools for School Admin + Dream School.
+ * Public directory of schools for Dream School (students / parents) and platform operators.
+ * Institution workspaces must not use this list — they only manage their own school.
  * Prefer single-document indexes and getAll — avoid Enterprise RunQuery.
  */
 export async function listDiscoverableSchools(): Promise<DiscoverableSchool[]> {
@@ -229,7 +230,7 @@ export async function listDiscoverableSchools(): Promise<DiscoverableSchool[]> {
   try {
     const index = await adminGetById<DirectoryIndex>(COLLECTIONS.schoolDirectory, DIRECTORY_INDEX_ID);
     if (index?.school_ids?.length) {
-      const loaded = await loadByIds(index.school_ids);
+      const loaded = await loadDiscoverableSchoolsByIds(index.school_ids);
       if (loaded.length > 0) return loaded;
     }
     if (index?.codes?.length) {
@@ -243,7 +244,7 @@ export async function listDiscoverableSchools(): Promise<DiscoverableSchool[]> {
   // 2) Ops catalog
   try {
     const catalog = await adminGetById<{ school_ids?: string[] }>(CATALOG_COLLECTION, CATALOG_ID);
-    const fromCatalog = await loadByIds(catalog?.school_ids ?? []);
+    const fromCatalog = await loadDiscoverableSchoolsByIds(catalog?.school_ids ?? []);
     if (fromCatalog.length > 0) return fromCatalog;
   } catch (error) {
     console.error("[schools] catalog lookup failed:", error);
@@ -286,7 +287,7 @@ export async function listDiscoverableSchools(): Promise<DiscoverableSchool[]> {
     const restDirs = await listCollectionViaRest(COLLECTIONS.schoolDirectory);
     const usable = restDirs.filter((row) => row.id && row.id !== DIRECTORY_INDEX_ID);
     const ids = usable.map((d) => String(d["school_id"] || "")).filter(Boolean);
-    const fromDir = await loadByIds(ids);
+    const fromDir = await loadDiscoverableSchoolsByIds(ids);
     if (fromDir.length > 0) {
       for (const row of usable) {
         void rememberSchoolInCatalog(

@@ -507,6 +507,9 @@ function AuthPage() {
                           value={schoolName}
                           onChange={(e) => setSchoolName(e.target.value)}
                         />
+                        <p className="text-xs text-muted-foreground">
+                          This account can run one school. You can finish the profile in School Admin after signup.
+                        </p>
                       </div>
                     ) : null}
 

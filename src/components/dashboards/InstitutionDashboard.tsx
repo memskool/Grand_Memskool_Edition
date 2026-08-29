@@ -44,7 +44,7 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
       <EmptyState
         icon={Building2}
         title="No school registered on this account yet"
-        hint="Open School Admin to register your institution and get your School ID."
+        hint="Open School Admin to create your school and get a School ID. Each institution account can run one school."
       />
     );
   }

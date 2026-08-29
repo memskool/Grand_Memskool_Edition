@@ -37,7 +37,7 @@ export const loadMyManagedSchool = createServerFn({ method: "POST" })
     }
   });
 
-/** Open a listed school for management when contact email / ownership matches. */
+/** Open the school this account already owns. Institutions cannot switch to another school. */
 export const openManagedSchool = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
   .inputValidator((data: unknown) => z.object({ schoolId: z.string().min(1) }).parse(data))

@@ -18,7 +18,7 @@ export const ACCOUNT_TYPES = [
   {
     value: "institution",
     label: "School / Institution",
-    blurb: "Register your school, upload students and teachers, publish books.",
+    blurb: "Create one online school, then run admissions, classes and staff from your workspace.",
   },
 ] as const;
 

@@ -104,9 +104,11 @@ service cloud.firestore {
     }
 
     match /schools/{schoolId} {
-      // Signed-in users can discover schools (Dream School / directory).
-      // Writes stay admin-only via Admin SDK or school-admin updates below.
-      allow read: if isAuthenticated();
+      // Signed-in users can open a school by ID (Dream School details).
+      // Listing the whole collection is platform-operator only — institutions
+      // must not browse other schools from the client.
+      allow get: if isAuthenticated();
+      allow list: if isSuperAdmin();
       allow create: if false;
       allow update: if isSchoolAdmin() && sameSchool(schoolId)
         && request.resource.data.owner_id == resource.data.owner_id

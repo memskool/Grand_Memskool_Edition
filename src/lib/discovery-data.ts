@@ -284,6 +284,7 @@ export function useCreateSchool(_userId?: string) {
           fees_max: values.fees_max ?? null,
           badges: values.badges ?? [],
           is_international: values.is_international ?? false,
+          admissions_open: values.admissions_open,
         },
       });
       await refreshAuthClaims();
@@ -598,12 +599,11 @@ export function useMeetings() {
     queryKey: ["school-meetings"],
     queryFn: async (): Promise<SchoolMeeting[]> => {
       const schoolId = await userSchoolId();
-      const rows = await findMany<Omit<SchoolMeeting, "class">>(
-        COLLECTIONS.schoolMeetings,
-        schoolId
-          ? [where("school_id", "==", schoolId), orderBy("scheduled_at", "asc")]
-          : [orderBy("scheduled_at", "asc")],
-      );
+      if (!schoolId) return [];
+      const rows = await findMany<Omit<SchoolMeeting, "class">>(COLLECTIONS.schoolMeetings, [
+        where("school_id", "==", schoolId),
+        orderBy("scheduled_at", "asc"),
+      ]);
       return Promise.all(rows.map((row) => attachClassName(row))) as Promise<SchoolMeeting[]>;
     },
   });
@@ -691,11 +691,12 @@ export function useStaffDirectory(enabled: boolean) {
     enabled,
     queryFn: async (): Promise<StaffMember[]> => {
       const schoolId = await userSchoolId();
+      if (!schoolId) return [];
       const rows = await findMany<{
         role: string;
         full_name: string;
         email: string | null;
-      }>(COLLECTIONS.users, schoolId ? [where("school_id", "==", schoolId)] : []);
+      }>(COLLECTIONS.users, [where("school_id", "==", schoolId)]);
       return rows
         .filter((r) => ["teacher", "admin", "institution", "superadmin"].includes(r.role))
         .map((r) => ({
@@ -713,15 +714,13 @@ export function useAllClasses(enabled: boolean) {
     enabled,
     queryFn: async () => {
       const schoolId = await userSchoolId();
+      if (!schoolId) return [];
       const rows = await findMany<{
         name: string;
         room: string | null;
         subject_id: string | null;
         teacher_id: string | null;
-      }>(
-        COLLECTIONS.classes,
-        schoolId ? [where("school_id", "==", schoolId), orderBy("name")] : [orderBy("name")],
-      );
+      }>(COLLECTIONS.classes, [where("school_id", "==", schoolId), orderBy("name")]);
       return Promise.all(
         rows.map(async (row) => {
           const withSubject = await attachSubject(row);

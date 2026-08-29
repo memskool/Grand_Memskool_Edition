@@ -10,9 +10,11 @@ import { looksLikeHtmlError } from "@/lib/errors/app-error";
 import {
   forgetSchoolInCatalog,
   listDiscoverableSchools,
+  loadDiscoverableSchoolsByIds,
   rememberSchoolInCatalog,
 } from "@/lib/school-catalog.server";
 import { rememberUserDirectory } from "@/features/auth/services/session-account.server";
+import { resolveOwnedSchoolId } from "@/lib/school-ownership";
 
 const optionalText = z.union([z.string(), z.null(), z.undefined()]).transform((value) => {
   if (value == null) return null;
@@ -39,6 +41,7 @@ const RegisterSchoolSchema = z.object({
   fees_max: optionalMoney,
   badges: z.array(z.string().trim().min(1).max(40)).max(12).default([]),
   is_international: z.boolean().default(false),
+  admissions_open: z.boolean().optional(),
 });
 
 function publicWriteError(error: unknown): Error {
@@ -103,26 +106,36 @@ export const registerDigitalSchool = createServerFn({ method: "POST" })
       }
 
       const now = new Date().toISOString();
-      const owned = await adminGetById(COLLECTIONS.schools, context.userId);
-      const existingId =
+      const ownedAtUid = await adminGetById<{ owner_id?: string }>(COLLECTIONS.schools, context.userId);
+      const profileSchoolId =
+        typeof profile?.school_id === "string" && profile.school_id ? profile.school_id : null;
+      const profileSchool =
+        profileSchoolId && profileSchoolId !== context.userId
+          ? await adminGetById<{ owner_id?: string }>(COLLECTIONS.schools, profileSchoolId)
+          : null;
+      const ownedId = resolveOwnedSchoolId({
+        userId: context.userId,
+        schoolDocAtUserId: Boolean(ownedAtUid),
+        profileSchoolId,
+        profileSchoolOwnerId: profileSchool?.owner_id ?? ownedAtUid?.owner_id ?? null,
+      });
+
+      // Institution accounts upsert exactly one school (keyed by uid when creating).
+      // Never write to a school that merely sits on the current claims after "Open".
+      const schoolId =
+        role === "superadmin" ? crypto.randomUUID() : (ownedId ?? context.userId);
+      const existing =
         role === "superadmin"
           ? null
-          : context.schoolId || profile?.school_id || (owned ? context.userId : null);
-      const existing = existingId
-        ? await adminGetById<{
-            code?: string;
-            owner_id?: string;
-            created_at?: string;
-            admissions_open?: boolean;
-            contact_email?: string | null;
-            logo_url?: string | null;
-          }>(COLLECTIONS.schools, existingId)
-        : owned
-          ? { ...owned, id: context.userId }
-          : null;
+          : await adminGetById<{
+              code?: string;
+              owner_id?: string;
+              created_at?: string;
+              admissions_open?: boolean;
+              contact_email?: string | null;
+              logo_url?: string | null;
+            }>(COLLECTIONS.schools, schoolId);
 
-      const schoolId =
-        existing?.id ?? (role === "superadmin" ? crypto.randomUUID() : context.userId);
       const code = existing?.code ? String(existing.code) : await allocateCode();
 
       await adminSet(COLLECTIONS.schools, schoolId, {
@@ -138,7 +151,7 @@ export const registerDigitalSchool = createServerFn({ method: "POST" })
         fees_currency: "UGX",
         badges: data.badges,
         is_international: data.is_international,
-        admissions_open: existing?.admissions_open ?? true,
+        admissions_open: data.admissions_open ?? existing?.admissions_open ?? true,
         contact_email: existing?.contact_email ?? context.email,
         logo_url: existing?.logo_url ?? null,
         owner_id: existing?.owner_id ?? context.userId,
@@ -152,7 +165,7 @@ export const registerDigitalSchool = createServerFn({ method: "POST" })
         city: data.city,
         country: data.country,
         category: data.category,
-        admissions_open: existing?.admissions_open ?? true,
+        admissions_open: data.admissions_open ?? existing?.admissions_open ?? true,
       });
       await rememberSchoolInCatalog(schoolId, code);
 
@@ -205,8 +218,33 @@ export const registerDigitalSchool = createServerFn({ method: "POST" })
 
 export const listDirectorySchools = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
-  .handler(async () => {
+  .handler(async ({ context }) => {
     try {
+      // Institution workspaces only ever see their own school — not the public catalog.
+      if (context.role === "institution") {
+        const ownedAtUid = await adminGetById<{ owner_id?: string }>(
+          COLLECTIONS.schools,
+          context.userId,
+        );
+        const profile = await adminGetById<{ school_id?: string | null }>(
+          COLLECTIONS.users,
+          context.userId,
+        );
+        const profileSchoolId =
+          typeof profile?.school_id === "string" && profile.school_id ? profile.school_id : null;
+        const profileSchool =
+          profileSchoolId && profileSchoolId !== context.userId
+            ? await adminGetById<{ owner_id?: string }>(COLLECTIONS.schools, profileSchoolId)
+            : null;
+        const ownedId = resolveOwnedSchoolId({
+          userId: context.userId,
+          schoolDocAtUserId: Boolean(ownedAtUid),
+          profileSchoolId: profileSchoolId ?? context.schoolId,
+          profileSchoolOwnerId: profileSchool?.owner_id ?? ownedAtUid?.owner_id ?? null,
+        });
+        if (!ownedId) return [];
+        return await loadDiscoverableSchoolsByIds([ownedId]);
+      }
       return await listDiscoverableSchools();
     } catch (error) {
       console.error(error);
@@ -224,9 +262,8 @@ export const deleteDigitalSchool = createServerFn({ method: "POST" })
         data.schoolId,
       );
       if (!school) throw new Error("That school was not found.");
-      const owns = school.owner_id === context.userId || context.schoolId === data.schoolId;
-      if (context.role !== "superadmin" && !(isSchoolManager(context.role) && owns)) {
-        throw new Error("You do not have permission to perform this action.");
+      if (context.role !== "superadmin" && school.owner_id !== context.userId) {
+        throw new Error("You can only remove the school registered to this account.");
       }
 
       if (school.code) {
