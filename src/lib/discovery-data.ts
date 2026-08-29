@@ -265,7 +265,7 @@ export function useSchools() {
   });
 }
 
-export function useCreateSchool(_userId?: string) {
+export function useCreateSchool(userId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (values: Partial<School> & { name: string }) => {
@@ -284,35 +284,67 @@ export function useCreateSchool(_userId?: string) {
           admissions_open: values.admissions_open,
         },
       });
-      await refreshAuthClaims();
       const payload = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
       const nested =
         payload && payload["data"] && typeof payload["data"] === "object"
           ? (payload["data"] as Record<string, unknown>)
           : payload;
       const schoolId = nested && typeof nested["schoolId"] === "string" ? nested["schoolId"] : null;
+      const code = nested && typeof nested["code"] === "string" ? nested["code"] : null;
       const user = getFirebaseAuth().currentUser;
-      if (user) {
+      const uid = userId || user?.uid;
+      const school = schoolId
+        ? {
+            id: schoolId,
+            name: values.name,
+            code: code ?? "",
+            category: values.category ?? "secondary",
+            country: values.country ?? "Uganda",
+            city: values.city ?? null,
+            description: values.description ?? null,
+            website: values.website ?? null,
+            logo_url: null,
+            fees_min: values.fees_min ?? null,
+            fees_max: values.fees_max ?? null,
+            fees_currency: "UGX",
+            fees_notes: null,
+            badges: values.badges ?? [],
+            is_international: values.is_international ?? false,
+            admissions_open: values.admissions_open !== false,
+            contact_email: user?.email ?? null,
+            owner_id: uid ?? "",
+            created_at:
+              nested && typeof nested["created_at"] === "string"
+                ? nested["created_at"]
+                : new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            membership: "owner" as const,
+            memberRole: "institution" as AppRole,
+            studentCode: null as string | null,
+          }
+        : null;
+      if (uid && school) {
+        await qc.cancelQueries({ queryKey: ["my-school", uid] });
+        await qc.cancelQueries({ queryKey: ["profile", uid] });
         seedSessionAfterSignup(qc, {
-          userId: user.uid,
-          email: user.email,
-          fullName: user.displayName?.trim() || values.name,
+          userId: uid,
+          email: user?.email ?? null,
+          fullName: user?.displayName?.trim() || values.name,
           role: "institution" as AppRole,
           schoolId,
           membership: "owner",
           studentCode: null,
         });
+        qc.setQueryData(["my-school", uid], school);
       }
-      return {
-        schoolId,
-        code: nested && typeof nested["code"] === "string" ? nested["code"] : null,
-      };
+      return { schoolId, code, school };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      const uid = userId || getFirebaseAuth().currentUser?.uid;
+      if (uid && result.school) {
+        qc.setQueryData(["my-school", uid], result.school);
+      }
       void qc.invalidateQueries({ queryKey: ["schools"] });
-      void qc.invalidateQueries({ queryKey: ["my-school"] });
-      void qc.invalidateQueries({ queryKey: ["profile"] });
-      void qc.invalidateQueries({ queryKey: ["role"] });
     },
   });
 }
@@ -322,7 +354,7 @@ export function useDeleteSchool() {
   return useMutation({
     mutationFn: async (id: string) => {
       await deleteDigitalSchool({ data: { schoolId: id } });
-      await refreshAuthClaims();
+      void refreshAuthClaims();
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["schools"] });

@@ -74,7 +74,6 @@ export function useMySchool(userId: string | undefined) {
       try {
         const fromServer = unwrapManagedSchool(await loadMyManagedSchool());
         if (fromServer) {
-          void refreshAuthClaims().catch(() => undefined);
           return {
             ...fromServer,
             membership: fromServer.membership,
@@ -85,26 +84,39 @@ export function useMySchool(userId: string | undefined) {
       } catch (error) {
         console.error("[my-school] server load failed:", error);
       }
-      const profile = await getById<UserProfile>(COLLECTIONS.users, userId!);
-      if (!profile?.school_id) return null;
-      const school = await getById<School>(COLLECTIONS.schools, profile.school_id);
-      if (!school) return null;
-      const membership: MemberStatus | "owner" =
-        profile.membership_status === "owner" ||
-        profile.role === "institution" ||
-        profile.role === "admin"
-          ? "owner"
-          : profile.membership_status === "pending" ||
-              profile.membership_status === "rejected" ||
-              profile.membership_status === "approved"
-            ? profile.membership_status
-            : "approved";
-      return {
-        ...school,
-        membership,
-        memberRole: profile.role,
-        studentCode: profile.student_code,
-      };
+      try {
+        const [profile, ownedDirect] = await Promise.all([
+          getById<UserProfile>(COLLECTIONS.users, userId!),
+          getById<School>(COLLECTIONS.schools, userId!),
+        ]);
+        const schoolId = profile?.school_id || (ownedDirect ? userId! : null);
+        if (!schoolId) return null;
+        const school =
+          schoolId === userId && ownedDirect
+            ? ownedDirect
+            : await getById<School>(COLLECTIONS.schools, schoolId);
+        if (!school) return null;
+        const membership: MemberStatus | "owner" =
+          profile?.membership_status === "owner" ||
+          profile?.role === "institution" ||
+          profile?.role === "admin" ||
+          Boolean(ownedDirect)
+            ? "owner"
+            : profile?.membership_status === "pending" ||
+                profile?.membership_status === "rejected" ||
+                profile?.membership_status === "approved"
+              ? profile.membership_status
+              : "approved";
+        return {
+          ...school,
+          membership,
+          memberRole: profile?.role ?? "institution",
+          studentCode: profile?.student_code ?? null,
+        };
+      } catch (error) {
+        console.error("[my-school] client load failed:", error);
+        return null;
+      }
     },
   });
 }

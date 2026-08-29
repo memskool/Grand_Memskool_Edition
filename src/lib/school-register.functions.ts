@@ -212,7 +212,24 @@ export const registerDigitalSchool = createServerFn({ method: "POST" })
         });
       }
 
-      return { schoolId, code };
+      return {
+        schoolId,
+        code,
+        name: data.name,
+        category: data.category,
+        city: data.city,
+        country: data.country,
+        website: data.website,
+        description: data.description,
+        fees_min: data.fees_min,
+        fees_max: data.fees_max,
+        badges: data.badges,
+        is_international: data.is_international,
+        admissions_open: data.admissions_open ?? existing?.admissions_open ?? true,
+        contact_email: existing?.contact_email ?? context.email,
+        owner_id: existing?.owner_id ?? context.userId,
+        created_at: existing?.created_at ?? now,
+      };
     } catch (error) {
       throw publicWriteError(error);
     }

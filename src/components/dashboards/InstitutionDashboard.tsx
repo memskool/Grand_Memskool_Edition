@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import type { AuthUser } from "@/types/roles";
 import { Users, GraduationCap, ClipboardList, Building2, Copy, Pencil } from "lucide-react";
 import { toast } from "sonner";
@@ -39,12 +40,32 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
 
   if (school.isLoading) return <ListSkeleton rows={4} />;
 
+  if (school.isError) {
+    return (
+      <EmptyState
+        icon={Building2}
+        title="Could not load your school"
+        hint="Refresh the page, then open School Admin if your school still does not appear."
+        action={
+          <Button className="rounded-full" onClick={() => void school.refetch()}>
+            Try again
+          </Button>
+        }
+      />
+    );
+  }
+
   if (!school.data) {
     return (
       <EmptyState
         icon={Building2}
         title="No school registered on this account yet"
-        hint="Open School Admin to create your school and get a School ID. Each institution account can run one school."
+        hint="Create your school in School Admin to get a School ID. Each institution account can run one school."
+        action={
+          <Button asChild className="rounded-full">
+            <Link to="/school-admin">Create school</Link>
+          </Button>
+        }
       />
     );
   }
@@ -55,9 +76,10 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
     <div className="space-y-6">
       <div className="surface-card flex flex-wrap items-center justify-between gap-4 p-5">
         <div className="min-w-0 flex-1">
-          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">School ID</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Your school</p>
+          <p className="font-display text-2xl font-bold tracking-tight">{school.data.name}</p>
           {editing ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <Input
                 value={draftCode}
                 onChange={(e) => setDraftCode(e.target.value.toUpperCase())}
@@ -87,16 +109,19 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
               </Button>
             </div>
           ) : (
-            <p className="font-display text-2xl font-bold tracking-tight">{code}</p>
+            <p className="mt-1 font-display text-lg font-semibold tracking-tight">{code}</p>
           )}
           <p className="truncate text-sm text-muted-foreground">
             {editing
               ? "3–24 letters, numbers or dashes. Members who already joined stay connected."
-              : `Share this with your students and teachers so they can join ${school.data.name}.`}
+              : `Share this School ID with students and teachers so they can join ${school.data.name}.`}
           </p>
         </div>
         {editing ? null : (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild className="rounded-full">
+              <Link to="/school-admin">Manage school</Link>
+            </Button>
             <Button
               variant="outline"
               className="rounded-full"

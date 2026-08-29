@@ -55,9 +55,14 @@ export async function getCurrentAuthUser(): Promise<AuthUser | null> {
 }
 
 export async function refreshAuthClaims(): Promise<void> {
-  const user = getFirebaseAuth().currentUser;
-  if (!user) return;
-  await user.getIdToken(true);
+  try {
+    const user = getFirebaseAuth().currentUser;
+    if (!user) return;
+    await user.getIdToken(true);
+  } catch (error) {
+    // A failed force-refresh must not sign the user out of the workspace.
+    console.error("[auth] claim refresh failed:", error);
+  }
 }
 
 export async function getIdToken(forceRefresh = false): Promise<string | null> {

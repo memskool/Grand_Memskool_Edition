@@ -22,10 +22,12 @@ export function emailDirectoryId(email: string): string {
 function mapProfile(id: string, data: DocumentData | undefined): UserProfile | null {
   if (!data) return null;
   const role = data["role"];
-  const fullName = data["full_name"];
-  if (typeof role !== "string" || !role || typeof fullName !== "string" || !fullName.trim()) {
-    return null;
-  }
+  if (typeof role !== "string" || !role) return null;
+  const isOperator = role === "institution" || role === "admin" || role === "superadmin";
+  const rawName = data["full_name"];
+  const fullName =
+    typeof rawName === "string" && rawName.trim() ? rawName : isOperator ? "School admin" : "";
+  if (!fullName) return null;
   return {
     id,
     full_name: fullName,
@@ -330,37 +332,45 @@ export async function resolveSessionAccount(input: {
   if (isInstitution) {
     const ownedId = await alreadyOwnedSchoolId(db, input.userId, profile?.school_id ?? null);
     if (ownedId) {
-      if (profile?.school_id !== ownedId && input.email) {
-        profile = await writeOwnerProfile(db, input.userId, input.email, ownedId, {
-          fullName: String(profile?.full_name || existing.get("full_name") || "School admin"),
-          phone: profile?.phone ?? (existing.get("phone") as string | null) ?? null,
-          avatarUrl: profile?.avatar_url ?? (existing.get("avatar_url") as string | null) ?? null,
-          createdAt: profile?.created_at || undefined,
-        });
-      } else if (profile) {
-        await ensureClaimsMatchProfile({ ...profile, school_id: ownedId });
-        if (profile.school_id !== ownedId) {
-          profile = { ...profile, school_id: ownedId };
+      if (!profile || profile.school_id !== ownedId) {
+        const fullName = String(profile?.full_name || existing.get("full_name") || "School admin");
+        if (input.email) {
+          profile = await writeOwnerProfile(db, input.userId, input.email, ownedId, {
+            fullName,
+            phone: profile?.phone ?? (existing.get("phone") as string | null) ?? null,
+            avatarUrl: profile?.avatar_url ?? (existing.get("avatar_url") as string | null) ?? null,
+            createdAt: profile?.created_at || undefined,
+          });
+        } else {
+          const now = new Date().toISOString();
+          await adminSet(COLLECTIONS.users, input.userId, {
+            school_id: ownedId,
+            membership_status: "owner",
+            role: existingRole || profile?.role || "institution",
+            full_name: fullName,
+            updated_at: now,
+          });
+          profile = {
+            id: input.userId,
+            full_name: fullName,
+            email: profile?.email ?? null,
+            avatar_url: profile?.avatar_url ?? null,
+            phone: profile?.phone ?? null,
+            school_id: ownedId,
+            student_code: profile?.student_code ?? null,
+            role: (profile?.role ||
+              (existingRole === "admin" ? "institution" : existingRole) ||
+              "institution") as AppRole,
+            membership_status: "owner",
+            created_at: profile?.created_at || now,
+            updated_at: now,
+          };
+          await ensureClaimsMatchProfile(profile);
         }
+      } else {
+        await ensureClaimsMatchProfile({ ...profile, school_id: ownedId });
       }
       if (profile?.school_id) return profile;
-    }
-    if (profile?.school_id && input.email) {
-      const now = new Date().toISOString();
-      await adminSet(COLLECTIONS.users, input.userId, {
-        school_id: null,
-        updated_at: now,
-      });
-      try {
-        await adminAuth().setCustomUserClaims(input.userId, {
-          role: "admin",
-          schoolId: null,
-          approved: true,
-        });
-      } catch (error) {
-        console.error("[session] failed to detach foreign school:", error);
-      }
-      profile = { ...profile, school_id: null };
     }
   }
 
@@ -485,23 +495,29 @@ export async function loadManagedSchool(input: { userId: string; email: string |
   | null
 > {
   const profile = await resolveSessionAccount(input);
-  if (!profile?.school_id) return null;
-  const school = await adminDb().collection(COLLECTIONS.schools).doc(profile.school_id).get();
+  const db = adminDb();
+  const ownedId = await alreadyOwnedSchoolId(db, input.userId, profile?.school_id ?? null);
+  const schoolId = ownedId ?? profile?.school_id ?? null;
+  if (!schoolId) return null;
+  let school = await db.collection(COLLECTIONS.schools).doc(schoolId).get();
+  if (!school.exists && schoolId !== input.userId) {
+    school = await db.collection(COLLECTIONS.schools).doc(input.userId).get();
+  }
   if (!school.exists) return null;
   const membership =
-    profile.membership_status === "owner" ||
-    profile.role === "institution" ||
-    profile.role === "admin"
+    profile?.membership_status === "owner" ||
+    profile?.role === "institution" ||
+    profile?.role === "admin"
       ? "owner"
-      : profile.membership_status === "pending" ||
-          profile.membership_status === "rejected" ||
-          profile.membership_status === "approved"
+      : profile?.membership_status === "pending" ||
+          profile?.membership_status === "rejected" ||
+          profile?.membership_status === "approved"
         ? profile.membership_status
         : "approved";
   return {
     ...(school.data() as School),
     id: school.id,
     membership,
-    memberRole: profile.role,
+    memberRole: profile?.role ?? "institution",
   };
 }

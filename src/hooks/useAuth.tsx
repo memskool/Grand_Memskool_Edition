@@ -7,7 +7,6 @@ import type { AppRole, AuthUser } from "@/types/roles";
 import type { UserProfile } from "@/types/user";
 import { claimsRoleToAppRole } from "@/types/roles";
 import { loadMyAccount } from "@/features/auth/services/session-account.functions";
-import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 
 export type { AppRole, AuthUser };
 
@@ -85,11 +84,7 @@ export function useProfile(user: AuthUser | null) {
     queryFn: async (): Promise<UserProfile | null> => {
       try {
         const fromServer = unwrapProfile(await loadMyAccount());
-        if (fromServer) {
-          // Claims may have been repaired server-side (reattach / sync).
-          void refreshAuthClaims().catch(() => undefined);
-          return fromServer;
-        }
+        if (fromServer) return fromServer;
       } catch (error) {
         console.error("[profile] loadMyAccount failed:", error);
       }
@@ -116,7 +111,7 @@ export function useRole(user: AuthUser | null) {
       let fromClaims: AppRole | null = null;
       const authUser = getFirebaseAuth().currentUser;
       if (authUser) {
-        const token = await authUser.getIdTokenResult(true);
+        const token = await authUser.getIdTokenResult();
         if (typeof token.claims["role"] === "string" && token.claims["role"]) {
           fromClaims = claimsRoleToAppRole(token.claims["role"]);
         }
