@@ -42,7 +42,8 @@ export function useAccess() {
         ? "unauthenticated"
         : state === "incomplete" &&
             ((r && isSchoolManager(r)) ||
-              (profile.data?.role && isSchoolManager(profile.data.role === "admin" ? "institution" : profile.data.role)))
+              (profile.data?.role &&
+                isSchoolManager(profile.data.role === "admin" ? "institution" : profile.data.role)))
           ? "active"
           : state;
 

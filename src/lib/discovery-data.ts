@@ -24,10 +24,7 @@ import {
   listDirectorySchools,
   registerDigitalSchool,
 } from "@/lib/school-register.functions";
-import {
-  listSchoolApplications,
-  reviewSchoolApplication,
-} from "@/lib/applications.functions";
+import { listSchoolApplications, reviewSchoolApplication } from "@/lib/applications.functions";
 import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { seedSessionAfterSignup } from "@/features/auth/seed-session";

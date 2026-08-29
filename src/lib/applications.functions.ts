@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import "@tanstack/react-start/server-only";
 import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
 import {
   adminGetById,
@@ -104,7 +103,10 @@ export const reviewSchoolApplication = createServerFn({ method: "POST" })
       reviewed_at: now,
     });
 
-    const school = await adminGetById<{ name?: string }>(COLLECTIONS.schools, application.school_id);
+    const school = await adminGetById<{ name?: string }>(
+      COLLECTIONS.schools,
+      application.school_id,
+    );
     const schoolName = school?.name ?? "your school";
 
     if (data.status === "approved") {

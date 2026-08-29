@@ -151,7 +151,10 @@ async function completeSignupHandler(data: SignupInput, context: AuthedContext) 
     if (ownedDoc.exists) {
       schoolId = uid;
       membership = "owner";
-      await rememberSchoolInCatalog(schoolId, ownedDoc.get("code") ? String(ownedDoc.get("code")) : null);
+      await rememberSchoolInCatalog(
+        schoolId,
+        ownedDoc.get("code") ? String(ownedDoc.get("code")) : null,
+      );
     } else if (existingSchoolId && (existingRole === "institution" || existingRole === "admin")) {
       const existingSchool = await db.collection("schools").doc(existingSchoolId).get();
       const ownsExisting =

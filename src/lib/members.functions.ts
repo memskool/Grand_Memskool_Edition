@@ -125,9 +125,7 @@ export const listSchoolMembers = createServerFn({ method: "POST" })
         );
         return {
           ...member,
-          user: user
-            ? { id: user.id, full_name: user.full_name, email: user.email ?? null }
-            : null,
+          user: user ? { id: user.id, full_name: user.full_name, email: user.email ?? null } : null,
         };
       }),
     );

@@ -15,8 +15,7 @@ export function accountState(input: {
 }): AccountState {
   if (!isProfileComplete(input.profile)) return "incomplete";
   const role =
-    input.role ??
-    (input.profile!.role === "admin" ? "institution" : input.profile!.role);
+    input.role ?? (input.profile!.role === "admin" ? "institution" : input.profile!.role);
   if (!role) return "incomplete";
   if (input.suspended) return "suspended";
   if (input.pendingApproval) return "pending";

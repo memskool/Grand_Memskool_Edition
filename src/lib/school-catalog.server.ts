@@ -82,7 +82,10 @@ function mapSchool(id: string, row: SchoolDoc): DiscoverableSchool {
 }
 
 /** Keep durable indexes so discovery works without collection listDocuments/RunQuery. */
-export async function rememberSchoolInCatalog(schoolId: string, code?: string | null): Promise<void> {
+export async function rememberSchoolInCatalog(
+  schoolId: string,
+  code?: string | null,
+): Promise<void> {
   if (!schoolId) return;
   const now = new Date().toISOString();
   await adminCol(CATALOG_COLLECTION)
@@ -151,7 +154,13 @@ async function loadFromDirectoryCodes(codes: string[]): Promise<DiscoverableScho
   const directoryOnly: DiscoverableSchool[] = [];
   for (const snap of snaps) {
     if (!snap.exists) continue;
-    const data = snap.data() as { school_id?: string; name?: string; city?: string | null; country?: string | null; category?: string };
+    const data = snap.data() as {
+      school_id?: string;
+      name?: string;
+      city?: string | null;
+      country?: string | null;
+      category?: string;
+    };
     const schoolId = String(data.school_id || "");
     if (schoolId) schoolIds.push(schoolId);
     else {
@@ -172,7 +181,9 @@ async function loadFromDirectoryCodes(codes: string[]): Promise<DiscoverableScho
   return directoryOnly.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-async function listCollectionViaRest(collectionId: string): Promise<Array<Record<string, unknown> & { id: string }>> {
+async function listCollectionViaRest(
+  collectionId: string,
+): Promise<Array<Record<string, unknown> & { id: string }>> {
   const app = getAdminApp();
   const projectId =
     (typeof app.options.projectId === "string" && app.options.projectId) ||
@@ -195,13 +206,30 @@ async function listCollectionViaRest(collectionId: string): Promise<Array<Record
   });
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`Firestore REST list ${collectionId} failed: ${response.status} ${body.slice(0, 200)}`);
+    throw new Error(
+      `Firestore REST list ${collectionId} failed: ${response.status} ${body.slice(0, 200)}`,
+    );
   }
   const json = (await response.json()) as {
-    documents?: Array<{ name?: string; fields?: Record<string, { stringValue?: string; booleanValue?: boolean; integerValue?: string; nullValue?: unknown; arrayValue?: { values?: Array<{ stringValue?: string }> } }> }>;
+    documents?: Array<{
+      name?: string;
+      fields?: Record<
+        string,
+        {
+          stringValue?: string;
+          booleanValue?: boolean;
+          integerValue?: string;
+          nullValue?: unknown;
+          arrayValue?: { values?: Array<{ stringValue?: string }> };
+        }
+      >;
+    }>;
   };
   return (json.documents ?? []).map((doc) => {
-    const id = String(doc.name || "").split("/").pop() || "";
+    const id =
+      String(doc.name || "")
+        .split("/")
+        .pop() || "";
     const fields = doc.fields ?? {};
     const out: Record<string, unknown> & { id: string } = { id };
     for (const [key, value] of Object.entries(fields)) {
@@ -228,7 +256,10 @@ async function listCollectionViaRest(collectionId: string): Promise<Array<Record
 export async function listDiscoverableSchools(): Promise<DiscoverableSchool[]> {
   // 1) Public directory index (document get — works everywhere).
   try {
-    const index = await adminGetById<DirectoryIndex>(COLLECTIONS.schoolDirectory, DIRECTORY_INDEX_ID);
+    const index = await adminGetById<DirectoryIndex>(
+      COLLECTIONS.schoolDirectory,
+      DIRECTORY_INDEX_ID,
+    );
     if (index?.school_ids?.length) {
       const loaded = await loadDiscoverableSchoolsByIds(index.school_ids);
       if (loaded.length > 0) return loaded;
@@ -269,9 +300,10 @@ export async function listDiscoverableSchools(): Promise<DiscoverableSchool[]> {
     if (restSchools.length > 0) {
       for (const row of restSchools) {
         if (row.id && row.id !== DIRECTORY_INDEX_ID) {
-          void rememberSchoolInCatalog(String(row.id), typeof row["code"] === "string" ? row["code"] : null).catch(
-            () => undefined,
-          );
+          void rememberSchoolInCatalog(
+            String(row.id),
+            typeof row["code"] === "string" ? row["code"] : null,
+          ).catch(() => undefined);
         }
       }
       return restSchools
@@ -290,10 +322,9 @@ export async function listDiscoverableSchools(): Promise<DiscoverableSchool[]> {
     const fromDir = await loadDiscoverableSchoolsByIds(ids);
     if (fromDir.length > 0) {
       for (const row of usable) {
-        void rememberSchoolInCatalog(
-          String(row["school_id"] || ""),
-          String(row.id || ""),
-        ).catch(() => undefined);
+        void rememberSchoolInCatalog(String(row["school_id"] || ""), String(row.id || "")).catch(
+          () => undefined,
+        );
       }
       return fromDir;
     }

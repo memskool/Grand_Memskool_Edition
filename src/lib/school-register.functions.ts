@@ -106,7 +106,10 @@ export const registerDigitalSchool = createServerFn({ method: "POST" })
       }
 
       const now = new Date().toISOString();
-      const ownedAtUid = await adminGetById<{ owner_id?: string }>(COLLECTIONS.schools, context.userId);
+      const ownedAtUid = await adminGetById<{ owner_id?: string }>(
+        COLLECTIONS.schools,
+        context.userId,
+      );
       const profileSchoolId =
         typeof profile?.school_id === "string" && profile.school_id ? profile.school_id : null;
       const profileSchool =
@@ -122,8 +125,7 @@ export const registerDigitalSchool = createServerFn({ method: "POST" })
 
       // Institution accounts upsert exactly one school (keyed by uid when creating).
       // Never write to a school that merely sits on the current claims after "Open".
-      const schoolId =
-        role === "superadmin" ? crypto.randomUUID() : (ownedId ?? context.userId);
+      const schoolId = role === "superadmin" ? crypto.randomUUID() : (ownedId ?? context.userId);
       const existing =
         role === "superadmin"
           ? null

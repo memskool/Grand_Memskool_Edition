@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Building2, CalendarPlus, Copy, Loader2, Plus, ShieldAlert, Trash2, Users } from "lucide-react";
+import {
+  Building2,
+  CalendarPlus,
+  Copy,
+  Loader2,
+  Plus,
+  ShieldAlert,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useSession, useRole } from "@/hooks/useAuth";
 import { canManageSchool } from "@/lib/nav";
@@ -221,6 +230,8 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
     setBadges(Array.isArray(school.badges) ? school.badges.join(", ") : "");
     setInternational(Boolean(school.is_international));
     setAdmissionsOpen(school.admissions_open !== false);
+    // Only hydrate when the managed school changes so in-progress edits are not overwritten.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- school.id is the identity we care about
   }, [school?.id]);
 
   const submit = async () => {
@@ -670,10 +681,7 @@ function AdmissionsSection({ schoolId }: { schoolId?: string | undefined }) {
 
   return (
     <div className="space-y-6">
-      <Panel
-        title="Join requests"
-        description="Teachers and staff waiting for your approval"
-      >
+      <Panel title="Join requests" description="Teachers and staff waiting for your approval">
         {members.isLoading ? (
           <ListSkeleton rows={2} />
         ) : pendingMembers.length === 0 ? (
@@ -739,7 +747,10 @@ function AdmissionsSection({ schoolId }: { schoolId?: string | undefined }) {
         )}
       </Panel>
 
-      <Panel title="Admission applications" description="Dream School applications to your institution">
+      <Panel
+        title="Admission applications"
+        description="Dream School applications to your institution"
+      >
         <ApplicationsTracker
           variant="admin"
           applications={applications.data ?? []}

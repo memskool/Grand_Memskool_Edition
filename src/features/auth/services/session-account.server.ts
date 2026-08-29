@@ -77,7 +77,8 @@ async function ownerLookup(
   const owner = await db.collection(COLLECTIONS.users).doc(ownerId).get();
   return {
     exists: owner.exists,
-    email: owner.exists && typeof owner.get("email") === "string" ? String(owner.get("email")) : null,
+    email:
+      owner.exists && typeof owner.get("email") === "string" ? String(owner.get("email")) : null,
   };
 }
 
@@ -186,7 +187,11 @@ async function writeOwnerProfile(
   return mapProfile(currentUid, payload)!;
 }
 
-async function findOrphanUserId(db: Firestore, email: string, currentUid: string): Promise<string | null> {
+async function findOrphanUserId(
+  db: Firestore,
+  email: string,
+  currentUid: string,
+): Promise<string | null> {
   const dir = await db.collection(COLLECTIONS.userDirectory).doc(emailDirectoryId(email)).get();
   if (dir.exists) {
     const mapped = String(dir.get("user_id") ?? "");
@@ -320,7 +325,8 @@ export async function resolveSessionAccount(input: {
   let profile = existing.exists ? mapProfile(input.userId, existing.data()) : null;
 
   const existingRole = existing.exists ? String(existing.get("role") ?? "") : "";
-  const isInstitution = existingRole === "institution" || existingRole === "admin" || profile?.role === "institution";
+  const isInstitution =
+    existingRole === "institution" || existingRole === "admin" || profile?.role === "institution";
   if (isInstitution) {
     const ownedId = await alreadyOwnedSchoolId(db, input.userId, profile?.school_id ?? null);
     if (ownedId) {
@@ -400,7 +406,12 @@ export async function resolveSessionAccount(input: {
     }
   }
 
-  const claimed = await claimSchoolByContactEmail(db, input.userId, input.email, profile?.school_id);
+  const claimed = await claimSchoolByContactEmail(
+    db,
+    input.userId,
+    input.email,
+    profile?.school_id,
+  );
   if (claimed) return claimed;
   if (profile) await ensureClaimsMatchProfile(profile);
   return profile;
@@ -465,10 +476,14 @@ export async function adoptManagedSchool(input: {
   };
 }
 
-export async function loadManagedSchool(input: {
-  userId: string;
-  email: string | null;
-}): Promise<(School & { id: string; membership: "owner" | "approved" | "pending" | "rejected"; memberRole: AppRole }) | null> {
+export async function loadManagedSchool(input: { userId: string; email: string | null }): Promise<
+  | (School & {
+      id: string;
+      membership: "owner" | "approved" | "pending" | "rejected";
+      memberRole: AppRole;
+    })
+  | null
+> {
   const profile = await resolveSessionAccount(input);
   if (!profile?.school_id) return null;
   const school = await adminDb().collection(COLLECTIONS.schools).doc(profile.school_id).get();
