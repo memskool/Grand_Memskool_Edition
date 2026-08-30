@@ -10,10 +10,7 @@ export interface StartupValidationResult {
   warnings: string[];
 }
 
-const REQUIRED_SERVER_ENV = [
-  "FIREBASE_SERVICE_ACCOUNT_JSON",
-  "GCLOUD_PROJECT",
-] as const;
+const REQUIRED_SERVER_ENV = ["FIREBASE_SERVICE_ACCOUNT_JSON", "GCLOUD_PROJECT"] as const;
 
 const OPTIONAL_SERVER_ENV = [
   "FLUTTERWAVE_SECRET_KEY",
@@ -48,7 +45,11 @@ export function validateStartupEnvironment(): StartupValidationResult {
 
   // Validate Firebase service account JSON if present
   const serviceAccountJson = process.env["FIREBASE_SERVICE_ACCOUNT_JSON"];
-  if (serviceAccountJson && !serviceAccountJson.startsWith("{") && !serviceAccountJson.startsWith("./")) {
+  if (
+    serviceAccountJson &&
+    !serviceAccountJson.startsWith("{") &&
+    !serviceAccountJson.startsWith("./")
+  ) {
     errors.push(
       "FIREBASE_SERVICE_ACCOUNT_JSON appears invalid. " +
         "On Vercel, paste the full JSON object as one line. " +
