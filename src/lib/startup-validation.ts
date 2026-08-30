@@ -47,7 +47,7 @@ export function validateStartupEnvironment(): StartupValidationResult {
   }
 
   // Validate Firebase service account JSON if present
-  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  const serviceAccountJson = process.env["FIREBASE_SERVICE_ACCOUNT_JSON"];
   if (serviceAccountJson && !serviceAccountJson.startsWith("{") && !serviceAccountJson.startsWith("./")) {
     errors.push(
       "FIREBASE_SERVICE_ACCOUNT_JSON appears invalid. " +
