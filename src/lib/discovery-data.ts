@@ -343,6 +343,12 @@ export function useCreateSchool(userId?: string) {
       const uid = userId || getFirebaseAuth().currentUser?.uid;
       if (uid && result.school) {
         qc.setQueryData(["my-school", uid], result.school);
+        // Force refetch after a short delay to ensure Firestore data is available
+        setTimeout(() => {
+          void qc.invalidateQueries({ queryKey: ["my-school", uid] });
+          void qc.invalidateQueries({ queryKey: ["profile", uid] });
+          void qc.invalidateQueries({ queryKey: ["role", uid] });
+        }, 500);
       }
       void qc.invalidateQueries({ queryKey: ["schools"] });
     },

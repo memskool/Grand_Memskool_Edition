@@ -62,9 +62,18 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
         title="No school registered on this account yet"
         hint="Create your school in School Admin to get a School ID. Each institution account can run one school."
         action={
-          <Button asChild className="rounded-full">
-            <Link to="/school-admin">Create school</Link>
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              className="rounded-full"
+              onClick={() => void school.refetch()}
+              variant="outline"
+            >
+              Refresh
+            </Button>
+            <Button asChild className="rounded-full">
+              <Link to="/school-admin">Create school</Link>
+            </Button>
+          </div>
         }
       />
     );
