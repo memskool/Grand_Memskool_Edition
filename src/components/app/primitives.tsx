@@ -19,7 +19,9 @@ export function PageHeader({
           {title}
         </h1>
         {subtitle ? (
-          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
+          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            {subtitle}
+          </p>
         ) : null}
       </div>
       {action}
