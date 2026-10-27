@@ -63,6 +63,21 @@ Collection IDs keep the old Postgres snake_case names. Document IDs are Firestor
 | `ai_learning_memory` | auto | Short educational memory |
 | `ai_usage` | `{uid}_{date}` | Daily request counters |
 | `ai_rate_limits` | uid | Sliding window (Admin only) |
+| `gold_tutors` | uid | Independent Gold tutor application/profile |
+| `gold_classes` | auto | Tutoring class (not a school class) |
+| `gold_enrolments` | `{classId}_{learnerId}` | Gold enrolment |
+| `gold_lessons` | auto | Scheduled Gold lesson |
+| `gold_resources` | auto | Class materials |
+| `gold_reviews` | `{classId}_{learnerId}` | Eligible learner reviews |
+| `ops/gold_catalog` | `gold_catalog` | Discoverable tutor/class ids |
+| `ops/gold_policy` | `gold_policy` | Commission bps |
+| `home_videos` | auto | Educational short-video metadata |
+| `home_likes` / `home_saves` / `home_views` | `{videoId}_{userId}` | Engagement (server write) |
+| `home_reports` | auto | Content reports |
+| `home_interests` | uid | Subject boosts for ranking |
+| `home_rate_limits` | uid | Upload/report throttles |
+| `ops/home_catalog` | `home_catalog` | Published Home video ids |
+| `ops/home_moderation` | `home_moderation` | Pending video and report ids |
 
 Field names stay snake_case (`class_id`, `created_at`, …) so UI types barely change.
 

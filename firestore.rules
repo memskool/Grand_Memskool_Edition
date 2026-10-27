@@ -358,7 +358,8 @@ service cloud.firestore {
       allow delete: if isSchoolAdmin() && sameSchool(resource.data.school_id);
     }
     match /classroom_sessions/{id} {
-      allow read: if tenantRead(resource.data.school_id);
+      allow read: if tenantRead(resource.data.school_id)
+        || (isAuthenticated() && resource.data.kind == 'gold');
       allow create, update, delete: if false;
     }
     match /classroom_participants/{id} {
@@ -520,6 +521,64 @@ service cloud.firestore {
       allow delete: if false;
     }
     match /payment_events/{id} {
+      allow read, write: if false;
+    }
+    match /gold_tutors/{tutorId} {
+      allow get: if isAuthenticated();
+      allow list: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+    match /gold_classes/{id} {
+      allow get: if isAuthenticated();
+      allow list: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+    match /gold_enrolments/{id} {
+      allow get: if isAuthenticated() && (
+        isOwner(resource.data.learner_id) || isOwner(resource.data.tutor_id) || isSuperAdmin()
+      );
+      allow list: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+    match /gold_lessons/{id} {
+      allow get: if isAuthenticated();
+      allow list: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+    match /gold_resources/{id} {
+      allow get: if isAuthenticated();
+      allow list: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+    match /gold_reviews/{id} {
+      allow get: if isAuthenticated();
+      allow list: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+    match /home_videos/{id} {
+      allow get: if resource.data.status == 'published'
+        || (isAuthenticated() && (isOwner(resource.data.creator_id) || isSuperAdmin()));
+      allow list: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+    match /home_likes/{id} {
+      allow read, write: if false;
+    }
+    match /home_saves/{id} {
+      allow read, write: if false;
+    }
+    match /home_views/{id} {
+      allow read, write: if false;
+    }
+    match /home_reports/{id} {
+      allow read: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+    match /home_interests/{userId} {
+      allow read: if isOwner(userId) || isSuperAdmin();
+      allow write: if false;
+    }
+    match /home_rate_limits/{id} {
       allow read, write: if false;
     }
     match /signup_requests/{userId} {

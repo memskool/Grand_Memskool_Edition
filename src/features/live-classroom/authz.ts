@@ -11,7 +11,7 @@ export type ClassDoc = {
 };
 
 export type SessionDoc = {
-  school_id: string;
+  school_id: string | null;
   class_id: string;
   host_id: string;
   lesson_id?: string | null;
@@ -21,6 +21,9 @@ export type SessionDoc = {
   provider_room?: string;
   started_at?: string;
   ended_at?: string | null;
+  kind?: "school" | "gold" | string | null;
+  gold_class_id?: string | null;
+  gold_tutor_id?: string | null;
 };
 
 export function requireSchool(schoolId: string | null): string {
@@ -86,6 +89,10 @@ export async function assertCanManageSession(
   userId: string,
   session: SessionDoc & { id: string },
 ): Promise<void> {
+  if (session.kind === "gold" || session.gold_class_id) {
+    if (session.host_id === userId || role === "superadmin") return;
+    throw new Error("You are not allowed to manage this class.");
+  }
   const school = requireSchool(schoolId);
   if (session.school_id !== school) throw new Error("You are not allowed to manage this class.");
   if (session.host_id === userId) return;
@@ -105,6 +112,10 @@ export async function assertCanJoinSession(
   userId: string,
   session: SessionDoc & { id: string },
 ): Promise<{ isHost: boolean; canPublish: boolean }> {
+  if (session.kind === "gold" || session.gold_class_id) {
+    const { assertGoldSessionJoin } = await import("@/features/gold/gold.server");
+    return assertGoldSessionJoin(userId, session);
+  }
   const school = requireSchool(schoolId);
   if (session.school_id !== school) throw new Error("You are not allowed to join this class.");
   if (!sessionIsJoinable(session)) {

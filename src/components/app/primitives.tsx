@@ -13,11 +13,14 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:flex-wrap sm:justify-between">
+    <div className="mb-7 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 border-b border-border pb-5 sm:flex sm:flex-wrap sm:justify-between">
       <div className="min-w-0">
-        <span className="mb-2 inline-block h-0.5 w-8 rounded-full bg-gold" />
-        <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
-        {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground sm:text-[1.75rem]">
+          {title}
+        </h1>
+        {subtitle ? (
+          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
+        ) : null}
       </div>
       {action}
     </div>
@@ -26,7 +29,7 @@ export function PageHeader({
 
 export function ServiceNotice({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="mb-4 rounded-2xl border border-border bg-secondary/70 px-4 py-3 text-sm">
+    <div className="mb-4 rounded-lg border border-border bg-secondary/50 px-4 py-3 text-sm">
       <p className="font-medium">{title}</p>
       <p className="mt-1 leading-relaxed text-muted-foreground">{children}</p>
     </div>
@@ -53,9 +56,9 @@ export function StatCard({
   } as const;
 
   return (
-    <div className="surface-card flex items-center gap-4 p-5 transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:brand-shadow">
+    <div className="surface-card flex items-center gap-4 p-5">
       <span
-        className={cn("flex size-11 shrink-0 items-center justify-center rounded-2xl", tones[tone])}
+        className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg", tones[tone])}
       >
         <Icon className="size-5" />
       </span>
@@ -107,7 +110,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center rounded-xl border border-dashed border-border px-6 py-10 text-center">
+    <div className="flex flex-col items-center rounded-lg border border-dashed border-border bg-card/40 px-6 py-10 text-center">
       <Icon className="mb-3 size-6 text-muted-foreground" />
       <p className="text-sm font-medium">{title}</p>
       {hint ? <p className="mt-1 max-w-sm text-xs text-muted-foreground">{hint}</p> : null}

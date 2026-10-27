@@ -12,6 +12,9 @@ import {
   CalendarDays,
   Building2,
   ShoppingBag,
+  Award,
+  House,
+  Clapperboard,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
@@ -43,6 +46,11 @@ const ITEM = {
   dream: { title: "Dream School", url: "/dream-school", icon: Sparkles, short: "Schools" },
   marketplace: { title: "Marketplace", url: "/marketplace", icon: ShoppingBag, short: "Store" },
   schoolAdmin: { title: "School Admin", url: "/school-admin", icon: Building2, short: "School" },
+  gold: { title: "Gold", url: "/gold", icon: Award, short: "Gold" },
+  goldAdmin: { title: "Gold review", url: "/gold-admin", icon: Award, short: "Gold" },
+  home: { title: "Home", url: "/home", icon: House, short: "Watch" },
+  homeStudio: { title: "Home studio", url: "/home-studio", icon: Clapperboard, short: "Publish" },
+  homeAdmin: { title: "Home review", url: "/home-admin", icon: House, short: "Home" },
   settings: { title: "Settings", url: "/settings", icon: Settings, short: "Settings" },
 } satisfies Record<string, NavItem>;
 
@@ -53,6 +61,7 @@ const ITEM = {
  */
 const BY_ROLE: Record<AppRole, NavItem[]> = {
   student: [
+    ITEM.home,
     ITEM.dashboard,
     ITEM.timetable,
     ITEM.classroom,
@@ -63,10 +72,13 @@ const BY_ROLE: Record<AppRole, NavItem[]> = {
     ITEM.tutor,
     ITEM.messages,
     ITEM.dream,
+    ITEM.gold,
+    ITEM.homeStudio,
     ITEM.marketplace,
     ITEM.settings,
   ],
   teacher: [
+    ITEM.home,
     ITEM.dashboard,
     ITEM.timetable,
     ITEM.classroom,
@@ -75,20 +87,26 @@ const BY_ROLE: Record<AppRole, NavItem[]> = {
     ITEM.tutor,
     ITEM.locker,
     ITEM.messages,
+    ITEM.gold,
+    ITEM.homeStudio,
     ITEM.marketplace,
     ITEM.settings,
   ],
   parent: [
+    ITEM.home,
     ITEM.dashboard,
     ITEM.timetable,
     ITEM.assessments,
     ITEM.messages,
     ITEM.library,
     ITEM.dream,
+    ITEM.gold,
+    ITEM.homeStudio,
     ITEM.marketplace,
     ITEM.settings,
   ],
   institution: [
+    ITEM.home,
     ITEM.dashboard,
     ITEM.schoolAdmin,
     ITEM.timetable,
@@ -96,10 +114,13 @@ const BY_ROLE: Record<AppRole, NavItem[]> = {
     ITEM.assessments,
     ITEM.library,
     ITEM.messages,
+    ITEM.gold,
+    ITEM.homeStudio,
     ITEM.marketplace,
     ITEM.settings,
   ],
   admin: [
+    ITEM.home,
     ITEM.dashboard,
     ITEM.schoolAdmin,
     ITEM.timetable,
@@ -111,10 +132,12 @@ const BY_ROLE: Record<AppRole, NavItem[]> = {
     ITEM.tutor,
     ITEM.messages,
     ITEM.dream,
+    ITEM.gold,
+    ITEM.homeStudio,
     ITEM.marketplace,
     ITEM.settings,
   ],
-  superadmin: [ITEM.dashboard, ITEM.settings],
+  superadmin: [ITEM.dashboard, ITEM.homeAdmin, ITEM.goldAdmin, ITEM.settings],
 };
 
 /** Routes staff can still use while their school approval is pending. */
@@ -130,6 +153,13 @@ export function navForRole(
   if (examActive) items = items.filter((i) => i.url !== "/ai-tutor");
   if (pendingApproval) items = items.filter((i) => PENDING_ALLOWED.includes(i.url));
   return items;
+}
+
+/** Whether a path belongs to this nav destination (nested routes, not sibling prefixes). */
+export function navPathActive(pathname: string, url: string): boolean {
+  if (pathname === url) return true;
+  if (url === "/dashboard") return false;
+  return pathname.startsWith(`${url}/`);
 }
 
 /** Up to four primary destinations for the mobile bottom bar. */
@@ -153,6 +183,12 @@ export function canAccessRoute(
   const allowed = navForRole(role, false, pendingApproval).map((i) => i.url);
   // Exam runner lives under /exam/:id and belongs with Assessments.
   if (path.startsWith("/exam/")) return allowed.includes("/assessments");
+  if (path.startsWith("/gold")) {
+    return allowed.includes("/gold") || allowed.includes("/gold-admin");
+  }
+  if (path.startsWith("/home-admin")) return allowed.includes("/home-admin");
+  if (path.startsWith("/home-studio")) return allowed.includes("/home-studio");
+  if (path === "/home" || path.startsWith("/home/")) return true;
   return allowed.some((url) => path === url || path.startsWith(`${url}/`));
 }
 

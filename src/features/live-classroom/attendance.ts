@@ -40,6 +40,9 @@ export async function finalizeLiveAttendance(input: {
   recordedBy: string;
 }): Promise<{ count: number; absent: number }> {
   const session = input.session;
+  if (!session.school_id || session.kind === "gold") {
+    return { count: 0, absent: 0 };
+  }
   const school = await adminGetById<SchoolPolicy>(COLLECTIONS.schools, session.school_id);
   const minSeconds = Math.max(0, school?.live_attendance_min_seconds ?? 0);
   const endedAt = new Date().toISOString();

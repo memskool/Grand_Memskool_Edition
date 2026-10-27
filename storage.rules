@@ -98,6 +98,24 @@ service firebase.storage {
       allow delete: if signedIn() && sameSchool(schoolId) && isSchoolStaff();
     }
 
+    match /home/{userId}/{videoId}/{fileName} {
+      allow read: if signedIn() && (uid() == userId || role() == 'superadmin');
+      allow create, update: if signedIn() && uid() == userId && under80mb
+        && (
+          request.resource.contentType.matches('video/.*')
+          || request.resource.contentType.matches('image/.*')
+          || request.resource.contentType == 'text/vtt'
+          || request.resource.contentType == 'text/plain'
+        );
+      allow delete: if signedIn() && uid() == userId;
+    }
+
+    match /gold/{tutorId}/{allPaths=**} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && uid() == tutorId && under50mb() && isEducationFile();
+      allow delete: if signedIn() && uid() == tutorId;
+    }
+
     match /recordings/{schoolId}/{allPaths=**} {
       allow read: if signedIn() && sameSchool(schoolId);
       allow create, update: if signedIn() && sameSchool(schoolId) && isSchoolStaff()

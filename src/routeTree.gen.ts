@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as HomeRouteImport } from './routes/home'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -21,6 +22,10 @@ import { Route as AuthenticatedAiTutorRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedAssessmentsRouteImport } from './routes/_authenticated/assessments'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDreamSchoolRouteImport } from './routes/_authenticated/dream-school'
+import { Route as AuthenticatedGoldRouteImport } from './routes/_authenticated/gold'
+import { Route as AuthenticatedGoldAdminRouteImport } from './routes/_authenticated/gold-admin'
+import { Route as AuthenticatedHomeAdminRouteImport } from './routes/_authenticated/home-admin'
+import { Route as AuthenticatedHomeStudioRouteImport } from './routes/_authenticated/home-studio'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
 import { Route as AuthenticatedLockerRouteImport } from './routes/_authenticated/locker'
 import { Route as AuthenticatedMarketplaceRouteImport } from './routes/_authenticated/marketplace'
@@ -30,7 +35,12 @@ import { Route as AuthenticatedSchoolAdminRouteImport } from './routes/_authenti
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedTimetableRouteImport } from './routes/_authenticated/timetable'
 import { Route as AuthenticatedVirtualClassroomRouteImport } from './routes/_authenticated/virtual-classroom'
+import { Route as HomeVideoIdRouteImport } from './routes/home.$videoId'
 import { Route as AuthenticatedExamAssessmentIdRouteImport } from './routes/_authenticated/exam.$assessmentId'
+import { Route as HomeChannelSchoolIdRouteImport } from './routes/home.channel.$schoolId'
+import { Route as HomeCreatorCreatorIdRouteImport } from './routes/home.creator.$creatorId'
+import { Route as AuthenticatedGoldClassClassIdRouteImport } from './routes/_authenticated/gold.class.$classId'
+import { Route as AuthenticatedGoldTutorTutorIdRouteImport } from './routes/_authenticated/gold.tutor.$tutorId'
 import { Route as ApiPublicNotificationsDispatchRouteImport } from './routes/api/public/notifications/dispatch'
 import { Route as ApiPublicWebhooksFlutterwaveRouteImport } from './routes/api/public/webhooks/flutterwave'
 import { Route as ApiPublicWebhooksLivekitRouteImport } from './routes/api/public/webhooks/livekit'
@@ -49,6 +59,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -98,6 +113,26 @@ const AuthenticatedDreamSchoolRoute =
     path: '/dream-school',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedGoldRoute = AuthenticatedGoldRouteImport.update({
+  id: '/gold',
+  path: '/gold',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedGoldAdminRoute = AuthenticatedGoldAdminRouteImport.update({
+  id: '/gold-admin',
+  path: '/gold-admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedHomeAdminRoute = AuthenticatedHomeAdminRouteImport.update({
+  id: '/home-admin',
+  path: '/home-admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedHomeStudioRoute = AuthenticatedHomeStudioRouteImport.update({
+  id: '/home-studio',
+  path: '/home-studio',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
   id: '/library',
   path: '/library',
@@ -146,11 +181,38 @@ const AuthenticatedVirtualClassroomRoute =
     path: '/virtual-classroom',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const HomeVideoIdRoute = HomeVideoIdRouteImport.update({
+  id: '/$videoId',
+  path: '/$videoId',
+  getParentRoute: () => HomeRoute,
+} as any)
 const AuthenticatedExamAssessmentIdRoute =
   AuthenticatedExamAssessmentIdRouteImport.update({
     id: '/exam/$assessmentId',
     path: '/exam/$assessmentId',
     getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const HomeChannelSchoolIdRoute = HomeChannelSchoolIdRouteImport.update({
+  id: '/channel/$schoolId',
+  path: '/channel/$schoolId',
+  getParentRoute: () => HomeRoute,
+} as any)
+const HomeCreatorCreatorIdRoute = HomeCreatorCreatorIdRouteImport.update({
+  id: '/creator/$creatorId',
+  path: '/creator/$creatorId',
+  getParentRoute: () => HomeRoute,
+} as any)
+const AuthenticatedGoldClassClassIdRoute =
+  AuthenticatedGoldClassClassIdRouteImport.update({
+    id: '/class/$classId',
+    path: '/class/$classId',
+    getParentRoute: () => AuthenticatedGoldRoute,
+  } as any)
+const AuthenticatedGoldTutorTutorIdRoute =
+  AuthenticatedGoldTutorTutorIdRouteImport.update({
+    id: '/tutor/$tutorId',
+    path: '/tutor/$tutorId',
+    getParentRoute: () => AuthenticatedGoldRoute,
   } as any)
 const ApiPublicNotificationsDispatchRoute =
   ApiPublicNotificationsDispatchRouteImport.update({
@@ -184,6 +246,7 @@ const LovableEmailAuthWebhookRoute = LovableEmailAuthWebhookRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/home': typeof HomeRouteWithChildren
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -193,6 +256,10 @@ export interface FileRoutesByFullPath {
   '/assessments': typeof AuthenticatedAssessmentsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dream-school': typeof AuthenticatedDreamSchoolRoute
+  '/gold': typeof AuthenticatedGoldRouteWithChildren
+  '/gold-admin': typeof AuthenticatedGoldAdminRoute
+  '/home-admin': typeof AuthenticatedHomeAdminRoute
+  '/home-studio': typeof AuthenticatedHomeStudioRoute
   '/library': typeof AuthenticatedLibraryRoute
   '/locker': typeof AuthenticatedLockerRoute
   '/marketplace': typeof AuthenticatedMarketplaceRoute
@@ -202,7 +269,12 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/timetable': typeof AuthenticatedTimetableRoute
   '/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
+  '/home/$videoId': typeof HomeVideoIdRoute
   '/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
+  '/home/channel/$schoolId': typeof HomeChannelSchoolIdRoute
+  '/home/creator/$creatorId': typeof HomeCreatorCreatorIdRoute
+  '/gold/class/$classId': typeof AuthenticatedGoldClassClassIdRoute
+  '/gold/tutor/$tutorId': typeof AuthenticatedGoldTutorTutorIdRoute
   '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
   '/api/public/webhooks/flutterwave': typeof ApiPublicWebhooksFlutterwaveRoute
   '/api/public/webhooks/livekit': typeof ApiPublicWebhooksLivekitRoute
@@ -212,6 +284,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/home': typeof HomeRouteWithChildren
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -221,6 +294,10 @@ export interface FileRoutesByTo {
   '/assessments': typeof AuthenticatedAssessmentsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dream-school': typeof AuthenticatedDreamSchoolRoute
+  '/gold': typeof AuthenticatedGoldRouteWithChildren
+  '/gold-admin': typeof AuthenticatedGoldAdminRoute
+  '/home-admin': typeof AuthenticatedHomeAdminRoute
+  '/home-studio': typeof AuthenticatedHomeStudioRoute
   '/library': typeof AuthenticatedLibraryRoute
   '/locker': typeof AuthenticatedLockerRoute
   '/marketplace': typeof AuthenticatedMarketplaceRoute
@@ -230,7 +307,12 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/timetable': typeof AuthenticatedTimetableRoute
   '/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
+  '/home/$videoId': typeof HomeVideoIdRoute
   '/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
+  '/home/channel/$schoolId': typeof HomeChannelSchoolIdRoute
+  '/home/creator/$creatorId': typeof HomeCreatorCreatorIdRoute
+  '/gold/class/$classId': typeof AuthenticatedGoldClassClassIdRoute
+  '/gold/tutor/$tutorId': typeof AuthenticatedGoldTutorTutorIdRoute
   '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
   '/api/public/webhooks/flutterwave': typeof ApiPublicWebhooksFlutterwaveRoute
   '/api/public/webhooks/livekit': typeof ApiPublicWebhooksLivekitRoute
@@ -242,6 +324,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/home': typeof HomeRouteWithChildren
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -251,6 +334,10 @@ export interface FileRoutesById {
   '/_authenticated/assessments': typeof AuthenticatedAssessmentsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/dream-school': typeof AuthenticatedDreamSchoolRoute
+  '/_authenticated/gold': typeof AuthenticatedGoldRouteWithChildren
+  '/_authenticated/gold-admin': typeof AuthenticatedGoldAdminRoute
+  '/_authenticated/home-admin': typeof AuthenticatedHomeAdminRoute
+  '/_authenticated/home-studio': typeof AuthenticatedHomeStudioRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRoute
   '/_authenticated/locker': typeof AuthenticatedLockerRoute
   '/_authenticated/marketplace': typeof AuthenticatedMarketplaceRoute
@@ -260,7 +347,12 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/timetable': typeof AuthenticatedTimetableRoute
   '/_authenticated/virtual-classroom': typeof AuthenticatedVirtualClassroomRoute
+  '/home/$videoId': typeof HomeVideoIdRoute
   '/_authenticated/exam/$assessmentId': typeof AuthenticatedExamAssessmentIdRoute
+  '/home/channel/$schoolId': typeof HomeChannelSchoolIdRoute
+  '/home/creator/$creatorId': typeof HomeCreatorCreatorIdRoute
+  '/_authenticated/gold/class/$classId': typeof AuthenticatedGoldClassClassIdRoute
+  '/_authenticated/gold/tutor/$tutorId': typeof AuthenticatedGoldTutorTutorIdRoute
   '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
   '/api/public/webhooks/flutterwave': typeof ApiPublicWebhooksFlutterwaveRoute
   '/api/public/webhooks/livekit': typeof ApiPublicWebhooksLivekitRoute
@@ -272,6 +364,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/home'
     | '/onboarding'
     | '/privacy'
     | '/reset-password'
@@ -281,6 +374,10 @@ export interface FileRouteTypes {
     | '/assessments'
     | '/dashboard'
     | '/dream-school'
+    | '/gold'
+    | '/gold-admin'
+    | '/home-admin'
+    | '/home-studio'
     | '/library'
     | '/locker'
     | '/marketplace'
@@ -290,7 +387,12 @@ export interface FileRouteTypes {
     | '/settings'
     | '/timetable'
     | '/virtual-classroom'
+    | '/home/$videoId'
     | '/exam/$assessmentId'
+    | '/home/channel/$schoolId'
+    | '/home/creator/$creatorId'
+    | '/gold/class/$classId'
+    | '/gold/tutor/$tutorId'
     | '/api/public/notifications/dispatch'
     | '/api/public/webhooks/flutterwave'
     | '/api/public/webhooks/livekit'
@@ -300,6 +402,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/home'
     | '/onboarding'
     | '/privacy'
     | '/reset-password'
@@ -309,6 +412,10 @@ export interface FileRouteTypes {
     | '/assessments'
     | '/dashboard'
     | '/dream-school'
+    | '/gold'
+    | '/gold-admin'
+    | '/home-admin'
+    | '/home-studio'
     | '/library'
     | '/locker'
     | '/marketplace'
@@ -318,7 +425,12 @@ export interface FileRouteTypes {
     | '/settings'
     | '/timetable'
     | '/virtual-classroom'
+    | '/home/$videoId'
     | '/exam/$assessmentId'
+    | '/home/channel/$schoolId'
+    | '/home/creator/$creatorId'
+    | '/gold/class/$classId'
+    | '/gold/tutor/$tutorId'
     | '/api/public/notifications/dispatch'
     | '/api/public/webhooks/flutterwave'
     | '/api/public/webhooks/livekit'
@@ -329,6 +441,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/home'
     | '/onboarding'
     | '/privacy'
     | '/reset-password'
@@ -338,6 +451,10 @@ export interface FileRouteTypes {
     | '/_authenticated/assessments'
     | '/_authenticated/dashboard'
     | '/_authenticated/dream-school'
+    | '/_authenticated/gold'
+    | '/_authenticated/gold-admin'
+    | '/_authenticated/home-admin'
+    | '/_authenticated/home-studio'
     | '/_authenticated/library'
     | '/_authenticated/locker'
     | '/_authenticated/marketplace'
@@ -347,7 +464,12 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/timetable'
     | '/_authenticated/virtual-classroom'
+    | '/home/$videoId'
     | '/_authenticated/exam/$assessmentId'
+    | '/home/channel/$schoolId'
+    | '/home/creator/$creatorId'
+    | '/_authenticated/gold/class/$classId'
+    | '/_authenticated/gold/tutor/$tutorId'
     | '/api/public/notifications/dispatch'
     | '/api/public/webhooks/flutterwave'
     | '/api/public/webhooks/livekit'
@@ -359,6 +481,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  HomeRoute: typeof HomeRouteWithChildren
   OnboardingRoute: typeof OnboardingRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -392,6 +515,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -457,6 +587,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDreamSchoolRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/gold': {
+      id: '/_authenticated/gold'
+      path: '/gold'
+      fullPath: '/gold'
+      preLoaderRoute: typeof AuthenticatedGoldRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/gold-admin': {
+      id: '/_authenticated/gold-admin'
+      path: '/gold-admin'
+      fullPath: '/gold-admin'
+      preLoaderRoute: typeof AuthenticatedGoldAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/home-admin': {
+      id: '/_authenticated/home-admin'
+      path: '/home-admin'
+      fullPath: '/home-admin'
+      preLoaderRoute: typeof AuthenticatedHomeAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/home-studio': {
+      id: '/_authenticated/home-studio'
+      path: '/home-studio'
+      fullPath: '/home-studio'
+      preLoaderRoute: typeof AuthenticatedHomeStudioRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/library': {
       id: '/_authenticated/library'
       path: '/library'
@@ -520,12 +678,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVirtualClassroomRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/home/$videoId': {
+      id: '/home/$videoId'
+      path: '/$videoId'
+      fullPath: '/home/$videoId'
+      preLoaderRoute: typeof HomeVideoIdRouteImport
+      parentRoute: typeof HomeRoute
+    }
     '/_authenticated/exam/$assessmentId': {
       id: '/_authenticated/exam/$assessmentId'
       path: '/exam/$assessmentId'
       fullPath: '/exam/$assessmentId'
       preLoaderRoute: typeof AuthenticatedExamAssessmentIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/home/channel/$schoolId': {
+      id: '/home/channel/$schoolId'
+      path: '/channel/$schoolId'
+      fullPath: '/home/channel/$schoolId'
+      preLoaderRoute: typeof HomeChannelSchoolIdRouteImport
+      parentRoute: typeof HomeRoute
+    }
+    '/home/creator/$creatorId': {
+      id: '/home/creator/$creatorId'
+      path: '/creator/$creatorId'
+      fullPath: '/home/creator/$creatorId'
+      preLoaderRoute: typeof HomeCreatorCreatorIdRouteImport
+      parentRoute: typeof HomeRoute
+    }
+    '/_authenticated/gold/class/$classId': {
+      id: '/_authenticated/gold/class/$classId'
+      path: '/class/$classId'
+      fullPath: '/gold/class/$classId'
+      preLoaderRoute: typeof AuthenticatedGoldClassClassIdRouteImport
+      parentRoute: typeof AuthenticatedGoldRoute
+    }
+    '/_authenticated/gold/tutor/$tutorId': {
+      id: '/_authenticated/gold/tutor/$tutorId'
+      path: '/tutor/$tutorId'
+      fullPath: '/gold/tutor/$tutorId'
+      preLoaderRoute: typeof AuthenticatedGoldTutorTutorIdRouteImport
+      parentRoute: typeof AuthenticatedGoldRoute
     }
     '/api/public/notifications/dispatch': {
       id: '/api/public/notifications/dispatch'
@@ -565,11 +758,28 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedGoldRouteChildren {
+  AuthenticatedGoldClassClassIdRoute: typeof AuthenticatedGoldClassClassIdRoute
+  AuthenticatedGoldTutorTutorIdRoute: typeof AuthenticatedGoldTutorTutorIdRoute
+}
+
+const AuthenticatedGoldRouteChildren: AuthenticatedGoldRouteChildren = {
+  AuthenticatedGoldClassClassIdRoute: AuthenticatedGoldClassClassIdRoute,
+  AuthenticatedGoldTutorTutorIdRoute: AuthenticatedGoldTutorTutorIdRoute,
+}
+
+const AuthenticatedGoldRouteWithChildren =
+  AuthenticatedGoldRoute._addFileChildren(AuthenticatedGoldRouteChildren)
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAiTutorRoute: typeof AuthenticatedAiTutorRoute
   AuthenticatedAssessmentsRoute: typeof AuthenticatedAssessmentsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDreamSchoolRoute: typeof AuthenticatedDreamSchoolRoute
+  AuthenticatedGoldRoute: typeof AuthenticatedGoldRouteWithChildren
+  AuthenticatedGoldAdminRoute: typeof AuthenticatedGoldAdminRoute
+  AuthenticatedHomeAdminRoute: typeof AuthenticatedHomeAdminRoute
+  AuthenticatedHomeStudioRoute: typeof AuthenticatedHomeStudioRoute
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
   AuthenticatedLockerRoute: typeof AuthenticatedLockerRoute
   AuthenticatedMarketplaceRoute: typeof AuthenticatedMarketplaceRoute
@@ -587,6 +797,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAssessmentsRoute: AuthenticatedAssessmentsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDreamSchoolRoute: AuthenticatedDreamSchoolRoute,
+  AuthenticatedGoldRoute: AuthenticatedGoldRouteWithChildren,
+  AuthenticatedGoldAdminRoute: AuthenticatedGoldAdminRoute,
+  AuthenticatedHomeAdminRoute: AuthenticatedHomeAdminRoute,
+  AuthenticatedHomeStudioRoute: AuthenticatedHomeStudioRoute,
   AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,
   AuthenticatedLockerRoute: AuthenticatedLockerRoute,
   AuthenticatedMarketplaceRoute: AuthenticatedMarketplaceRoute,
@@ -602,10 +816,25 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface HomeRouteChildren {
+  HomeVideoIdRoute: typeof HomeVideoIdRoute
+  HomeChannelSchoolIdRoute: typeof HomeChannelSchoolIdRoute
+  HomeCreatorCreatorIdRoute: typeof HomeCreatorCreatorIdRoute
+}
+
+const HomeRouteChildren: HomeRouteChildren = {
+  HomeVideoIdRoute: HomeVideoIdRoute,
+  HomeChannelSchoolIdRoute: HomeChannelSchoolIdRoute,
+  HomeCreatorCreatorIdRoute: HomeCreatorCreatorIdRoute,
+}
+
+const HomeRouteWithChildren = HomeRoute._addFileChildren(HomeRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  HomeRoute: HomeRouteWithChildren,
   OnboardingRoute: OnboardingRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,

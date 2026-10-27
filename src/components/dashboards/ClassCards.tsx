@@ -19,7 +19,7 @@ export function ClassCard({
       preload="intent"
       to="/virtual-classroom"
       className={cn(
-        "group relative flex min-h-[148px] flex-col justify-between overflow-hidden rounded-3xl bg-ink p-5 text-ink-foreground transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:brand-shadow gold-hairline",
+        "group relative flex min-h-[148px] flex-col justify-between overflow-hidden rounded-xl bg-ink p-5 text-ink-foreground",
         className,
       )}
     >
@@ -28,7 +28,7 @@ export function ClassCard({
         className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-ink-foreground/5"
       />
       <div className="flex items-start justify-between gap-3">
-        <span className="flex size-10 items-center justify-center rounded-2xl bg-ink-foreground/10">
+        <span className="flex size-10 items-center justify-center rounded-lg bg-ink-foreground/10">
           <BookOpen className="size-[18px]" />
         </span>
         <ArrowUpRight className="size-4 opacity-40 transition-opacity group-hover:opacity-100" />

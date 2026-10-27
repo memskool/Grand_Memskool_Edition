@@ -13,6 +13,8 @@ export async function applyPaymentResult(verification: FlutterwaveVerification):
   const orders = await adminWhere<{
     buyer_id: string;
     item_title: string;
+    item_kind?: string | null;
+    gold_class_id?: string | null;
     amount_cents: number;
     currency: string;
     status: string;
@@ -46,6 +48,16 @@ export async function applyPaymentResult(verification: FlutterwaveVerification):
     });
   }
 
+  if (successful && order.item_kind === "gold_class" && order.gold_class_id) {
+    const { fulfillGoldEnrolmentFromOrder } = await import("@/features/gold/gold.server");
+    await fulfillGoldEnrolmentFromOrder({
+      buyerId: order.buyer_id,
+      classId: order.gold_class_id,
+      orderId: order.id,
+      amountCents: order.amount_cents,
+    });
+  }
+
   const { createAndQueueNotification, dispatchNotifications } =
     await import("./notifications.server");
   await createAndQueueNotification({
@@ -55,7 +67,7 @@ export async function applyPaymentResult(verification: FlutterwaveVerification):
       ? `Your payment for ${order.item_title} is confirmed. Receipt ${order.reference}.`
       : `We could not confirm your payment for ${order.item_title}. ${failureReason ?? ""}`.trim(),
     kind: "payment",
-    link: "/marketplace",
+    link: order.item_kind === "gold_class" ? "/gold" : "/marketplace",
   });
   void dispatchNotifications();
 

@@ -23,6 +23,12 @@ Honest list of what the product does **not** do yet, or does only when a human c
 - AI is not a final exam marker. Streaming tutor replies are not implemented.
 - Live classroom has no cloud recording/egress, live captions, or parent live view.
 - Marketplace listings can be created by teachers/admins; money movement waits on Flutterwave.
+- Gold tutor earnings are **pending settlement** after a verified Flutterwave payment. Split payouts to tutors are not configured; do not treat pending totals as transferred money.
+- Gold live lessons reuse LiveKit. They fail if LiveKit host credentials are missing. Cloud recording is not implemented.
+- Gold resource uploads currently accept a URL the tutor provides. Direct Storage uploads to `gold/{tutorId}/` are allowed by rules but not wired as a picker in the first UI.
+- Home plays original uploaded files from Firebase Storage (signed URLs). There is no transcoding, HLS/DASH adaptive bitrate, or automatic thumbnail generation.
+- Home view counts increment at most once per signed-in user per clip per 12 hours. Anonymous plays are not counted.
+- Home clips stay unpublished until a superadmin approves them. Rules/indexes must be deployed before production traffic.
 - Offline: a network banner is honest. The app does not claim a full offline school.
 
 ## Engineering

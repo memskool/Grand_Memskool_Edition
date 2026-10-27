@@ -271,12 +271,15 @@ export async function cancelLiveSessionHandler({
     ended_at: now,
     cancelled_at: now,
   });
-  if (session.lesson_id) {
+  if (session.lesson_id && session.kind !== "gold") {
     await adminUpdate(COLLECTIONS.lessons, session.lesson_id, {
       classroom_session_id: null,
       status: "scheduled",
       updated_at: now,
     });
+  }
+  if (!session.school_id || session.kind === "gold") {
+    return { ok: true as const };
   }
   await notifyClass({
     classId: session.class_id,

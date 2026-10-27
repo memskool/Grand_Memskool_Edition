@@ -13,6 +13,15 @@ export type AuthedContext = {
   token: DecodedIdToken;
 };
 
+export type OptionalAuthedContext = {
+  userId: string | null;
+  email: string | null;
+  role: AppRole | null;
+  schoolId: string | null;
+  approved: boolean;
+  token: DecodedIdToken | null;
+};
+
 export const requireFirebaseAuth = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
     const request = getRequest();
@@ -41,5 +50,46 @@ export const requireFirebaseAuth = createMiddleware({ type: "function" }).server
         token: decoded,
       } satisfies AuthedContext,
     });
+  },
+);
+
+/** Public Home feed can run signed-out; likes and uploads still use requireFirebaseAuth. */
+export const optionalFirebaseAuth = createMiddleware({ type: "function" }).server(
+  async ({ next }) => {
+    const request = getRequest();
+    const header = request.headers.get("authorization");
+    const empty: OptionalAuthedContext = {
+      userId: null,
+      email: null,
+      role: null,
+      schoolId: null,
+      approved: false,
+      token: null,
+    };
+    if (!header?.startsWith("Bearer ")) {
+      return next({ context: empty });
+    }
+    const token = header.slice("Bearer ".length).trim();
+    if (!token) return next({ context: empty });
+    try {
+      const { verifyIdToken } = await import("./admin.server");
+      const decoded = await verifyIdToken(token);
+      const role = claimsRoleToAppRole(
+        typeof decoded["role"] === "string" ? decoded["role"] : undefined,
+      );
+      const schoolId = typeof decoded["schoolId"] === "string" ? decoded["schoolId"] : null;
+      const approved = decoded["approved"] === true || role !== "teacher";
+      const signedIn: OptionalAuthedContext = {
+        userId: decoded.uid,
+        email: decoded.email ?? null,
+        role,
+        schoolId,
+        approved,
+        token: decoded,
+      };
+      return next({ context: signedIn });
+    } catch {
+      return next({ context: empty });
+    }
   },
 );

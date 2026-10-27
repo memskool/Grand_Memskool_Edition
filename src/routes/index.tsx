@@ -1,5 +1,5 @@
 import { createFileRoute, Link, redirect, isRedirect } from "@tanstack/react-router";
-import { BookOpen, GraduationCap, HeartHandshake, Shield } from "lucide-react";
+import { Award, BookOpen, Clapperboard, GraduationCap, HeartHandshake, Shield } from "lucide-react";
 import { getCurrentAuthUser } from "@/features/auth/services/auth.service";
 import { PublicLayout } from "@/components/app/PublicLayout";
 import { Button } from "@/components/ui/button";
@@ -30,26 +30,31 @@ export const Route = createFileRoute("/")({
 function LandingPage() {
   return (
     <PublicLayout>
-      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-gold">
-        eSchool platform
+      <p className="mb-3 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+        School workspace
       </p>
-      <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">
-        One workspace for school life
+      <h1 className="font-display text-4xl font-semibold tracking-tight sm:text-[2.75rem]">
+        One place to run school
       </h1>
       <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
-        Memskool helps a school run classes, live lessons, assignments and assessments in one place.
-        Students learn. Teachers teach. Parents see permitted progress. Administrators keep the
-        school organised.
+        Classes, live lessons, assignments and assessments stay inside each registered school.
+        Independent tutoring and a free educational video feed sit alongside that workspace — they
+        are not a substitute for school enrolment.
       </p>
       <div className="mt-8 flex flex-wrap gap-3">
-        <Button asChild className="rounded-full">
+        <Button asChild>
           <Link preload="intent" to="/auth">
             Create an account
           </Link>
         </Button>
-        <Button asChild variant="outline" className="rounded-full">
+        <Button asChild variant="outline">
           <Link preload="intent" to="/auth">
             Sign in
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link preload="intent" to="/home">
+            Watch Home
           </Link>
         </Button>
       </div>
@@ -58,40 +63,56 @@ function LandingPage() {
         school administrator.
       </p>
 
-      <ul className="mt-12 grid gap-4 sm:grid-cols-2">
-        <li className="surface-card p-5 transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:brand-shadow">
-          <GraduationCap className="mb-3 size-5 text-primary" />
-          <h2 className="font-display text-base font-semibold">Students</h2>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Join class, save work in a locker, sit assessments, and — when Crane5 is connected — ask
-            the AI Tutor for an explanation.
-          </p>
-        </li>
-        <li className="surface-card p-5 transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:brand-shadow">
-          <BookOpen className="mb-3 size-5 text-primary" />
-          <h2 className="font-display text-base font-semibold">Teachers</h2>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Run live lessons, set work, mark where needed, and publish results when the class is
-            ready.
-          </p>
-        </li>
-        <li className="surface-card p-5 transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:brand-shadow">
-          <HeartHandshake className="mb-3 size-5 text-primary" />
-          <h2 className="font-display text-base font-semibold">Parents</h2>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            After your school links you to a child, review attendance and released results — not
-            unreleased papers.
-          </p>
-        </li>
-        <li className="surface-card p-5 transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:brand-shadow">
-          <Shield className="mb-3 size-5 text-primary" />
-          <h2 className="font-display text-base font-semibold">Schools</h2>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Each school’s records stay in that school. Staff manage classes, families, and
-            membership from School Admin.
-          </p>
-        </li>
+      <ul className="mt-12 grid gap-3 sm:grid-cols-2">
+        <RoleCard
+          icon={GraduationCap}
+          title="Students"
+          body="Join class, keep work in a locker, sit assessments, and — when Crane5 is connected — ask the AI Tutor for an explanation."
+        />
+        <RoleCard
+          icon={BookOpen}
+          title="Teachers"
+          body="Run live lessons, set work, mark where needed, and publish results when the class is ready."
+        />
+        <RoleCard
+          icon={HeartHandshake}
+          title="Parents"
+          body="After your school links you to a child, review attendance and released results — not unreleased papers."
+        />
+        <RoleCard
+          icon={Shield}
+          title="Schools"
+          body="Each school’s records stay in that school. Staff manage classes, families and membership from School Admin."
+        />
+        <RoleCard
+          icon={Award}
+          title="Gold"
+          body="Independent tutors can offer approved coaching classes without registering a school. Access is not automatic from a payment page."
+        />
+        <RoleCard
+          icon={Clapperboard}
+          title="Home"
+          body="A free feed of short educational videos. Public clips appear only after a platform operator approves them."
+        />
       </ul>
     </PublicLayout>
+  );
+}
+
+function RoleCard({
+  icon: Icon,
+  title,
+  body,
+}: {
+  icon: typeof GraduationCap;
+  title: string;
+  body: string;
+}) {
+  return (
+    <li className="surface-card p-5">
+      <Icon className="mb-3 size-5 text-primary" />
+      <h2 className="font-display text-base font-semibold">{title}</h2>
+      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{body}</p>
+    </li>
   );
 }

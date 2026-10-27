@@ -12,7 +12,7 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "npx --yes tsx src/lib/parent-link.test.ts && npx --yes tsx src/lib/errors/app-error.test.ts && npx --yes tsx src/features/assessment/marking.test.ts && npx --yes tsx src/features/auth/signup-intent.test.ts && npx --yes tsx src/lib/school-ownership.test.ts",
+    "test": "npx --yes tsx src/lib/parent-link.test.ts && npx --yes tsx src/lib/errors/app-error.test.ts && npx --yes tsx src/features/assessment/marking.test.ts && npx --yes tsx src/features/auth/signup-intent.test.ts && npx --yes tsx src/lib/school-ownership.test.ts && npx --yes tsx src/features/gold/policy.test.ts && npx --yes tsx src/features/home/policy.test.ts",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

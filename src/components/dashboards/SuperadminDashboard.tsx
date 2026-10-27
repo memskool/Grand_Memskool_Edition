@@ -1,5 +1,7 @@
+import { Link } from "@tanstack/react-router";
 import { Building2, Shield } from "lucide-react";
 import { Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
+import { Button } from "@/components/ui/button";
 import { useSession, useProfile } from "@/hooks/useAuth";
 import { useSchools } from "@/lib/discovery-data";
 
@@ -23,12 +25,23 @@ export function SuperadminDashboard() {
             <dt className="text-muted-foreground">Email</dt>
             <dd className="font-medium">{user?.email ?? "—"}</dd>
           </div>
-          <div className="flex items-start gap-2 rounded-2xl bg-secondary/60 px-4 py-3 sm:col-span-2">
-            <Shield className="mt-0.5 size-4 shrink-0" />
-            <p className="text-muted-foreground">
-              You can see which schools exist. Opening another school’s classrooms, marks, or
-              messages is intentionally not available from this dashboard.
-            </p>
+          <div className="space-y-3 rounded-2xl bg-secondary/60 px-4 py-3 sm:col-span-2">
+            <div className="flex items-start gap-2">
+              <Shield className="mt-0.5 size-4 shrink-0" />
+              <p className="text-muted-foreground">
+                You can see which schools exist. Opening another school’s classrooms, marks, or
+                messages is intentionally not available from this dashboard. Independent Gold tutors
+                are reviewed separately.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild className="rounded-full">
+                <Link to="/gold-admin">Review Gold tutors</Link>
+              </Button>
+              <Button asChild variant="outline" className="rounded-full">
+                <Link to="/home-admin">Review Home videos</Link>
+              </Button>
+            </div>
           </div>
         </dl>
       </Panel>

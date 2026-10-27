@@ -51,7 +51,7 @@ export type ClassroomToken = {
 
 export type LiveSessionRecord = {
   id: string;
-  school_id: string;
+  school_id: string | null;
   class_id: string;
   host_id: string;
   lesson_id: string | null;

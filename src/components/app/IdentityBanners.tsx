@@ -35,14 +35,14 @@ export function IdentityBanners() {
   return (
     <div className="mb-4 space-y-2">
       {suspended ? (
-        <p className="flex items-start gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm">
+        <p className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm">
           <Shield className="mt-0.5 size-4 shrink-0" />
           Your account is suspended. You can still read notices and open Settings, but teaching and
           live tools stay locked until the school lifts it.
         </p>
       ) : null}
       {pendingApproval ? (
-        <p className="flex items-start gap-2 rounded-2xl border border-border bg-secondary/60 px-4 py-3 text-sm">
+        <p className="flex items-start gap-2 rounded-lg border border-border bg-secondary/60 px-4 py-3 text-sm">
           <Clock className="mt-0.5 size-4 shrink-0" />
           {schoolName
             ? `${schoolName} has not approved your teacher account yet.`
@@ -50,7 +50,7 @@ export function IdentityBanners() {
         </p>
       ) : null}
       {!emailVerified ? (
-        <div className="space-y-2 rounded-2xl border border-border bg-secondary/60 px-4 py-3 text-sm">
+        <div className="space-y-2 rounded-lg border border-border bg-secondary/60 px-4 py-3 text-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="flex items-start gap-2">
               <Mail className="mt-0.5 size-4 shrink-0" />

@@ -357,11 +357,11 @@ function AuthPage() {
         <div className="w-full max-w-md">
           <div className="mb-8 flex flex-col items-center text-center">
             <BrandMark size={64} className="mb-4" priority />
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
-              Memskool Institute
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              Memskool
             </p>
-            <h1 className="font-display text-4xl font-bold tracking-tight text-foreground">
-              Welcome to Memskool
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground">
+              Sign in
             </h1>
             <p className="mt-2 max-w-sm text-sm text-muted-foreground">
               Classes, live lessons, assessments and a private AI tutor — in one school workspace.
@@ -390,13 +390,13 @@ function AuthPage() {
                     onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
-                <Button type="submit" className="w-full rounded-full" disabled={loading}>
+                <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Sending…" : "Send reset link"}
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
-                  className="w-full rounded-full"
+                  className="w-full"
                   onClick={() => setMode("signin")}
                 >
                   Back to sign in
@@ -407,13 +407,9 @@ function AuthPage() {
                 value={tab}
                 onValueChange={(value) => setTab(value === "signup" ? "signup" : "signin")}
               >
-                <TabsList className="grid w-full grid-cols-2 rounded-full">
-                  <TabsTrigger value="signin" className="rounded-full">
-                    Sign in
-                  </TabsTrigger>
-                  <TabsTrigger value="signup" className="rounded-full">
-                    Create account
-                  </TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="signin">Sign in</TabsTrigger>
+                  <TabsTrigger value="signup">Create account</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="signin" className="mt-6">
@@ -440,7 +436,7 @@ function AuthPage() {
                         onChange={(e) => setPassword(e.target.value)}
                       />
                     </div>
-                    <Button type="submit" className="w-full rounded-full" disabled={loading}>
+                    <Button type="submit" className="w-full" disabled={loading}>
                       {loading ? "Signing in…" : "Sign in"}
                     </Button>
                     <button
@@ -469,7 +465,7 @@ function AuthPage() {
                               setStudentCode("");
                             }}
                             aria-pressed={role === t.value}
-                            className={`rounded-2xl border px-3 py-2 text-left text-xs font-medium transition-colors ${
+                            className={`rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors ${
                               role === t.value
                                 ? "border-primary bg-primary/10 text-primary"
                                 : "border-border/70 text-muted-foreground hover:border-primary/40"
@@ -598,7 +594,7 @@ function AuthPage() {
                       </p>
                     ) : null}
 
-                    <Button type="submit" className="w-full rounded-full" disabled={loading}>
+                    <Button type="submit" className="w-full" disabled={loading}>
                       {loading ? "Creating account…" : "Create account"}
                     </Button>
                   </form>
@@ -616,7 +612,7 @@ function AuthPage() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="mt-2 h-8 rounded-full px-3 text-xs"
+                  className="mt-2 h-8 px-3 text-xs"
                   onClick={resendConfirmation}
                   disabled={loading}
                 >

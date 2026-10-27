@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useExamMode } from "@/lib/exam-mode";
 import { useAccess } from "@/lib/access";
-import { navForRole } from "@/lib/nav";
+import { navForRole, navPathActive } from "@/lib/nav";
 import {
   Sidebar,
   SidebarContent,
@@ -30,8 +30,8 @@ export function AppSidebar() {
             <span className="font-display text-lg font-bold leading-tight tracking-tight text-sidebar-foreground">
               Memskool
             </span>
-            <span className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-sidebar-foreground/60">
-              Institute
+            <span className="truncate text-[11px] font-medium uppercase tracking-[0.12em] text-sidebar-foreground/55">
+              Workspace
             </span>
           </span>
         </Link>
@@ -42,14 +42,14 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
-                const active = pathname === item.url;
+                const active = navPathActive(pathname, item.url);
                 return (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton
                       asChild
                       isActive={active}
                       tooltip={item.title}
-                      className="h-10 rounded-full transition-[background-color,color,transform] duration-150 data-[active=true]:bg-sidebar-primary data-[active=true]:font-semibold data-[active=true]:text-sidebar-primary-foreground"
+                      className="h-10 rounded-lg transition-colors duration-150 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground"
                     >
                       <Link
                         preload="intent"
@@ -70,9 +70,9 @@ export function AppSidebar() {
 
       <SidebarFooter className="px-4 py-3 group-data-[collapsible=icon]:hidden">
         <p className="text-[11px] leading-relaxed text-sidebar-foreground/55">
-          Memskool eSchool
+          School workspace
           <br />
-          Learn. Track. Grow.
+          Records stay inside each school.
         </p>
       </SidebarFooter>
     </Sidebar>

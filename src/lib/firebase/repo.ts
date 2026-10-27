@@ -90,6 +90,19 @@ export const COLLECTIONS = {
   aiLearningMemory: "ai_learning_memory",
   aiUsage: "ai_usage",
   aiRateLimits: "ai_rate_limits",
+  goldTutors: "gold_tutors",
+  goldClasses: "gold_classes",
+  goldEnrolments: "gold_enrolments",
+  goldLessons: "gold_lessons",
+  goldResources: "gold_resources",
+  goldReviews: "gold_reviews",
+  homeVideos: "home_videos",
+  homeLikes: "home_likes",
+  homeSaves: "home_saves",
+  homeViews: "home_views",
+  homeReports: "home_reports",
+  homeInterests: "home_interests",
+  homeRateLimits: "home_rate_limits",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

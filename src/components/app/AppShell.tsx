@@ -32,10 +32,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       <AppSidebar />
       <SidebarInset className="bg-background">
         <NetworkBanner />
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b border-border/50 bg-background/75 px-3 backdrop-blur-xl sm:h-16 sm:gap-3 sm:px-6">
-          <SidebarTrigger className="rounded-full" />
-          <BrandMark size={36} priority />
-          <span className="hidden font-display text-sm font-bold tracking-tight text-foreground sm:inline">
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b border-border bg-background/90 px-3 backdrop-blur-md sm:h-14 sm:gap-3 sm:px-6">
+          <SidebarTrigger className="rounded-lg" />
+          <BrandMark size={32} priority />
+          <span className="hidden font-display text-sm font-semibold tracking-tight text-foreground sm:inline">
             Memskool
           </span>
           <div className="flex-1" />
@@ -46,7 +46,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <main
           id="main"
-          className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 pb-24 sm:px-6 sm:py-7 md:pb-8"
+          className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-24 sm:px-6 sm:py-8 md:pb-8"
         >
           <IdentityGate>
             <IdentityBanners />

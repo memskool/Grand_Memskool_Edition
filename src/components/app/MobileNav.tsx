@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useExamMode } from "@/lib/exam-mode";
 import { useSession, useProfile } from "@/hooks/useAuth";
 import { useAccess } from "@/lib/access";
-import { navForRole, mobileTabsForRole } from "@/lib/nav";
+import { navForRole, mobileTabsForRole, navPathActive } from "@/lib/nav";
 import { BrandMark } from "@/components/app/BrandMark";
 
 export function MobileNav() {
@@ -29,7 +29,7 @@ export function MobileNav() {
             onClick={() => setOpen(false)}
             className="absolute inset-0 bg-background/70 backdrop-blur-xl"
           />
-          <div className="absolute inset-x-3 bottom-24 top-6 flex flex-col overflow-hidden rounded-3xl bg-ink text-ink-foreground shadow-2xl">
+          <div className="absolute inset-x-3 bottom-24 top-6 flex flex-col overflow-hidden rounded-xl bg-ink text-ink-foreground shadow-2xl">
             <div className="flex items-center gap-3 border-b border-ink-foreground/10 px-5 py-4">
               <BrandMark size={40} />
               <div className="min-w-0 flex-1">
@@ -44,7 +44,7 @@ export function MobileNav() {
                 type="button"
                 aria-label="Close menu"
                 onClick={() => setOpen(false)}
-                className="flex size-9 items-center justify-center rounded-full bg-ink-foreground/10"
+                className="flex size-9 items-center justify-center rounded-lg bg-ink-foreground/10"
               >
                 <X className="size-4" />
               </button>
@@ -53,7 +53,7 @@ export function MobileNav() {
             <nav className="flex-1 overflow-y-auto p-3">
               <ul className="space-y-1">
                 {links.map((item) => {
-                  const active = pathname === item.url;
+                  const active = navPathActive(pathname, item.url);
                   return (
                     <li key={item.url}>
                       <Link
@@ -61,9 +61,9 @@ export function MobileNav() {
                         to={item.url}
                         onClick={() => setOpen(false)}
                         className={cn(
-                          "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors duration-150",
+                          "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors duration-150",
                           active
-                            ? "bg-gold text-gold-foreground"
+                            ? "bg-ink-foreground/12 text-ink-foreground"
                             : "text-ink-foreground/85 hover:bg-ink-foreground/10",
                         )}
                       >
@@ -85,7 +85,7 @@ export function MobileNav() {
       >
         <ul className="mx-auto flex max-w-lg items-stretch justify-between px-2 pb-[env(safe-area-inset-bottom)]">
           {tabs.map((item) => {
-            const active = pathname === item.url;
+            const active = navPathActive(pathname, item.url);
             return (
               <li key={item.url} className="flex-1">
                 <Link
@@ -98,7 +98,7 @@ export function MobileNav() {
                 >
                   <span
                     className={cn(
-                      "flex h-8 w-12 items-center justify-center rounded-full transition-all",
+                      "flex h-8 w-12 items-center justify-center rounded-lg transition-all",
                       active && "bg-primary text-primary-foreground",
                     )}
                   >
@@ -121,7 +121,7 @@ export function MobileNav() {
             >
               <span
                 className={cn(
-                  "flex h-8 w-12 items-center justify-center rounded-full transition-all",
+                  "flex h-8 w-12 items-center justify-center rounded-lg transition-all",
                   open && "bg-primary text-primary-foreground",
                 )}
               >

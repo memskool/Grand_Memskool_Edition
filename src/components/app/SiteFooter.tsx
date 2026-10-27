@@ -70,6 +70,9 @@ export function SiteFooter({ className = "" }: { className?: string }) {
           rights reserved.
         </p>
         <nav className="flex flex-wrap gap-4 text-xs">
+          <a href="/home" className="hover:text-foreground">
+            Home
+          </a>
           <a href="/privacy" className="hover:text-foreground">
             Privacy
           </a>
