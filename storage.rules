@@ -35,6 +35,9 @@ service firebase.storage {
     function under5mb() {
       return request.resource.size < 5 * 1024 * 1024;
     }
+    function under80mb() {
+      return request.resource.size < 80 * 1024 * 1024;
+    }
     function under200mb() {
       return request.resource.size < 200 * 1024 * 1024;
     }
@@ -100,7 +103,7 @@ service firebase.storage {
 
     match /home/{userId}/{videoId}/{fileName} {
       allow read: if signedIn() && (uid() == userId || role() == 'superadmin');
-      allow create, update: if signedIn() && uid() == userId && under80mb
+      allow create, update: if signedIn() && uid() == userId && under80mb()
         && (
           request.resource.contentType.matches('video/.*')
           || request.resource.contentType.matches('image/.*')
