@@ -21,6 +21,9 @@ const FONT_HREF =
 
 const THEME_BOOT = `(function(){try{var t=localStorage.getItem("memskool-theme");if(t!=="dark"&&t!=="light"){t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(t==="dark")document.documentElement.classList.add("dark");document.documentElement.style.colorScheme=t}catch(e){}})();`;
 
+/** Apex → www so Home server-function POSTs are not dropped by a host redirect. */
+const CANONICAL_HOST_BOOT = `(function(){try{if(location.hostname==="memskool.com"){location.replace("https://www.memskool.com"+location.pathname+location.search+location.hash)}}catch(e){}})();`;
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -130,6 +133,7 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: CANONICAL_HOST_BOOT }} />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
         <HeadContent />
       </head>

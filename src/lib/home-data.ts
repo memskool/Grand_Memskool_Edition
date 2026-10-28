@@ -49,11 +49,23 @@ export type HomeFeedPage = {
   ranking: string;
 };
 
+function asFeedPage(raw: unknown): HomeFeedPage {
+  const page = unwrap<HomeFeedPage>(raw);
+  if (page && typeof page === "object" && Array.isArray(page.items)) {
+    return {
+      items: page.items,
+      nextCursor: page.nextCursor ?? null,
+      ranking: typeof page.ranking === "string" ? page.ranking : "",
+    };
+  }
+  return { items: [], nextCursor: null, ranking: "" };
+}
+
 export function useHomeFeed(input: { query: string; subject: string; level: string }) {
   return useQuery({
     queryKey: ["home-feed", input],
     queryFn: async () =>
-      unwrap<HomeFeedPage>(
+      asFeedPage(
         await loadHomeFeed({
           data: {
             query: input.query || undefined,

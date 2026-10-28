@@ -160,7 +160,7 @@ export function HomeFeed({ initialVideoId }: { initialVideoId?: string }) {
         <EmptyState
           icon={Clapperboard}
           title="Home could not load"
-          hint="Check your connection and try again."
+          hint={authErrorMessage(feed.error)}
           action={
             <Button className="rounded-full" onClick={() => void feed.refetch()}>
               Retry

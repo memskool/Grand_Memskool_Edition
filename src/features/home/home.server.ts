@@ -1,7 +1,14 @@
 import "@tanstack/react-start/server-only";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb, adminStorage } from "@/lib/firebase/admin.server";
-import { adminCreate, adminGetById, adminSet, adminUpdate } from "@/lib/firebase/admin-repo";
+import {
+  adminCreate,
+  adminGetById,
+  adminListAll,
+  adminSet,
+  adminUpdate,
+} from "@/lib/firebase/admin-repo";
+import { toClientJson } from "@/lib/firebase/plain-data";
 import { COLLECTIONS } from "@/lib/firebase/repo";
 import type { AppRole } from "@/types/roles";
 import type { GoldTutor } from "@/features/gold/types";
@@ -116,22 +123,26 @@ function toCard(
 async function hydrateCards(videos: HomeVideo[], userId: string | null): Promise<HomeVideoCard[]> {
   return Promise.all(
     videos.map(async (video) => {
-      const [playback, thumb, caption, liked, saved] = await Promise.all([
-        isPublishedHomeVideo(video.status) || video.creator_id === userId
-          ? signedReadUrl(video.storage_path)
-          : Promise.resolve(null),
-        signedReadUrl(video.thumbnail_path),
-        video.caption_path && (isPublishedHomeVideo(video.status) || video.creator_id === userId)
-          ? signedReadUrl(video.caption_path)
-          : Promise.resolve(null),
-        userId
-          ? adminGetById(COLLECTIONS.homeLikes, homeLikeId(video.id, userId)).then(Boolean)
-          : Promise.resolve(false),
-        userId
-          ? adminGetById(COLLECTIONS.homeSaves, homeSaveId(video.id, userId)).then(Boolean)
-          : Promise.resolve(false),
-      ]);
-      return toCard(video, { playback, thumb, caption }, { liked, saved });
+      try {
+        const [playback, thumb, caption, liked, saved] = await Promise.all([
+          isPublishedHomeVideo(video.status) || video.creator_id === userId
+            ? signedReadUrl(video.storage_path)
+            : Promise.resolve(null),
+          signedReadUrl(video.thumbnail_path),
+          video.caption_path && (isPublishedHomeVideo(video.status) || video.creator_id === userId)
+            ? signedReadUrl(video.caption_path)
+            : Promise.resolve(null),
+          userId
+            ? adminGetById(COLLECTIONS.homeLikes, homeLikeId(video.id, userId)).then(Boolean)
+            : Promise.resolve(false),
+          userId
+            ? adminGetById(COLLECTIONS.homeSaves, homeSaveId(video.id, userId)).then(Boolean)
+            : Promise.resolve(false),
+        ]);
+        return toCard(video, { playback, thumb, caption }, { liked, saved });
+      } catch {
+        return toCard(video, { playback: null, thumb: null, caption: null });
+      }
     }),
   );
 }
@@ -160,6 +171,9 @@ function publicSchool(
   };
 }
 
+const HOME_RANKING =
+  "Rule-based: recency, likes, unique views, and your selected subjects. Not an AI ranker.";
+
 export async function loadHomeFeed(input: {
   userId: string | null;
   query?: string;
@@ -167,33 +181,55 @@ export async function loadHomeFeed(input: {
   level?: string | null;
   cursor?: string | null;
 }): Promise<{ items: HomeVideoCard[]; nextCursor: string | null; ranking: string }> {
-  const ids = await loadPublishedHomeIds();
-  const videos = (await loadHomeVideosByIds(ids)).filter((row) => isPublishedHomeVideo(row.status));
-  let interests: string[] = [];
-  if (input.userId) {
-    const pref = await adminGetById<{ subjects?: string[] }>(
-      COLLECTIONS.homeInterests,
-      input.userId,
-    );
-    interests = Array.isArray(pref?.subjects) ? pref.subjects : [];
+  try {
+    let ids: string[] = [];
+    try {
+      ids = await loadPublishedHomeIds();
+    } catch (error) {
+      console.error("home catalog", error);
+    }
+    let videos = (await loadHomeVideosByIds(ids)).filter((row) => isPublishedHomeVideo(row.status));
+    if (videos.length === 0) {
+      try {
+        videos = (await adminListAll<HomeVideo>(COLLECTIONS.homeVideos, 80)).filter((row) =>
+          isPublishedHomeVideo(row.status),
+        );
+      } catch (error) {
+        console.error("home video list", error);
+      }
+    }
+    let interests: string[] = [];
+    if (input.userId) {
+      try {
+        const pref = await adminGetById<{ subjects?: string[] }>(
+          COLLECTIONS.homeInterests,
+          input.userId,
+        );
+        interests = Array.isArray(pref?.subjects) ? pref.subjects : [];
+      } catch (error) {
+        console.error("home interests", error);
+      }
+    }
+    const ranked = rankHomeVideos(videos, {
+      ...(input.query ? { query: input.query } : {}),
+      subject: input.subject ?? null,
+      level: input.level ?? null,
+      interests,
+    });
+    const start = input.cursor ? ranked.findIndex((row) => row.id === input.cursor) + 1 : 0;
+    const slice = ranked.slice(Math.max(0, start), Math.max(0, start) + HOME_PAGE_SIZE);
+    const items = await hydrateCards(slice, input.userId);
+    const last = slice[slice.length - 1];
+    const more = start + slice.length < ranked.length;
+    return toClientJson({
+      items,
+      nextCursor: more && last ? last.id : null,
+      ranking: HOME_RANKING,
+    });
+  } catch (error) {
+    console.error("loadHomeFeed", error);
+    return { items: [], nextCursor: null, ranking: HOME_RANKING };
   }
-  const ranked = rankHomeVideos(videos, {
-    ...(input.query ? { query: input.query } : {}),
-    subject: input.subject ?? null,
-    level: input.level ?? null,
-    interests,
-  });
-  const start = input.cursor ? ranked.findIndex((row) => row.id === input.cursor) + 1 : 0;
-  const slice = ranked.slice(Math.max(0, start), Math.max(0, start) + HOME_PAGE_SIZE);
-  const items = await hydrateCards(slice, input.userId);
-  const last = slice[slice.length - 1];
-  const more = start + slice.length < ranked.length;
-  return {
-    items,
-    nextCursor: more && last ? last.id : null,
-    ranking:
-      "Rule-based: recency, likes, unique views, and your selected subjects. Not an AI ranker.",
-  };
 }
 
 export async function loadHomeVideoPage(

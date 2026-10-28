@@ -40,14 +40,18 @@ export const loadHomeFeed = createServerFn({ method: "POST" })
   .middleware([optionalFirebaseAuth])
   .inputValidator((data: unknown) => FeedSchema.parse(data ?? {}))
   .handler(async ({ data, context }) => {
-    const { loadHomeFeed: load } = await import("./home.server");
-    return load({
-      userId: context?.userId ?? null,
-      subject: data.subject === "all" ? null : (data.subject ?? null),
-      level: data.level === "all" ? null : (data.level ?? null),
-      cursor: data.cursor ?? null,
-      ...(data.query ? { query: data.query } : {}),
-    });
+    try {
+      const { loadHomeFeed: load } = await import("./home.server");
+      return load({
+        userId: context?.userId ?? null,
+        subject: data.subject === "all" ? null : (data.subject ?? null),
+        level: data.level === "all" ? null : (data.level ?? null),
+        cursor: data.cursor ?? null,
+        ...(data.query ? { query: data.query } : {}),
+      });
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "Home could not load.");
+    }
   });
 
 export const loadHomeVideoPage = createServerFn({ method: "POST" })
