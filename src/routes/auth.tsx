@@ -15,7 +15,7 @@ import {
 } from "@/features/auth/services/auth.service";
 import { completeSignup } from "@/features/auth/services/complete-signup.functions";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
-import { ACCOUNT_TYPES, type AccountType } from "@/features/auth/account-types";
+import { ACCOUNT_TYPES, workspaceHome, type AccountType } from "@/features/auth/account-types";
 import { parseAuthSearch, safeAppPath } from "@/lib/safe-redirect";
 import { COLLECTIONS, getById } from "@/lib/firebase/repo";
 import type { UserProfile } from "@/types/user";
@@ -99,14 +99,13 @@ function AuthPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { redirect: redirectTo } = Route.useSearch();
-  const continueTo = safeAppPath(redirectTo) ?? "/dashboard";
+  const continueTo = safeAppPath(redirectTo);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<AccountType>("student");
   const [schoolCode, setSchoolCode] = useState("");
-  const [studentCode, setStudentCode] = useState("");
   const [schoolName, setSchoolName] = useState("");
   const [foundSchool, setFoundSchool] = useState<SchoolSummary | null>(null);
   const [checkingSchool, setCheckingSchool] = useState(false);
@@ -116,13 +115,11 @@ function AuthPage() {
   const [bootstrapping, setBootstrapping] = useState(true);
   const submitting = useRef(false);
 
-  const needsSchoolCode = role === "teacher";
-
   const currentIntent = (): SignupIntent => ({
     role,
     fullName,
     schoolCode,
-    studentCode,
+    studentCode: "",
     schoolName,
   });
 
@@ -162,13 +159,18 @@ function AuthPage() {
     void getCurrentAuthUser().then(async (user) => {
       if (!user) return;
       const profile = await readAccountProfile(user.id);
-      navigate({ to: isProfileComplete(profile) ? continueTo : "/onboarding", replace: true });
+      navigate({
+        to: isProfileComplete(profile)
+          ? (continueTo ?? workspaceHome(profile?.role))
+          : "/onboarding",
+        replace: true,
+      });
     });
   }, [navigate, continueTo, loading, bootstrapping]);
 
   // Live School-ID verification while typing.
   useEffect(() => {
-    if ((!needsSchoolCode && role !== "institution") || schoolCode.trim().length < 3) {
+    if (role !== "institution" || schoolCode.trim().length < 3) {
       setFoundSchool(null);
       return;
     }
@@ -190,7 +192,7 @@ function AuthPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [schoolCode, needsSchoolCode, role]);
+  }, [schoolCode, role]);
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -199,7 +201,12 @@ function AuthPage() {
       await signInEmail(email.trim(), password);
       const user = await getCurrentAuthUser();
       const profile = user ? await readAccountProfile(user.id) : null;
-      navigate({ to: isProfileComplete(profile) ? continueTo : "/onboarding", replace: true });
+      navigate({
+        to: isProfileComplete(profile)
+          ? (continueTo ?? workspaceHome(profile?.role))
+          : "/onboarding",
+        replace: true,
+      });
     } catch (error) {
       toast.error(friendlyAuthError(error));
     } finally {
@@ -212,10 +219,6 @@ function AuthPage() {
     if (submitting.current) return;
     if (password.length < 6) {
       toast.error("Passwords must be at least 6 characters.");
-      return;
-    }
-    if (needsSchoolCode && !foundSchool) {
-      toast.error("That School ID isn't on Memskool yet. Check it with your school.");
       return;
     }
     if (role === "institution" && !schoolName.trim()) {
@@ -243,11 +246,7 @@ function AuthPage() {
           data: {
             full_name: fullName.trim(),
             role,
-            school_code: needsSchoolCode
-              ? schoolCode.trim()
-              : role === "institution" && wantedCode
-                ? wantedCode
-                : null,
+            school_code: role === "institution" && wantedCode ? wantedCode : null,
             student_code: null,
             school_name: role === "institution" ? schoolName.trim() : null,
           },
@@ -255,8 +254,7 @@ function AuthPage() {
         {
           role,
           schoolId: null,
-          membership:
-            role === "teacher" ? "pending" : role === "institution" ? "owner" : "approved",
+          membership: role === "institution" ? "owner" : "approved",
         },
       );
       await refreshAuthClaims();
@@ -281,13 +279,15 @@ function AuthPage() {
         setAwaitingConfirm(true);
         toast.success(
           role === "teacher"
-            ? "Account created. Confirm the email from notifications@memskool.com — your school still needs to approve your request."
+            ? "Account created. Confirm the email from notifications@memskool.com, then join a school from your dashboard or teach on Gold."
             : role === "student"
-              ? "Account created. Confirm the email from notifications@memskool.com, then open your dashboard to explore Dream School and more."
-              : "Account created. Check notifications@memskool.com in your inbox (and spam), then continue.",
+              ? "Account created. Confirm the email from notifications@memskool.com, then open your student dashboard."
+              : role === "parent"
+                ? "Account created. Confirm your email. Your school will link you to your child."
+                : "Account created. Check notifications@memskool.com in your inbox (and spam), then continue.",
         );
       }
-      await navigate({ to: continueTo, replace: true });
+      await navigate({ to: continueTo ?? workspaceHome(role), replace: true });
     } catch (error) {
       toast.error(friendlyAuthError(error));
     } finally {
@@ -352,9 +352,9 @@ function AuthPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-background">
+    <div className="canvas-mesh relative flex min-h-screen flex-col">
       <div className="relative flex flex-1 items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
+        <div className="page-enter w-full max-w-md">
           <div className="mb-8 flex flex-col items-center text-center">
             <BrandMark size={64} className="mb-4" priority />
             <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
@@ -462,13 +462,18 @@ function AuthPage() {
                               setRole(t.value);
                               setSchoolCode("");
                               setFoundSchool(null);
-                              setStudentCode("");
                             }}
                             aria-pressed={role === t.value}
-                            className={`rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors ${
+                            className={`rounded-lg border px-3 py-2 text-left text-xs font-medium transition-[border-color,background-color,color,transform] duration-150 ${
                               role === t.value
-                                ? "border-primary bg-primary/10 text-primary"
-                                : "border-border/70 text-muted-foreground hover:border-primary/40"
+                                ? t.value === "parent"
+                                  ? "border-sky bg-sky/12 text-sky"
+                                  : t.value === "teacher"
+                                    ? "border-leaf bg-leaf/12 text-leaf"
+                                    : t.value === "institution"
+                                      ? "border-gold bg-gold/15 text-gold"
+                                      : "border-primary bg-primary/10 text-primary"
+                                : "border-border/70 text-muted-foreground hover:border-primary/40 hover:-translate-y-px"
                             }`}
                           >
                             {t.label}
@@ -531,32 +536,16 @@ function AuthPage() {
                       </div>
                     ) : null}
 
-                    {needsSchoolCode ? (
-                      <div className="space-y-2">
-                        <Label htmlFor="su-school-code">School ID</Label>
-                        <Input
-                          id="su-school-code"
-                          required
-                          placeholder="e.g. MS-4F91A2"
-                          value={schoolCode}
-                          onChange={(e) => setSchoolCode(e.target.value)}
-                        />
-                        <p
-                          className={`text-xs ${foundSchool ? "text-primary" : "text-muted-foreground"}`}
-                        >
-                          {checkingSchool
-                            ? "Checking School ID…"
-                            : foundSchool
-                              ? `Matched ${foundSchool.name}${foundSchool.city ? ` · ${foundSchool.city}` : ""}`
-                              : "Enter the School ID your school gave you."}
-                        </p>
-                      </div>
-                    ) : null}
-
                     {role === "student" ? (
-                      <p className="rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
-                        No School ID needed to join. After you confirm your email, open your
-                        dashboard to explore Dream School, the library, AI tutor and more.
+                      <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                        No School ID needed. Join a school later from Dream School if you want
+                        classes and a timetable.
+                      </p>
+                    ) : null}
+                    {role === "parent" ? (
+                      <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                        After you create this account, ask the school to link you to your child in
+                        School Admin → Families. You cannot complete that step yourself.
                       </p>
                     ) : null}
 
@@ -588,9 +577,9 @@ function AuthPage() {
                     </div>
 
                     {role === "teacher" ? (
-                      <p className="rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
-                        Your school approves teacher accounts. Until then you can sign in, but
-                        teaching tools stay locked.
+                      <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                        No School ID at signup. After you are in, apply to a registered school from
+                        your dashboard, or teach independently on Gold.
                       </p>
                     ) : null}
 

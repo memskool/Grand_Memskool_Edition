@@ -45,8 +45,8 @@ export function IdentityBanners() {
         <p className="flex items-start gap-2 rounded-lg border border-border bg-secondary/60 px-4 py-3 text-sm">
           <Clock className="mt-0.5 size-4 shrink-0" />
           {schoolName
-            ? `${schoolName} has not approved your teacher account yet.`
-            : "Join a school with its School ID so they can approve your teacher account."}
+            ? `${schoolName} has not approved your teacher account yet. Live class, timetable and marking stay locked. Gold stays available.`
+            : "Apply to a registered school from your dashboard, or teach independently on Gold."}
         </p>
       ) : null}
       {!emailVerified ? (

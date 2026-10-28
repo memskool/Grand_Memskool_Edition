@@ -24,8 +24,8 @@ export function RouteGuard({ children }: { children: ReactNode }) {
         title="Waiting for school approval"
         hint={
           hasSchool
-            ? `${schoolName ?? "Your school"} has not approved your teacher account yet. Teaching tools unlock as soon as they do.`
-            : "Join a school with its School ID from Settings — teaching tools unlock once the school approves you."
+            ? `${schoolName ?? "Your school"} has not approved your teacher account yet. School classes stay locked. Gold stays available.`
+            : "Apply to a school from your dashboard, or teach on Gold, without waiting for a school."
         }
         action={
           <Button asChild className="rounded-full">

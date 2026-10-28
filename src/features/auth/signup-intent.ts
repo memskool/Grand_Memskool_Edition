@@ -53,10 +53,6 @@ export function clearSignupIntent(): void {
 
 export function signupIntentError(intent: SignupIntent): string | null {
   if (!intent.fullName.trim()) return "Enter your name.";
-  // Students register freely; school join happens later from the workspace.
-  if (intent.role === "teacher" && intent.schoolCode.trim().length < 3) {
-    return "Enter the School ID your school gave you.";
-  }
   if (intent.role === "institution" && !intent.schoolName.trim()) {
     return "Enter your school's name.";
   }
@@ -72,12 +68,7 @@ export function signupPayload(intent: SignupIntent) {
   return {
     full_name: intent.fullName.trim(),
     role: intent.role,
-    school_code:
-      intent.role === "teacher"
-        ? intent.schoolCode.trim()
-        : intent.role === "institution" && wanted
-          ? wanted
-          : null,
+    school_code: intent.role === "institution" && wanted ? wanted : null,
     student_code: null,
     school_name: intent.role === "institution" ? intent.schoolName.trim() : null,
   };

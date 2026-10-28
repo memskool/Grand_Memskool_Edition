@@ -90,7 +90,7 @@ function MarketplacePage() {
   const [search, setSearch] = useState("");
   const [checkoutItem, setCheckoutItem] = useState<MarketplaceItem | null>(null);
 
-  const canSell = role === "teacher" || role === "admin";
+  const canSell = role === "admin" || role === "institution";
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -106,8 +106,12 @@ function MarketplacePage() {
   return (
     <>
       <PageHeader
-        title="Marketplace"
-        subtitle="Extra books, revision resources and 1-on-1 tutoring."
+        title="Bookstore"
+        subtitle={
+          canSell
+            ? "List extra books and revision packs for your school."
+            : "Buy extra books and revision packs listed by schools."
+        }
         action={canSell ? <NewItemDialog sellerId={user?.id} /> : undefined}
       />
 

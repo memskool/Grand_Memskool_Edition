@@ -63,7 +63,22 @@ export function isApprovedGoldTutor(status: GoldApplicationStatus | null | undef
 
 export function canApplyAsGoldTutor(input: {
   alreadyStatus?: GoldApplicationStatus | null;
+  role?: string | null;
 }): { ok: true } | { ok: false; reason: string } {
+  if (input.role === "parent") {
+    return {
+      ok: false,
+      reason:
+        "Parent accounts follow a child’s school work. Use a student or teacher account to tutor on Gold.",
+    };
+  }
+  if (input.role === "institution" || input.role === "admin" || input.role === "superadmin") {
+    return {
+      ok: false,
+      reason:
+        "School accounts run the school workspace. Apply from a teacher or independent learner account.",
+    };
+  }
   if (input.alreadyStatus === "pending") {
     return { ok: false, reason: "Your Gold application is already under review." };
   }

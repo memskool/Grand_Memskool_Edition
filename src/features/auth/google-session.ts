@@ -13,6 +13,7 @@ import {
   signupIntentError,
   signupPayload,
 } from "@/features/auth/signup-intent";
+import { workspaceHome } from "@/features/auth/account-types";
 
 function unwrapProfile(raw: unknown): UserProfile | null {
   if (!raw || typeof raw !== "object") return null;
@@ -32,7 +33,7 @@ function unwrapProfile(raw: unknown): UserProfile | null {
 
 export async function resolveAfterGoogleSignIn(
   user: AuthUser,
-  continueTo: string,
+  continueTo?: string | null,
 ): Promise<{ to: string; notice?: string }> {
   let profile: UserProfile | null = null;
   try {
@@ -51,17 +52,12 @@ export async function resolveAfterGoogleSignIn(
   if (isProfileComplete(profile)) {
     clearSignupIntent();
     await refreshAuthClaims().catch(() => undefined);
-    return { to: continueTo };
+    return { to: continueTo ?? workspaceHome(profile?.role) };
   }
 
   const intent = loadSignupIntent();
   if (!intent || signupIntentError(intent)) {
     return { to: "/onboarding" };
-  }
-
-  if (intent.role === "teacher") {
-    const school = await lookupSchool(intent.schoolCode);
-    if (!school) return { to: "/onboarding" };
   }
 
   if (intent.role === "institution") {
@@ -77,7 +73,7 @@ export async function resolveAfterGoogleSignIn(
     await completeSignup({ data: signupPayload(intent) });
     await refreshAuthClaims();
     clearSignupIntent();
-    return { to: continueTo };
+    return { to: continueTo ?? workspaceHome(intent.role) };
   } catch (error) {
     return { to: "/onboarding", notice: authErrorMessage(error) };
   }

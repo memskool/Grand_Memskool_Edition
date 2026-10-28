@@ -95,7 +95,7 @@ export function HomeFeed({ initialVideoId }: { initialVideoId?: string }) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6">
+    <div className="page-enter mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6">
       <div className="flex flex-wrap gap-3">
         <Input
           value={query}

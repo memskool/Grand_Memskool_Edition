@@ -19,9 +19,8 @@ assert(
   "student can register without school or student id",
 );
 assert(
-  signupIntentError({ ...parent, role: "teacher", schoolCode: "MS" }) ===
-    "Enter the School ID your school gave you.",
-  "teacher still needs school id",
+  signupIntentError({ ...parent, role: "teacher", schoolCode: "" }) === null,
+  "teacher can register without a school id",
 );
 assert(
   signupIntentError({
@@ -42,7 +41,7 @@ const payload = signupPayload({
   schoolName: "",
 });
 assert(payload.full_name === "Jane", "name trimmed");
-assert(payload.school_code === "ms-4f91a2", "teacher school code kept");
+assert(payload.school_code === null, "teacher signup does not send a school code");
 assert(payload.student_code === null, "teacher has no student code");
 
 const studentPayload = signupPayload({

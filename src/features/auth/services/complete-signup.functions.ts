@@ -124,10 +124,6 @@ async function completeSignupHandler(data: SignupInput, context: AuthedContext) 
   const uid = context.userId;
   const email = context.email;
 
-  // Students create a free account first; school / student IDs are optional later.
-  if (data.role === "teacher" && !data.school_code?.trim()) {
-    throw new Error("Enter your School ID.");
-  }
   if (data.role === "institution" && !data.school_name?.trim()) {
     throw new Error("Enter your school's name.");
   }
@@ -193,26 +189,9 @@ async function completeSignupHandler(data: SignupInput, context: AuthedContext) 
       }
       membership = "owner";
     }
-  } else if (data.role === "teacher" && data.school_code) {
-    const wanted = codeKey(data.school_code);
-    const dir = await db.collection("school_directory").doc(wanted).get();
-    if (!dir.exists) {
-      throw new Error("That School ID isn't on Memskool yet. Check it with your school.");
-    }
-    schoolId = String(dir.get("school_id"));
-    membership = "pending";
-
-    const memberSnap = await db.collection("school_members").doc(uid).get();
-    if (!memberSnap.exists) {
-      await db.collection("school_members").doc(uid).set({
-        school_id: schoolId,
-        user_id: uid,
-        role: storedRole,
-        status: "pending",
-        student_code: null,
-        created_at: now,
-      });
-    }
+  } else if (data.role === "teacher") {
+    schoolId = null;
+    membership = "approved";
   } else if (data.role === "student" && data.school_code && data.student_code?.trim()) {
     // Optional legacy join path if both IDs are supplied (not required at signup).
     const wanted = codeKey(data.school_code);
@@ -248,7 +227,7 @@ async function completeSignupHandler(data: SignupInput, context: AuthedContext) 
   await adminAuth().setCustomUserClaims(uid, {
     role: claimRole,
     schoolId,
-    approved: membership !== "pending",
+    approved: true,
   });
 
   await adminSet(

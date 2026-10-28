@@ -5,11 +5,13 @@ import { LessonManager } from "@/components/app/LessonManager";
 import { AttendanceRecorder } from "@/components/app/AttendanceRecorder";
 
 import { CalendarClock, ClipboardCheck, BookOpen, Clock, BellRing } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAccess } from "@/lib/access";
 import { useRemindSchool } from "@/lib/school-membership";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
+import { TeacherSchoolJoin } from "@/components/app/TeacherSchoolJoin";
 
 import { ClassCardGrid } from "@/components/dashboards/ClassCards";
 import { ScheduleRail } from "@/components/app/ScheduleRail";
@@ -21,40 +23,51 @@ import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/prim
 import { formatDateTime } from "@/lib/format";
 
 export function TeacherDashboard({ user }: { user: AuthUser }) {
-  const { pendingApproval, schoolName, schoolId } = useAccess();
+  const { pendingApproval, schoolName, schoolId, hasSchool } = useAccess();
   const remind = useRemindSchool();
   const classes = useTeachingClasses(user.id);
   const today = useTeacherTimetable(user.id);
   const grading = usePendingGrading(user.id);
 
+  if (!hasSchool) {
+    return (
+      <div className="space-y-6">
+        <TeacherSchoolJoin />
+      </div>
+    );
+  }
+
   if (pendingApproval) {
     return (
-      <EmptyState
-        icon={Clock}
-        title="Waiting for school approval"
-        hint={
-          schoolName
-            ? `${schoolName} still needs to approve your teacher account. Classes, live lessons and grading unlock the moment they do.`
-            : "Add your School ID in Settings so your school can approve your teacher account."
-        }
-        action={
-          schoolId ? (
-            <Button
-              className="rounded-full"
-              disabled={remind.isPending}
-              onClick={() =>
-                remind.mutate(schoolId, {
-                  onSuccess: () => toast.success(`Reminder sent to ${schoolName ?? "your school"}`),
-                  onError: (e) => toast.error(authErrorMessage(e)),
-                })
-              }
-            >
-              <BellRing className="mr-2 size-4" />
-              Remind {schoolName ?? "school"}
-            </Button>
-          ) : undefined
-        }
-      />
+      <div className="space-y-6">
+        <EmptyState
+          icon={Clock}
+          title="Waiting for school approval"
+          hint={`${schoolName ?? "The school"} still needs to approve you before live class, timetable and marking unlock. You can keep teaching on Gold in the meantime.`}
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              {schoolId ? (
+                <Button
+                  disabled={remind.isPending}
+                  onClick={() =>
+                    remind.mutate(schoolId, {
+                      onSuccess: () =>
+                        toast.success(`Reminder sent to ${schoolName ?? "your school"}`),
+                      onError: (e) => toast.error(authErrorMessage(e)),
+                    })
+                  }
+                >
+                  <BellRing className="mr-2 size-4" />
+                  Remind {schoolName ?? "school"}
+                </Button>
+              ) : null}
+              <Button asChild variant="gold">
+                <Link to="/gold">Teach on Gold</Link>
+              </Button>
+            </div>
+          }
+        />
+      </div>
     );
   }
 
@@ -71,7 +84,7 @@ export function TeacherDashboard({ user }: { user: AuthUser }) {
           label="Sessions today"
           value={today.data?.length ?? 0}
           icon={CalendarClock}
-          tone="success"
+          tone="leaf"
           loading={today.isLoading}
         />
         <StatCard

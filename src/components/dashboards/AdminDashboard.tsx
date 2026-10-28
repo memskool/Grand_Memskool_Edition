@@ -28,14 +28,14 @@ export function AdminDashboard() {
           label="Classes"
           value={overview.data?.classes ?? 0}
           icon={BookOpen}
-          tone="success"
+          tone="leaf"
           loading={overview.isLoading}
         />
         <StatCard
           label="Subjects"
           value={overview.data?.subjects ?? 0}
           icon={Library}
-          tone="warning"
+          tone="sky"
           loading={overview.isLoading}
         />
         <StatCard

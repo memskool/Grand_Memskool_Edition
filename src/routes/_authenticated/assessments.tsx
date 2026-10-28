@@ -71,7 +71,7 @@ function TeacherView({ userId }: { userId?: string | undefined }) {
     <>
       <PageHeader
         title="Assessments"
-        subtitle="Design timed quizzes and exams, then watch results grade themselves."
+        subtitle="Set, mark and release timed quizzes and exams for your classes."
         action={
           <Button className="rounded-full" onClick={() => setTab("build")}>
             <Plus className="size-4" /> New assessment

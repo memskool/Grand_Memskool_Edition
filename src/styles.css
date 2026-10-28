@@ -28,6 +28,10 @@
   --color-primary-glow: var(--primary-glow);
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
+  --color-sky: var(--sky);
+  --color-sky-foreground: var(--sky-foreground);
+  --color-leaf: var(--leaf);
+  --color-leaf-foreground: var(--leaf-foreground);
   --color-ink: var(--ink);
   --color-ink-foreground: var(--ink-foreground);
   --color-ink-muted: var(--ink-muted);
@@ -80,8 +84,8 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 
   /*
-   * Canvas stays black / off-white.
-   * Crest navy (#0B1C3A) is primary. Crest gold (#C4A035) is the only accent.
+   * Canvas stays off-white. Crest navy is primary, crest gold the warm accent.
+   * Sky (Home / live info) and leaf (growth / classroom) sit beside them.
    */
   --background: oklch(0.975 0.004 90);
   --foreground: oklch(0.2 0.03 262);
@@ -94,6 +98,10 @@
   --primary-glow: oklch(0.32 0.05 262);
   --gold: oklch(0.725 0.132 88);
   --gold-foreground: oklch(0.225 0.054 262);
+  --sky: oklch(0.62 0.1 228);
+  --sky-foreground: oklch(0.99 0.01 90);
+  --leaf: oklch(0.58 0.1 155);
+  --leaf-foreground: oklch(0.99 0.01 90);
   --secondary: oklch(0.968 0.006 262);
   --secondary-foreground: oklch(0.225 0.04 262);
   --muted: oklch(0.968 0.006 262);
@@ -105,14 +113,14 @@
   --border: oklch(0.91 0.01 262);
   --input: oklch(0.91 0.01 262);
   --ring: oklch(0.725 0.132 88); /* gold focus */
-  --success: oklch(0.225 0.054 262);
+  --success: oklch(0.58 0.1 155);
   --success-foreground: oklch(0.99 0.01 90);
   --warning: oklch(0.62 0.12 80);
   --warning-foreground: oklch(0.225 0.054 262);
   --chart-1: oklch(0.725 0.132 88);
   --chart-2: oklch(0.225 0.054 262);
-  --chart-3: oklch(0.45 0.04 262);
-  --chart-4: oklch(0.68 0.02 262);
+  --chart-3: oklch(0.62 0.1 228);
+  --chart-4: oklch(0.58 0.1 155);
   --chart-5: oklch(0.84 0.01 90);
   --sidebar: oklch(0.225 0.054 262);
   --sidebar-foreground: oklch(0.97 0.01 90);
@@ -128,8 +136,32 @@
   --ink-muted: oklch(0.78 0.03 88);
   --gradient-brand: linear-gradient(135deg, oklch(0.225 0.054 262), oklch(0.32 0.05 262));
   --gradient-surface: linear-gradient(160deg, oklch(1 0 0), oklch(0.978 0.006 90));
+  --gradient-rail: linear-gradient(
+    90deg,
+    oklch(0.725 0.132 88),
+    oklch(0.62 0.1 228),
+    oklch(0.58 0.1 155)
+  );
+  --gradient-mesh:
+    radial-gradient(
+      900px 420px at 0% -10%,
+      color-mix(in oklch, var(--sky) 16%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      720px 380px at 100% 0%,
+      color-mix(in oklch, var(--gold) 14%, transparent),
+      transparent 58%
+    ),
+    radial-gradient(
+      640px 360px at 80% 110%,
+      color-mix(in oklch, var(--leaf) 12%, transparent),
+      transparent 55%
+    );
   --shadow-soft: 0 1px 1px rgb(11 28 58 / 0.04), 0 6px 16px rgb(11 28 58 / 0.04);
   --shadow-brand: 0 4px 18px rgb(11 28 58 / 0.1);
+  --shadow-lift: 0 8px 24px rgb(11 28 58 / 0.1);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .dark {
@@ -144,6 +176,10 @@
   --primary-glow: oklch(0.85 0.04 88);
   --gold: oklch(0.8 0.13 88);
   --gold-foreground: oklch(0.18 0.04 262);
+  --sky: oklch(0.72 0.1 228);
+  --sky-foreground: oklch(0.16 0.03 262);
+  --leaf: oklch(0.72 0.1 155);
+  --leaf-foreground: oklch(0.16 0.03 262);
   --secondary: oklch(0.24 0.02 262);
   --secondary-foreground: oklch(0.985 0.005 90);
   --muted: oklch(0.24 0.02 262);
@@ -155,14 +191,14 @@
   --border: oklch(0.28 0.02 262);
   --input: oklch(0.3 0.02 262);
   --ring: oklch(0.8 0.13 88);
-  --success: oklch(0.96 0.015 90);
-  --success-foreground: oklch(0.18 0.04 262);
+  --success: oklch(0.72 0.1 155);
+  --success-foreground: oklch(0.16 0.03 262);
   --warning: oklch(0.8 0.13 88);
   --warning-foreground: oklch(0.18 0.04 262);
   --chart-1: oklch(0.8 0.13 88);
   --chart-2: oklch(0.78 0.04 262);
-  --chart-3: oklch(0.66 0.03 262);
-  --chart-4: oklch(0.5 0.03 262);
+  --chart-3: oklch(0.72 0.1 228);
+  --chart-4: oklch(0.72 0.1 155);
   --chart-5: oklch(0.36 0.02 262);
   --sidebar: oklch(0.14 0.025 262);
   --sidebar-foreground: oklch(0.97 0.01 90);
@@ -178,8 +214,32 @@
   --ink-muted: oklch(0.78 0.05 88);
   --gradient-brand: linear-gradient(135deg, oklch(0.96 0.015 90), oklch(0.8 0.13 88));
   --gradient-surface: linear-gradient(160deg, oklch(0.16 0.02 262), oklch(0.12 0.02 262));
+  --gradient-rail: linear-gradient(
+    90deg,
+    oklch(0.8 0.13 88),
+    oklch(0.72 0.1 228),
+    oklch(0.72 0.1 155)
+  );
+  --gradient-mesh:
+    radial-gradient(
+      900px 420px at 0% -10%,
+      color-mix(in oklch, var(--sky) 18%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      720px 380px at 100% 0%,
+      color-mix(in oklch, var(--gold) 14%, transparent),
+      transparent 58%
+    ),
+    radial-gradient(
+      640px 360px at 80% 110%,
+      color-mix(in oklch, var(--leaf) 12%, transparent),
+      transparent 55%
+    );
   --shadow-soft: 0 1px 1px rgb(0 0 0 / 0.35), 0 8px 20px rgb(0 0 0 / 0.28);
   --shadow-brand: 0 4px 18px rgb(0 0 0 / 0.4);
+  --shadow-lift: 0 10px 28px rgb(0 0 0 / 0.38);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @layer base {
@@ -252,6 +312,32 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
+  transition:
+    box-shadow 180ms var(--ease-out),
+    border-color 180ms var(--ease-out),
+    transform 180ms var(--ease-out);
+}
+
+@utility surface-lift {
+  &:hover {
+    border-color: color-mix(in oklch, var(--sky) 28%, var(--color-border));
+    box-shadow: var(--shadow-lift);
+    transform: translateY(-1px);
+  }
+}
+
+@utility canvas-mesh {
+  background-color: var(--color-background);
+  background-image: var(--gradient-mesh);
+  background-attachment: fixed;
+}
+
+@utility accent-rail {
+  background-image: var(--gradient-rail);
+}
+
+@utility page-enter {
+  animation: memskool-fade-up 280ms var(--ease-out) both;
 }
 
 @utility brand-gradient {
@@ -286,4 +372,45 @@
   100% {
     transform: translateX(420%);
   }
+}
+
+@keyframes memskool-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes memskool-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@utility stagger-1 {
+  animation-delay: 40ms;
+}
+@utility stagger-2 {
+  animation-delay: 80ms;
+}
+@utility stagger-3 {
+  animation-delay: 120ms;
+}
+@utility stagger-4 {
+  animation-delay: 160ms;
+}
+@utility stagger-5 {
+  animation-delay: 200ms;
+}
+@utility stagger-6 {
+  animation-delay: 240ms;
 }

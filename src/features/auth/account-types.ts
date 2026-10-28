@@ -2,24 +2,28 @@ export const ACCOUNT_TYPES = [
   {
     value: "student",
     label: "Student",
-    blurb:
-      "Create your account, confirm your email, then explore Dream School, the library, AI tutor and more from your dashboard.",
+    blurb: "Classes, locker, assessments and the AI tutor. You can join a school later.",
   },
   {
     value: "parent",
     label: "Parent",
-    blurb: "Follow attendance, performance and school communication for your child.",
+    blurb: "Follow a linked child’s timetable, attendance and released results.",
   },
   {
     value: "teacher",
     label: "Teacher",
-    blurb: "Request to join your school, then teach, grade and run live classes.",
+    blurb: "Sign in first, then apply to a school or teach independently on Gold.",
   },
   {
     value: "institution",
-    label: "School / Institution",
-    blurb: "Create one online school, then run admissions, classes and staff from your workspace.",
+    label: "School",
+    blurb: "Register one school, then approve staff, classes and families.",
   },
 ] as const;
 
 export type AccountType = (typeof ACCOUNT_TYPES)[number]["value"];
+
+/** Where a finished account should land. */
+export function workspaceHome(role: string | null | undefined): "/school-admin" | "/dashboard" {
+  return role === "institution" || role === "admin" ? "/school-admin" : "/dashboard";
+}

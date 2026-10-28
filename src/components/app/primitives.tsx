@@ -13,7 +13,7 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-7 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 border-b border-border pb-5 sm:flex sm:flex-wrap sm:justify-between">
+    <div className="relative mb-7 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 border-b border-border pb-5 sm:flex sm:flex-wrap sm:justify-between">
       <div className="min-w-0">
         <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground sm:text-[1.75rem]">
           {title}
@@ -25,6 +25,10 @@ export function PageHeader({
         ) : null}
       </div>
       {action}
+      <span
+        aria-hidden
+        className="accent-rail pointer-events-none absolute inset-x-0 bottom-0 h-px"
+      />
     </div>
   );
 }
@@ -48,17 +52,20 @@ export function StatCard({
   label: string;
   value: ReactNode;
   icon: LucideIcon;
-  tone?: "primary" | "success" | "warning";
+  tone?: "primary" | "success" | "warning" | "sky" | "gold" | "leaf";
   loading?: boolean;
 }) {
   const tones = {
     primary: "bg-primary/12 text-primary",
-    success: "bg-success/14 text-success",
+    success: "bg-leaf/14 text-leaf",
+    leaf: "bg-leaf/14 text-leaf",
     warning: "bg-warning/18 text-warning-foreground",
+    sky: "bg-sky/14 text-sky",
+    gold: "bg-gold/16 text-gold",
   } as const;
 
   return (
-    <div className="surface-card flex items-center gap-4 p-5">
+    <div className="surface-card surface-lift flex items-center gap-4 p-5">
       <span
         className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg", tones[tone])}
       >
@@ -112,7 +119,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center rounded-lg border border-dashed border-border bg-card/40 px-6 py-10 text-center">
+    <div className="flex flex-col items-center rounded-lg border border-dashed border-border bg-card/60 px-6 py-10 text-center">
       <Icon className="mb-3 size-6 text-muted-foreground" />
       <p className="text-sm font-medium">{title}</p>
       {hint ? <p className="mt-1 max-w-sm text-xs text-muted-foreground">{hint}</p> : null}

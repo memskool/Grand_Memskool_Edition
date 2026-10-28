@@ -688,7 +688,7 @@ function AdmissionsSection({ schoolId }: { schoolId?: string | undefined }) {
           <EmptyState
             icon={Users}
             title="No pending join requests"
-            hint="When teachers sign up with your School ID, they appear here for approval."
+            hint="When teachers apply with your School ID from their dashboard, they appear here for approval."
           />
         ) : (
           <ul className="space-y-2">

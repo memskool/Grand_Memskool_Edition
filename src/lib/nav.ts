@@ -19,6 +19,19 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
 
+export type NavAccent = "navy" | "gold" | "sky" | "leaf";
+
+export type NavGroupId =
+  | "school"
+  | "study"
+  | "explore"
+  | "teaching"
+  | "family"
+  | "operations"
+  | "publish"
+  | "platform"
+  | "account";
+
 export type NavItem = {
   /** Label in the collapsed mobile tab bar / sidebar. */
   title: string;
@@ -26,122 +39,247 @@ export type NavItem = {
   icon: LucideIcon;
   /** Shorter label used by the mobile bottom bar. */
   short?: string;
+  /** Optional product colour used by nav chrome. */
+  accent?: NavAccent;
+  /** Sidebar section this destination belongs to. */
+  group?: NavGroupId;
+};
+
+export const NAV_GROUP_LABEL: Record<NavGroupId, string> = {
+  school: "School",
+  study: "Study",
+  explore: "Explore",
+  teaching: "Teaching",
+  family: "Your child",
+  operations: "School operations",
+  publish: "Publish",
+  platform: "Platform",
+  account: "Account",
 };
 
 const ITEM = {
-  dashboard: { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, short: "Home" },
-  locker: { title: "Locker", url: "/locker", icon: Archive, short: "Locker" },
-  missed: { title: "Missed Work", url: "/missed-work", icon: AlarmClock, short: "Missed" },
-  classroom: { title: "Virtual Classroom", url: "/virtual-classroom", icon: Video, short: "Live" },
-  timetable: { title: "Timetable", url: "/timetable", icon: CalendarDays, short: "Timetable" },
-  messages: { title: "Messages", url: "/messages", icon: MessageSquare, short: "Chats" },
-  library: { title: "Library", url: "/library", icon: BookOpen, short: "Library" },
-  tutor: { title: "AI Tutor", url: "/ai-tutor", icon: Bot, short: "Tutor" },
+  dashboard: {
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: LayoutDashboard,
+    short: "Home",
+    group: "school",
+  },
+  locker: {
+    title: "Locker",
+    url: "/locker",
+    icon: Archive,
+    short: "Locker",
+    group: "study",
+  },
+  missed: {
+    title: "Missed Work",
+    url: "/missed-work",
+    icon: AlarmClock,
+    short: "Missed",
+    group: "school",
+  },
+  classroom: {
+    title: "Live class",
+    url: "/virtual-classroom",
+    icon: Video,
+    short: "Live",
+    accent: "leaf",
+    group: "school",
+  },
+  timetable: {
+    title: "Timetable",
+    url: "/timetable",
+    icon: CalendarDays,
+    short: "Timetable",
+    group: "school",
+  },
+  messages: {
+    title: "Messages",
+    url: "/messages",
+    icon: MessageSquare,
+    short: "Chats",
+    group: "study",
+  },
+  library: {
+    title: "Library",
+    url: "/library",
+    icon: BookOpen,
+    short: "Library",
+    group: "study",
+  },
+  tutor: { title: "AI Tutor", url: "/ai-tutor", icon: Bot, short: "Tutor", group: "study" },
   assessments: {
     title: "Assessments",
     url: "/assessments",
     icon: ClipboardCheck,
     short: "Tests",
+    group: "school",
   },
-  dream: { title: "Dream School", url: "/dream-school", icon: Sparkles, short: "Schools" },
-  marketplace: { title: "Marketplace", url: "/marketplace", icon: ShoppingBag, short: "Store" },
-  schoolAdmin: { title: "School Admin", url: "/school-admin", icon: Building2, short: "School" },
-  gold: { title: "Gold", url: "/gold", icon: Award, short: "Gold" },
-  goldAdmin: { title: "Gold review", url: "/gold-admin", icon: Award, short: "Gold" },
-  home: { title: "Home", url: "/home", icon: House, short: "Watch" },
-  homeStudio: { title: "Home studio", url: "/home-studio", icon: Clapperboard, short: "Publish" },
-  homeAdmin: { title: "Home review", url: "/home-admin", icon: House, short: "Home" },
-  settings: { title: "Settings", url: "/settings", icon: Settings, short: "Settings" },
+  dream: {
+    title: "Dream School",
+    url: "/dream-school",
+    icon: Sparkles,
+    short: "Schools",
+    group: "explore",
+  },
+  marketplace: {
+    title: "Bookstore",
+    url: "/marketplace",
+    icon: ShoppingBag,
+    short: "Store",
+    group: "explore",
+  },
+  schoolAdmin: {
+    title: "School Admin",
+    url: "/school-admin",
+    icon: Building2,
+    short: "Admin",
+    group: "operations",
+  },
+  gold: {
+    title: "Gold",
+    url: "/gold",
+    icon: Award,
+    short: "Gold",
+    accent: "gold",
+    group: "explore",
+  },
+  goldAdmin: {
+    title: "Gold review",
+    url: "/gold-admin",
+    icon: Award,
+    short: "Gold",
+    accent: "gold",
+    group: "platform",
+  },
+  home: {
+    title: "Home",
+    url: "/home",
+    icon: House,
+    short: "Watch",
+    accent: "sky",
+    group: "explore",
+  },
+  homeStudio: {
+    title: "Home studio",
+    url: "/home-studio",
+    icon: Clapperboard,
+    short: "Publish",
+    accent: "sky",
+    group: "publish",
+  },
+  homeAdmin: {
+    title: "Home review",
+    url: "/home-admin",
+    icon: House,
+    short: "Home",
+    accent: "sky",
+    group: "platform",
+  },
+  settings: {
+    title: "Settings",
+    url: "/settings",
+    icon: Settings,
+    short: "Settings",
+    group: "account",
+  },
 } satisfies Record<string, NavItem>;
 
+const teacherTeaching = {
+  ...ITEM.classroom,
+  title: "Live class",
+  group: "teaching" as const,
+};
+const teacherDash = { ...ITEM.dashboard, group: "teaching" as const };
+const teacherAssess = { ...ITEM.assessments, group: "teaching" as const };
+const teacherTime = { ...ITEM.timetable, group: "teaching" as const };
+const teacherLib = { ...ITEM.library, group: "teaching" as const };
+const teacherMsg = { ...ITEM.messages, group: "teaching" as const };
+const teacherGold = { ...ITEM.gold, group: "publish" as const };
+
+const parentDash = { ...ITEM.dashboard, group: "family" as const };
+const parentTime = { ...ITEM.timetable, group: "family" as const };
+const parentAssess = { ...ITEM.assessments, group: "family" as const };
+const parentMsg = { ...ITEM.messages, group: "family" as const };
+
+const opsDash = { ...ITEM.dashboard, group: "operations" as const };
+const opsClass = { ...ITEM.classroom, group: "operations" as const };
+const opsTime = { ...ITEM.timetable, group: "operations" as const };
+const opsAssess = { ...ITEM.assessments, group: "operations" as const };
+const opsLib = { ...ITEM.library, group: "operations" as const };
+const opsMsg = { ...ITEM.messages, group: "operations" as const };
+const opsStore = { ...ITEM.marketplace, group: "publish" as const };
+
 /**
- * Each role gets its own workspace. Students and parents are receivers,
- * teachers and institutions are inputters — the navigation reflects that
- * instead of showing everyone the same links.
+ * Each role gets only the tools for that job. Students learn, teachers teach,
+ * parents follow a linked child, schools run the institution.
  */
 const BY_ROLE: Record<AppRole, NavItem[]> = {
   student: [
-    ITEM.home,
     ITEM.dashboard,
-    ITEM.timetable,
     ITEM.classroom,
     ITEM.assessments,
+    ITEM.messages,
+    ITEM.timetable,
     ITEM.missed,
     ITEM.locker,
     ITEM.library,
     ITEM.tutor,
-    ITEM.messages,
     ITEM.dream,
     ITEM.gold,
-    ITEM.homeStudio,
+    ITEM.home,
     ITEM.marketplace,
     ITEM.settings,
   ],
   teacher: [
-    ITEM.home,
-    ITEM.dashboard,
-    ITEM.timetable,
-    ITEM.classroom,
-    ITEM.assessments,
-    ITEM.library,
-    ITEM.tutor,
-    ITEM.locker,
-    ITEM.messages,
-    ITEM.gold,
+    teacherDash,
+    teacherTeaching,
+    teacherAssess,
+    teacherMsg,
+    teacherTime,
+    teacherLib,
+    teacherGold,
     ITEM.homeStudio,
-    ITEM.marketplace,
     ITEM.settings,
   ],
-  parent: [
-    ITEM.home,
-    ITEM.dashboard,
-    ITEM.timetable,
-    ITEM.assessments,
-    ITEM.messages,
-    ITEM.library,
-    ITEM.dream,
-    ITEM.gold,
-    ITEM.homeStudio,
-    ITEM.marketplace,
-    ITEM.settings,
-  ],
+  parent: [parentDash, parentTime, parentAssess, parentMsg, ITEM.settings],
   institution: [
-    ITEM.home,
-    ITEM.dashboard,
+    opsDash,
     ITEM.schoolAdmin,
-    ITEM.timetable,
-    ITEM.classroom,
-    ITEM.assessments,
-    ITEM.library,
-    ITEM.messages,
-    ITEM.gold,
+    opsClass,
+    opsMsg,
+    opsTime,
+    opsAssess,
+    opsLib,
     ITEM.homeStudio,
-    ITEM.marketplace,
+    opsStore,
     ITEM.settings,
   ],
   admin: [
-    ITEM.home,
-    ITEM.dashboard,
+    opsDash,
     ITEM.schoolAdmin,
-    ITEM.timetable,
-    ITEM.classroom,
-    ITEM.assessments,
-    ITEM.missed,
-    ITEM.locker,
-    ITEM.library,
-    ITEM.tutor,
-    ITEM.messages,
-    ITEM.dream,
-    ITEM.gold,
+    opsClass,
+    opsMsg,
+    opsTime,
+    opsAssess,
+    opsLib,
     ITEM.homeStudio,
-    ITEM.marketplace,
+    opsStore,
     ITEM.settings,
   ],
-  superadmin: [ITEM.dashboard, ITEM.homeAdmin, ITEM.goldAdmin, ITEM.settings],
+  superadmin: [
+    { ...ITEM.dashboard, group: "platform" },
+    ITEM.homeAdmin,
+    ITEM.goldAdmin,
+    ITEM.settings,
+  ],
 };
 
-/** Routes staff can still use while their school approval is pending. */
-export const PENDING_ALLOWED = ["/dashboard", "/messages", "/settings"];
+/** School teaching tools that stay locked until the school approves a teacher. */
+export const PENDING_SCHOOL_LOCK = ["/virtual-classroom", "/assessments", "/timetable", "/library"];
+/** @deprecated Use PENDING_SCHOOL_LOCK. Kept so older imports keep compiling. */
+export const PENDING_ALLOWED = ["/dashboard", "/gold", "/home-studio", "/messages", "/settings"];
 
 /** Navigation for a role, with exam-mode and approval restrictions applied. */
 export function navForRole(
@@ -151,7 +289,9 @@ export function navForRole(
 ): NavItem[] {
   let items = BY_ROLE[role ?? "student"] ?? BY_ROLE.student;
   if (examActive) items = items.filter((i) => i.url !== "/ai-tutor");
-  if (pendingApproval) items = items.filter((i) => PENDING_ALLOWED.includes(i.url));
+  if (pendingApproval) {
+    items = items.filter((i) => !PENDING_SCHOOL_LOCK.includes(i.url));
+  }
   return items;
 }
 
@@ -171,6 +311,26 @@ export function mobileTabsForRole(
   return navForRole(role, examActive, pendingApproval).slice(0, 4);
 }
 
+export function groupedNav(
+  items: NavItem[],
+): { id: NavGroupId; label: string; items: NavItem[] }[] {
+  const order: NavGroupId[] = [];
+  const map = new Map<NavGroupId, NavItem[]>();
+  for (const item of items) {
+    const id = item.group ?? "school";
+    if (!map.has(id)) {
+      order.push(id);
+      map.set(id, []);
+    }
+    map.get(id)!.push(item);
+  }
+  return order.map((id) => ({
+    id,
+    label: NAV_GROUP_LABEL[id],
+    items: map.get(id) ?? [],
+  }));
+}
+
 /**
  * Can this role open this path directly? Nav is the source of truth, so a
  * teacher typing /dream-school in the address bar is blocked too.
@@ -187,7 +347,15 @@ export function canAccessRoute(
     return allowed.includes("/gold") || allowed.includes("/gold-admin");
   }
   if (path.startsWith("/home-admin")) return allowed.includes("/home-admin");
-  if (path.startsWith("/home-studio")) return allowed.includes("/home-studio");
+  if (path.startsWith("/home-studio")) {
+    return (
+      allowed.includes("/home-studio") ||
+      role === "teacher" ||
+      role === "student" ||
+      role === "institution" ||
+      role === "admin"
+    );
+  }
   if (path === "/home" || path.startsWith("/home/")) return true;
   return allowed.some((url) => path === url || path.startsWith(`${url}/`));
 }

@@ -5,13 +5,15 @@ import type { AppRole } from "@/hooks/useAuth";
 import { accountState, isProfileComplete, type AccountState } from "@/features/auth/account-state";
 import { isSchoolManager } from "@/types/roles";
 
-export const PENDING_ALLOWED = ["/dashboard", "/messages", "/settings"];
+export const PENDING_ALLOWED = ["/dashboard", "/gold", "/home-studio", "/messages", "/settings"];
 
 /**
  * Access model for the whole app.
  *
  * - Role decides which workspace you get (see `src/lib/nav.ts`).
- * - Teachers must be approved by their school before any teaching tool unlocks.
+ * - Teachers can work independently (Gold / Home) until they apply to a school.
+ * - School live class, timetable and marking stay locked only while a join
+ *   request is pending.
  */
 export function useAccess() {
   const { user, loading } = useSession();
@@ -21,15 +23,15 @@ export function useAccess() {
   const suspension = useSuspensionStatus(user?.id);
 
   const r = (role.data ?? undefined) as AppRole | undefined;
-  const needsApproval = r === "teacher";
   const membership = school.data?.membership;
-  const approved = !needsApproval || membership === "owner" || membership === "approved";
+  const pendingApproval = r === "teacher" && membership === "pending";
+  const approved = !pendingApproval;
   const profileReady = !user || profile.isFetched;
   const roleReady = !user || role.isFetched;
   const state: AccountState = accountState({
     profile: profile.data,
     role: r,
-    pendingApproval: needsApproval && !approved,
+    pendingApproval,
     suspended: suspension.suspended,
   });
 
@@ -53,11 +55,11 @@ export function useAccess() {
     profile: profile.data,
     profileExists: isProfileComplete(profile.data),
     accountState: gateState,
-    loading: loading || !profileReady || !roleReady || (needsApproval && school.isLoading),
+    loading: loading || !profileReady || !roleReady || (r === "teacher" && school.isLoading),
     schoolName: school.data?.name ?? null,
     schoolId: school.data?.id ?? null,
     hasSchool: !!school.data,
-    pendingApproval: needsApproval && !approved,
+    pendingApproval,
     approved,
     suspended: suspension.suspended,
     emailVerified: user?.emailVerified ?? false,

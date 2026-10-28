@@ -78,7 +78,7 @@ const CATEGORY_ICON: Record<string, typeof BookOpen> = {
 function LibraryPage() {
   const { user } = useSession();
   const role = useRole(user ?? null);
-  const canManage = role.data === "teacher" || role.data === "admin";
+  const canManage = role.data === "teacher" || role.data === "admin" || role.data === "institution";
 
   const books = useLibraryBooks();
   const subjects = useSubjects();

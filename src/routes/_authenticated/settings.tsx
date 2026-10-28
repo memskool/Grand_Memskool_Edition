@@ -23,6 +23,8 @@ import {
 } from "@/lib/notifications-data";
 import { uploadAvatar } from "@/lib/storage";
 import { useTheme } from "@/components/app/ThemeToggle";
+import { useAccess } from "@/lib/access";
+import { TeacherSchoolJoin } from "@/components/app/TeacherSchoolJoin";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -45,6 +47,7 @@ function SettingsPage() {
   const { user } = useSession();
   const { data: profile } = useProfile(user ?? null);
   const { data: role } = useRole(user ?? null);
+  const { hasSchool, pendingApproval } = useAccess();
   const qc = useQueryClient();
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -81,6 +84,11 @@ function SettingsPage() {
   return (
     <>
       <PageHeader title="Settings" subtitle="Manage your Memskool account." />
+      {role === "teacher" && !hasSchool && !pendingApproval ? (
+        <div className="mb-6">
+          <TeacherSchoolJoin />
+        </div>
+      ) : null}
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Profile" description="How you appear across the platform">
           <form onSubmit={save} className="space-y-4">

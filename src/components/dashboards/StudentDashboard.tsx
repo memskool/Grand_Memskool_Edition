@@ -49,7 +49,7 @@ export function StudentDashboard({ user }: { user: AuthUser }) {
           label="Locker items"
           value={locker.data?.length ?? 0}
           icon={Archive}
-          tone="success"
+          tone="sky"
           loading={locker.isLoading}
         />
       </div>

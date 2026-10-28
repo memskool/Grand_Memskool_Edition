@@ -179,6 +179,21 @@ export function useUpdateSchoolCode(userId: string | undefined) {
   });
 }
 
+export function useRequestTeacherJoin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (schoolCode: string) => {
+      const { requestTeacherSchoolJoin } = await import("@/lib/members.functions");
+      return requestTeacherSchoolJoin({ data: { schoolCode } });
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["my-school"] });
+      void qc.invalidateQueries({ queryKey: ["profile"] });
+      void qc.invalidateQueries({ queryKey: ["role"] });
+    },
+  });
+}
+
 export function useRemindSchool() {
   return useMutation({
     mutationFn: async (schoolId: string) => {

@@ -48,11 +48,11 @@ const SuperadminDashboard = lazy(() =>
 );
 
 const SUBTITLES: Record<string, string> = {
-  student: "Your classes, work and locker at a glance.",
-  teacher: "Your teaching day, grading queue and classes.",
-  parent: "Attendance and performance for your child.",
-  admin: "School-wide overview of people and classes.",
-  institution: "Your school: members, approvals and admissions.",
+  student: "Your classes, assignments and locker.",
+  teacher: "Live lessons, grading and the classes you teach.",
+  parent: "Attendance and released results for your linked child.",
+  admin: "People, classes and school operations.",
+  institution: "Members, approvals and admissions for your school.",
   superadmin: "Platform operator — school workspaces stay separate.",
 };
 

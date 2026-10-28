@@ -20,6 +20,10 @@ assert(goldEnrolmentId("c1", "u1") === "c1_u1", "enrolment id is deterministic")
 assert(goldReviewId("c1", "u1") === "c1_u1", "review id is deterministic");
 
 assert(canApplyAsGoldTutor({}).ok, "new applicant can apply");
+assert(canApplyAsGoldTutor({ role: "student" }).ok, "students may apply as independent tutors");
+assert(canApplyAsGoldTutor({ role: "teacher" }).ok, "teachers may apply");
+assert(!canApplyAsGoldTutor({ role: "parent" }).ok, "parents cannot tutor on Gold");
+assert(!canApplyAsGoldTutor({ role: "institution" }).ok, "school accounts cannot tutor on Gold");
 assert(!canApplyAsGoldTutor({ alreadyStatus: "pending" }).ok, "pending cannot re-apply");
 assert(!canApplyAsGoldTutor({ alreadyStatus: "approved" }).ok, "approved cannot re-apply");
 

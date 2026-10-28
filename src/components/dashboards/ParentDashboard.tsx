@@ -61,7 +61,7 @@ export function ParentDashboard({ user }: { user: AuthUser }) {
           label="Attendance rate"
           value={`${rate}%`}
           icon={CalendarCheck}
-          tone="success"
+          tone="leaf"
           loading={attendance.isLoading}
         />
         <StatCard
@@ -74,7 +74,7 @@ export function ParentDashboard({ user }: { user: AuthUser }) {
           label="Graded items"
           value={graded.length}
           icon={GraduationCap}
-          tone="warning"
+          tone="sky"
           loading={performance.isLoading}
         />
       </div>

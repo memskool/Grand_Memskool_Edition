@@ -19,13 +19,21 @@ export function ClassCard({
       preload="intent"
       to="/virtual-classroom"
       className={cn(
-        "group relative flex min-h-[148px] flex-col justify-between overflow-hidden rounded-xl bg-ink p-5 text-ink-foreground",
+        "group relative flex min-h-[148px] flex-col justify-between overflow-hidden rounded-xl bg-ink p-5 text-ink-foreground transition-transform duration-200 ease-out hover:-translate-y-0.5",
         className,
       )}
     >
       <span
         aria-hidden
-        className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-ink-foreground/5"
+        className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-sky/20"
+      />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -bottom-12 -left-8 size-28 rounded-full bg-leaf/15"
+      />
+      <span
+        aria-hidden
+        className="accent-rail pointer-events-none absolute inset-x-0 top-0 h-0.5"
       />
       <div className="flex items-start justify-between gap-3">
         <span className="flex size-10 items-center justify-center rounded-lg bg-ink-foreground/10">
@@ -65,7 +73,7 @@ export function ClassCardGrid({
     return (
       <div className="grid gap-4 sm:grid-cols-2">
         {[0, 1].map((i) => (
-          <Skeleton key={i} className="h-[148px] rounded-3xl" />
+          <Skeleton key={i} className="h-[148px] rounded-xl" />
         ))}
       </div>
     );

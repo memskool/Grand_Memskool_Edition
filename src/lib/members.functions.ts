@@ -42,9 +42,10 @@ export const setSchoolMemberStatus = createServerFn({ method: "POST" })
 
     const now = new Date().toISOString();
     await adminUpdate(COLLECTIONS.schoolMembers, member.id, { status: data.status });
+    const independentAgain = data.status === "rejected";
     await adminSet(COLLECTIONS.users, member.user_id, {
-      school_id: member.school_id,
-      membership_status: data.status,
+      school_id: independentAgain ? null : member.school_id,
+      membership_status: independentAgain ? "approved" : data.status,
       updated_at: now,
     });
 
@@ -56,8 +57,8 @@ export const setSchoolMemberStatus = createServerFn({ method: "POST" })
     const claimRole = storedRole === "institution" ? "admin" : storedRole;
     await adminAuth().setCustomUserClaims(member.user_id, {
       role: claimRole,
-      schoolId: member.school_id,
-      approved: data.status === "approved",
+      schoolId: independentAgain ? null : member.school_id,
+      approved: data.status !== "pending",
     });
 
     const { createAndQueueNotification, dispatchNotifications } =
@@ -263,4 +264,50 @@ export const unlinkParentStudent = createServerFn({ method: "POST" })
     }
     await adminDelete(COLLECTIONS.parentStudents, data.linkId);
     return { ok: true as const };
+  });
+
+export const requestTeacherSchoolJoin = createServerFn({ method: "POST" })
+  .middleware([requireFirebaseAuth])
+  .inputValidator((data: unknown) =>
+    z.object({ schoolCode: z.string().trim().min(3).max(24) }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    if (context.role !== "teacher") {
+      throw new Error("Only teacher accounts can apply to join a school as staff.");
+    }
+    const { adminDb } = await import("@/lib/firebase/admin.server");
+    const { applyTeacherToSchool } = await import("@/lib/teacher-join.server");
+    const now = new Date().toISOString();
+    const joined = await applyTeacherToSchool({
+      db: adminDb(),
+      userId: context.userId,
+      email: context.email,
+      schoolCode: data.schoolCode,
+      now,
+    });
+
+    const school = await adminGetById<{ owner_id?: string; name?: string }>(
+      COLLECTIONS.schools,
+      joined.schoolId,
+    );
+    if (school?.owner_id) {
+      const { createAndQueueNotification, dispatchNotifications } =
+        await import("./notifications.server");
+      await createAndQueueNotification({
+        userId: school.owner_id,
+        title: "Teacher asked to join",
+        body: "A teacher applied to join your school. Review the request in School Admin.",
+        kind: "security",
+        link: "/school-admin",
+        schoolId: joined.schoolId,
+        createdAt: now,
+      });
+      void dispatchNotifications();
+    }
+
+    return {
+      ok: true as const,
+      schoolId: joined.schoolId,
+      schoolName: joined.schoolName,
+    };
   });

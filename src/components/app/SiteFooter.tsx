@@ -24,7 +24,7 @@ export function SiteFooter({ className = "" }: { className?: string }) {
             </p>
             <a
               href="mailto:memskool@gmail.com"
-              className="flex items-center gap-2 transition-colors duration-150 hover:text-gold"
+              className="flex items-center gap-2 transition-colors duration-150 hover:text-sky"
             >
               <Mail className="size-3.5" aria-hidden /> memskool@gmail.com
             </a>
@@ -32,7 +32,7 @@ export function SiteFooter({ className = "" }: { className?: string }) {
               href="https://mem.com"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-2 transition-colors duration-150 hover:text-gold"
+              className="flex items-center gap-2 transition-colors duration-150 hover:text-sky"
             >
               <Globe className="size-3.5" aria-hidden /> mem.com
             </a>
@@ -44,7 +44,7 @@ export function SiteFooter({ className = "" }: { className?: string }) {
             </p>
             <a
               href="mailto:altrastate@gmail.com"
-              className="flex items-center gap-2 transition-colors duration-150 hover:text-gold"
+              className="flex items-center gap-2 transition-colors duration-150 hover:text-sky"
             >
               <Mail className="size-3.5" aria-hidden /> altrastate@gmail.com
             </a>
@@ -52,13 +52,13 @@ export function SiteFooter({ className = "" }: { className?: string }) {
               href="https://altrastate.com"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-2 transition-colors duration-150 hover:text-gold"
+              className="flex items-center gap-2 transition-colors duration-150 hover:text-sky"
             >
               <Globe className="size-3.5" aria-hidden /> altrastate.com
             </a>
             <a
               href="tel:+256765179900"
-              className="flex items-center gap-2 transition-colors duration-150 hover:text-gold"
+              className="flex items-center gap-2 transition-colors duration-150 hover:text-sky"
             >
               <Phone className="size-3.5" aria-hidden /> +256 765 179 900
             </a>

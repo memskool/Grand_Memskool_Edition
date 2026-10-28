@@ -140,7 +140,7 @@ export const refreshUserClaims = onCall(async (request) => {
   await getAuth().setCustomUserClaims(uid, {
     role,
     schoolId: user.school_id ?? null,
-    approved: user.membership_status === "approved" || role !== "teacher",
+    approved: role !== "teacher" || user.membership_status !== "pending",
   });
   await getAuth().revokeRefreshTokens(uid).catch(() => undefined);
   return {ok: true};

@@ -52,46 +52,58 @@ function LandingPage() {
             Sign in
           </Link>
         </Button>
-        <Button asChild variant="outline">
+        <Button asChild variant="sky">
           <Link preload="intent" to="/home">
             Watch Home
           </Link>
         </Button>
       </div>
       <p className="mt-3 text-sm text-muted-foreground">
-        Students and teachers need a School ID from their institution. Parents are linked by a
-        school administrator.
+        Students and teachers can start without a School ID. Teachers apply to a school from the
+        workspace, or teach on Gold. Parents are linked to a child by the school.
       </p>
 
       <ul className="mt-12 grid gap-3 sm:grid-cols-2">
         <RoleCard
           icon={GraduationCap}
           title="Students"
-          body="Join class, keep work in a locker, sit assessments, and — when Crane5 is connected — ask the AI Tutor for an explanation."
+          tone="navy"
+          delay="stagger-1"
+          body="Join class, keep work in a locker, sit assessments, and ask the AI Tutor when it is connected."
         />
         <RoleCard
           icon={BookOpen}
           title="Teachers"
-          body="Run live lessons, set work, mark where needed, and publish results when the class is ready."
+          tone="leaf"
+          delay="stagger-2"
+          body="Sign up first, then apply to a school or teach independently on Gold. Live class and marking unlock after the school approves you."
         />
         <RoleCard
           icon={HeartHandshake}
           title="Parents"
-          body="After your school links you to a child, review attendance and released results — not unreleased papers."
+          tone="sky"
+          delay="stagger-3"
+          body="After the school links you to a child, review timetable, attendance and released results."
         />
         <RoleCard
           icon={Shield}
           title="Schools"
+          tone="navy"
+          delay="stagger-4"
           body="Each school’s records stay in that school. Staff manage classes, families and membership from School Admin."
         />
         <RoleCard
           icon={Award}
           title="Gold"
+          tone="gold"
+          delay="stagger-5"
           body="Independent tutors can offer approved coaching classes without registering a school. Access is not automatic from a payment page."
         />
         <RoleCard
           icon={Clapperboard}
           title="Home"
+          tone="sky"
+          delay="stagger-6"
           body="A free feed of short educational videos. Public clips appear only after a platform operator approves them."
         />
       </ul>
@@ -103,14 +115,27 @@ function RoleCard({
   icon: Icon,
   title,
   body,
+  tone,
+  delay,
 }: {
   icon: typeof GraduationCap;
   title: string;
   body: string;
+  tone: "navy" | "gold" | "sky" | "leaf";
+  delay: string;
 }) {
+  const iconTone = {
+    navy: "bg-primary/10 text-primary",
+    gold: "bg-gold/15 text-gold",
+    sky: "bg-sky/15 text-sky",
+    leaf: "bg-leaf/15 text-leaf",
+  } as const;
+
   return (
-    <li className="surface-card p-5">
-      <Icon className="mb-3 size-5 text-primary" />
+    <li className={`page-enter surface-card surface-lift p-5 ${delay}`}>
+      <span className={`mb-3 flex size-9 items-center justify-center rounded-lg ${iconTone[tone]}`}>
+        <Icon className="size-5" />
+      </span>
       <h2 className="font-display text-base font-semibold">{title}</h2>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{body}</p>
     </li>

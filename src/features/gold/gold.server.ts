@@ -102,7 +102,11 @@ export async function applyGoldTutor(input: {
     throw new Error("Your account is suspended.");
   }
   const existing = await getMyGoldTutor(input.userId);
-  const gate = canApplyAsGoldTutor({ alreadyStatus: existing?.status ?? null });
+  const account = await adminGetById<{ role?: string }>(COLLECTIONS.users, input.userId);
+  const gate = canApplyAsGoldTutor({
+    alreadyStatus: existing?.status ?? null,
+    role: account?.role ?? null,
+  });
   if (!gate.ok) throw new Error(gate.reason);
   if (!input.bio.trim() || input.bio.trim().length < 40) {
     throw new Error("Write a short professional biography (at least 40 characters).");

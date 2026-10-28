@@ -29,7 +29,7 @@ export function MobileNav() {
             onClick={() => setOpen(false)}
             className="absolute inset-0 bg-background/70 backdrop-blur-xl"
           />
-          <div className="absolute inset-x-3 bottom-24 top-6 flex flex-col overflow-hidden rounded-xl bg-ink text-ink-foreground shadow-2xl">
+          <div className="absolute inset-x-3 bottom-24 top-6 flex flex-col overflow-hidden rounded-xl bg-ink text-ink-foreground shadow-2xl [animation:memskool-sheet-in_220ms_cubic-bezier(0.2,0.8,0.2,1)]">
             <div className="flex items-center gap-3 border-b border-ink-foreground/10 px-5 py-4">
               <BrandMark size={40} />
               <div className="min-w-0 flex-1">
@@ -93,13 +93,24 @@ export function MobileNav() {
                   to={item.url}
                   className={cn(
                     "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors duration-150",
-                    active ? "text-primary" : "text-muted-foreground",
+                    active
+                      ? item.accent === "gold"
+                        ? "text-gold"
+                        : item.accent === "sky"
+                          ? "text-sky"
+                          : item.accent === "leaf"
+                            ? "text-leaf"
+                            : "text-primary"
+                      : "text-muted-foreground",
                   )}
                 >
                   <span
                     className={cn(
-                      "flex h-8 w-12 items-center justify-center rounded-lg transition-all",
-                      active && "bg-primary text-primary-foreground",
+                      "flex h-8 w-12 items-center justify-center rounded-lg transition-transform duration-150",
+                      active && "scale-105 bg-primary text-primary-foreground",
+                      active && item.accent === "gold" && "bg-gold text-gold-foreground",
+                      active && item.accent === "sky" && "bg-sky text-sky-foreground",
+                      active && item.accent === "leaf" && "bg-leaf text-leaf-foreground",
                     )}
                   >
                     <item.icon className="size-[18px]" />

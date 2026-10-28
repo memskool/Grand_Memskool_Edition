@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { useRole, useSession } from "@/hooks/useAuth";
 import { Award, Search } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
@@ -42,6 +43,9 @@ export const Route = createFileRoute("/_authenticated/gold")({
 });
 
 function GoldPage() {
+  const { user } = useSession();
+  const { data: role } = useRole(user ?? null);
+  const canTeach = role === "student" || role === "teacher";
   const directory = useGoldDirectory();
   const mine = useMyGoldTutor();
   const enrolments = useMyGoldEnrolments();
@@ -69,7 +73,7 @@ function GoldPage() {
         <TabsList className="flex-wrap">
           <TabsTrigger value="discover">Discover</TabsTrigger>
           <TabsTrigger value="learning">My learning</TabsTrigger>
-          <TabsTrigger value="teach">Teach on Gold</TabsTrigger>
+          {canTeach ? <TabsTrigger value="teach">Teach on Gold</TabsTrigger> : null}
         </TabsList>
         <TabsContent value="discover">
           <div className="mb-4 flex flex-wrap gap-3">
@@ -107,14 +111,14 @@ function GoldPage() {
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2">
               {classes.map((row) => (
-                <li key={row.id} className="surface-card space-y-2 p-5">
+                <li key={row.id} className="surface-card surface-lift space-y-2 p-5">
                   <p className="font-display text-lg font-semibold">{row.title}</p>
                   <p className="text-sm text-muted-foreground">
                     {row.tutor_name} · {goldSubjectLabel(row.subject)} ·{" "}
                     {goldSubjectLabel(row.level)}
                   </p>
                   <p className="text-sm font-medium">{priceLabel(row.price_cents, row.currency)}</p>
-                  <Button asChild className="rounded-full">
+                  <Button asChild variant="gold">
                     <Link to="/gold/class/$classId" params={{ classId: row.id }}>
                       View class
                     </Link>
@@ -156,9 +160,11 @@ function GoldPage() {
             </ul>
           )}
         </TabsContent>
-        <TabsContent value="teach">
-          <TeachGoldPanel status={mine.data?.status ?? null} />
-        </TabsContent>
+        {canTeach ? (
+          <TabsContent value="teach">
+            <TeachGoldPanel status={mine.data?.status ?? null} />
+          </TabsContent>
+        ) : null}
       </Tabs>
     </>
   );

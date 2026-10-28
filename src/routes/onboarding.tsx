@@ -13,7 +13,7 @@ import {
   refreshAuthClaims,
   signOut,
 } from "@/features/auth/services/auth.service";
-import { ACCOUNT_TYPES, type AccountType } from "@/features/auth/account-types";
+import { ACCOUNT_TYPES, workspaceHome, type AccountType } from "@/features/auth/account-types";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { lookupSchool, type SchoolSummary } from "@/lib/school-membership";
 import type { UserProfile } from "@/types/user";
@@ -36,12 +36,6 @@ export const Route = createFileRoute("/onboarding")({
   }),
   component: OnboardingPage,
 });
-
-function workspaceHome(role: string | null | undefined): "/school-admin" | "/dashboard" {
-  return role === "institution" || role === "admin" || role === "superadmin"
-    ? "/school-admin"
-    : "/dashboard";
-}
 
 function unwrapProfile(raw: unknown): UserProfile | null {
   if (!raw || typeof raw !== "object") return null;
@@ -67,12 +61,9 @@ function OnboardingPage() {
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<AccountType>("student");
   const [schoolCode, setSchoolCode] = useState("");
-  const [studentCode, setStudentCode] = useState("");
   const [schoolName, setSchoolName] = useState("");
   const [foundSchool, setFoundSchool] = useState<SchoolSummary | null>(null);
   const [checkingSchool, setCheckingSchool] = useState(false);
-
-  const needsSchoolCode = role === "teacher";
 
   useEffect(() => {
     void (async () => {
@@ -116,7 +107,6 @@ function OnboardingPage() {
         setRole(intent.role);
         setFullName(intent.fullName.trim() || user.displayName || "");
         setSchoolCode(intent.schoolCode);
-        setStudentCode(intent.studentCode);
         setSchoolName(intent.schoolName);
       } else if (effectiveRole === "institution") {
         setRole("institution");
@@ -130,7 +120,7 @@ function OnboardingPage() {
   }, [navigate, queryClient]);
 
   useEffect(() => {
-    if ((!needsSchoolCode && role !== "institution") || schoolCode.trim().length < 3) {
+    if (role !== "institution" || schoolCode.trim().length < 3) {
       setFoundSchool(null);
       return;
     }
@@ -152,14 +142,10 @@ function OnboardingPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [schoolCode, needsSchoolCode, role]);
+  }, [schoolCode, role]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (needsSchoolCode && !foundSchool) {
-      toast.error("That School ID isn't on Memskool yet. Check it with your school.");
-      return;
-    }
     if (role === "institution" && !schoolName.trim()) {
       toast.error("Enter your school's name.");
       return;
@@ -183,11 +169,7 @@ function OnboardingPage() {
           data: {
             full_name: fullName.trim(),
             role,
-            school_code: needsSchoolCode
-              ? schoolCode.trim()
-              : role === "institution" && wantedCode
-                ? wantedCode
-                : null,
+            school_code: role === "institution" && wantedCode ? wantedCode : null,
             student_code: null,
             school_name: role === "institution" ? schoolName.trim() : null,
           },
@@ -195,8 +177,7 @@ function OnboardingPage() {
         {
           role,
           schoolId: null,
-          membership:
-            role === "teacher" ? "pending" : role === "institution" ? "owner" : "approved",
+          membership: role === "institution" ? "owner" : "approved",
         },
       );
       await refreshAuthClaims();
@@ -215,11 +196,11 @@ function OnboardingPage() {
       clearSignupIntent();
       toast.success(
         role === "teacher"
-          ? "Profile saved. Your school still needs to approve your teacher account."
+          ? "Profile saved. Join a school from your dashboard, or teach on Gold."
           : "Profile saved. Welcome to Memskool.",
       );
       await navigate({
-        to: role === "institution" ? "/school-admin" : "/dashboard",
+        to: workspaceHome(role),
         replace: true,
       });
     } catch (error) {
@@ -315,34 +296,20 @@ function OnboardingPage() {
                 </p>
               </div>
             ) : null}
-            {needsSchoolCode ? (
-              <div className="space-y-2">
-                <Label htmlFor="ob-school-code">School ID</Label>
-                <Input
-                  id="ob-school-code"
-                  required
-                  value={schoolCode}
-                  onChange={(e) => setSchoolCode(e.target.value)}
-                />
-                <p className={`text-xs ${foundSchool ? "text-primary" : "text-muted-foreground"}`}>
-                  {checkingSchool
-                    ? "Checking School ID…"
-                    : foundSchool
-                      ? `Matched ${foundSchool.name}`
-                      : "Enter the School ID your school gave you."}
-                </p>
-              </div>
-            ) : null}
             {role === "student" ? (
-              <p className="rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
-                No School ID needed. After you continue, confirm your email, then explore Dream
-                School and the rest of Memskool from your dashboard.
+              <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                No School ID needed. Join a school later from Dream School if you want classes.
+              </p>
+            ) : null}
+            {role === "parent" ? (
+              <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                After this, ask the school to link you to your child. You cannot do that yourself.
               </p>
             ) : null}
             {role === "teacher" ? (
-              <p className="rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
-                Your school approves teacher accounts. Until then you can sign in, but teaching
-                tools stay locked.
+              <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                No School ID here. After you continue, join a school from your dashboard or teach on
+                Gold.
               </p>
             ) : null}
             <Button type="submit" className="w-full rounded-full" disabled={loading}>
