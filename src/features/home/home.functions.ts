@@ -42,7 +42,7 @@ export const loadHomeFeed = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     try {
       const { loadHomeFeed: load } = await import("./home.server");
-      return load({
+      return await load({
         userId: context?.userId ?? null,
         subject: data.subject === "all" ? null : (data.subject ?? null),
         level: data.level === "all" ? null : (data.level ?? null),
@@ -50,7 +50,13 @@ export const loadHomeFeed = createServerFn({ method: "POST" })
         ...(data.query ? { query: data.query } : {}),
       });
     } catch (error) {
-      throw new Error(error instanceof Error ? error.message : "Home could not load.");
+      console.error("loadHomeFeed rpc", error);
+      return {
+        items: [],
+        nextCursor: null,
+        ranking:
+          "Rule-based: recency, likes, unique views, and your selected subjects. Not an AI ranker.",
+      };
     }
   });
 

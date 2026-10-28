@@ -1,15 +1,9 @@
 import "@tanstack/react-start/server-only";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb, adminStorage } from "@/lib/firebase/admin.server";
-import {
-  adminCreate,
-  adminGetById,
-  adminListAll,
-  adminSet,
-  adminUpdate,
-} from "@/lib/firebase/admin-repo";
+import { adminCreate, adminGetById, adminSet, adminUpdate } from "@/lib/firebase/admin-repo";
 import { toClientJson } from "@/lib/firebase/plain-data";
-import { COLLECTIONS } from "@/lib/firebase/repo";
+import { COLLECTIONS } from "@/lib/firebase/collections";
 import type { AppRole } from "@/types/roles";
 import type { GoldTutor } from "@/features/gold/types";
 import {
@@ -188,16 +182,9 @@ export async function loadHomeFeed(input: {
     } catch (error) {
       console.error("home catalog", error);
     }
-    let videos = (await loadHomeVideosByIds(ids)).filter((row) => isPublishedHomeVideo(row.status));
-    if (videos.length === 0) {
-      try {
-        videos = (await adminListAll<HomeVideo>(COLLECTIONS.homeVideos, 80)).filter((row) =>
-          isPublishedHomeVideo(row.status),
-        );
-      } catch (error) {
-        console.error("home video list", error);
-      }
-    }
+    const videos = (await loadHomeVideosByIds(ids)).filter((row) =>
+      isPublishedHomeVideo(row.status),
+    );
     let interests: string[] = [];
     if (input.userId) {
       try {

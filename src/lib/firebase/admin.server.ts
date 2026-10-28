@@ -1,3 +1,4 @@
+import "@/lib/node-esm-globals";
 import { readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { initializeApp, getApps, cert, applicationDefault, type App } from "firebase-admin/app";

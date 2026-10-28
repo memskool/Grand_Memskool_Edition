@@ -2,7 +2,7 @@ import "@tanstack/react-start/server-only";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin.server";
 import { adminGetById, adminSet } from "@/lib/firebase/admin-repo";
-import { COLLECTIONS } from "@/lib/firebase/repo";
+import { COLLECTIONS } from "@/lib/firebase/collections";
 import type { HomeVideo } from "./types";
 
 const OPS = "ops";

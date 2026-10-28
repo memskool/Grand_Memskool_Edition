@@ -1,3 +1,4 @@
+import "@/lib/node-esm-globals";
 import { createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import type { DecodedIdToken } from "firebase-admin/auth";

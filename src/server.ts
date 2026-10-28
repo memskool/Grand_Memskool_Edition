@@ -1,3 +1,4 @@
+import "./lib/node-esm-globals";
 import "./lib/error-capture";
 
 import { consumeLastCapturedError, describeError } from "./lib/error-capture";

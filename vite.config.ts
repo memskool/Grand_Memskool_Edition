@@ -12,4 +12,18 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    ssr: {
+      external: [
+        "firebase-admin",
+        "firebase-admin/app",
+        "firebase-admin/auth",
+        "firebase-admin/firestore",
+        "firebase-admin/storage",
+        "firebase-admin/messaging",
+        "@google-cloud/firestore",
+        "@google-cloud/storage",
+      ],
+    },
+  },
 });
