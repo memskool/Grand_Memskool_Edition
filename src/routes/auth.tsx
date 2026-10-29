@@ -28,6 +28,7 @@ import {
 import { seedSessionAfterSignup, unwrapSignupResult } from "@/features/auth/seed-session";
 import { resolveAfterGoogleSignIn } from "@/features/auth/google-session";
 import { loadMyAccount } from "@/features/auth/services/session-account.functions";
+import { readCachedProfile } from "@/features/auth/account-cache";
 import { GoogleSignInButton } from "@/components/app/GoogleSignInButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,10 +61,12 @@ async function readAccountProfile(userId: string): Promise<UserProfile | null> {
     // fall through
   }
   try {
-    return await getById<UserProfile>(COLLECTIONS.users, userId);
+    const fromClient = await getById<UserProfile>(COLLECTIONS.users, userId);
+    if (fromClient) return fromClient;
   } catch {
-    return null;
+    // fall through
   }
+  return readCachedProfile(userId);
 }
 
 export const Route = createFileRoute("/auth")({

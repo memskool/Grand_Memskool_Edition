@@ -26,8 +26,8 @@ export function useAccess() {
   const membership = school.data?.membership;
   const pendingApproval = r === "teacher" && membership === "pending";
   const approved = !pendingApproval;
-  const profileReady = !user || profile.isFetched;
-  const roleReady = !user || role.isFetched;
+  const profileReady = !user || profile.isFetched || Boolean(profile.data);
+  const roleReady = !user || role.isFetched || Boolean(r);
   const state: AccountState = accountState({
     profile: profile.data,
     role: r,

@@ -14,7 +14,7 @@ export function IdentityGate({ children }: { children: ReactNode }) {
       navigate({ to: "/auth", replace: true });
       return;
     }
-    if (accountState === "incomplete" && !isOperator) {
+    if (accountState === "incomplete" && !isOperator && !role) {
       navigate({ to: "/onboarding", replace: true });
     }
   }, [accountState, isOperator, navigate]);
@@ -23,7 +23,7 @@ export function IdentityGate({ children }: { children: ReactNode }) {
     return <ListSkeleton rows={4} />;
   }
   // School operators must stay in School Admin even if profile cache blips.
-  if (accountState === "incomplete" && !isOperator) {
+  if (accountState === "incomplete" && !isOperator && !role) {
     return <ListSkeleton rows={4} />;
   }
 

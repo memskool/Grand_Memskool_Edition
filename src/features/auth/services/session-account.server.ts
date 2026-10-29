@@ -2,7 +2,7 @@ import "@tanstack/react-start/server-only";
 import type { DocumentData, Firestore } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebase/admin.server";
 import { adminSet } from "@/lib/firebase/admin-repo";
-import { COLLECTIONS } from "@/lib/firebase/repo";
+import { COLLECTIONS } from "@/lib/firebase/collections";
 import { plainFirestoreData } from "@/lib/firebase/plain-data";
 import type { AppRole } from "@/types/roles";
 import type { UserProfile } from "@/types/user";

@@ -181,7 +181,12 @@ export function hasPasswordProvider(): boolean {
 }
 
 export async function signOut(): Promise<void> {
+  const uid = getFirebaseAuth().currentUser?.uid;
   await firebaseSignOut(getFirebaseAuth());
+  if (uid) {
+    const { clearAccountCache } = await import("@/features/auth/account-cache");
+    clearAccountCache(uid);
+  }
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {

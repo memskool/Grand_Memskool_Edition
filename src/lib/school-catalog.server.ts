@@ -2,7 +2,7 @@ import "@tanstack/react-start/server-only";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminCol, adminGetById, adminListAll } from "@/lib/firebase/admin-repo";
 import { adminDb, getAdminApp } from "@/lib/firebase/admin.server";
-import { COLLECTIONS } from "@/lib/firebase/repo";
+import { COLLECTIONS } from "@/lib/firebase/collections";
 import { FIRESTORE_DATABASE_ID } from "@/lib/firebase/config";
 import { schoolCodeKey } from "@/lib/school-ids";
 

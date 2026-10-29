@@ -18,7 +18,7 @@ export const loadMyAccount = createServerFn({ method: "POST" })
       });
     } catch (error) {
       console.error("[loadMyAccount]", error);
-      return null;
+      throw error;
     }
   });
 
@@ -33,7 +33,7 @@ export const loadMyManagedSchool = createServerFn({ method: "POST" })
       });
     } catch (error) {
       console.error("[loadMyManagedSchool]", error);
-      return null;
+      throw error;
     }
   });
 

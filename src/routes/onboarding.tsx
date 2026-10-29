@@ -22,6 +22,7 @@ import { isSchoolManager } from "@/types/roles";
 import { clearSignupIntent, loadSignupIntent } from "@/features/auth/signup-intent";
 import { seedSessionAfterSignup, unwrapSignupResult } from "@/features/auth/seed-session";
 import { loadMyAccount } from "@/features/auth/services/session-account.functions";
+import { readCachedProfile } from "@/features/auth/account-cache";
 
 export const Route = createFileRoute("/onboarding")({
   ssr: false,
@@ -76,8 +77,9 @@ function OnboardingPage() {
       try {
         profile = unwrapProfile(await loadMyAccount());
       } catch {
-        profile = null;
+        profile = readCachedProfile(user.id);
       }
+      if (!profile) profile = readCachedProfile(user.id);
       const effectiveRole = profile?.role
         ? profile.role === "admin"
           ? "institution"

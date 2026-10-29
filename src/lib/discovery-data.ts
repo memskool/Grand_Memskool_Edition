@@ -28,6 +28,7 @@ import { listSchoolApplications, reviewSchoolApplication } from "@/lib/applicati
 import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { seedSessionAfterSignup } from "@/features/auth/seed-session";
+import { writeCachedSchool } from "@/features/auth/account-cache";
 import type { AppRole } from "@/types/roles";
 
 export const SCHOOL_CATEGORIES = [
@@ -336,19 +337,16 @@ export function useCreateSchool(userId?: string) {
           studentCode: null,
         });
         qc.setQueryData(["my-school", uid], school);
+        writeCachedSchool(uid, school);
       }
+      await refreshAuthClaims();
       return { schoolId, code, school };
     },
     onSuccess: (result) => {
       const uid = userId || getFirebaseAuth().currentUser?.uid;
       if (uid && result.school) {
         qc.setQueryData(["my-school", uid], result.school);
-        // Force refetch after a short delay to ensure Firestore data is available
-        setTimeout(() => {
-          void qc.invalidateQueries({ queryKey: ["my-school", uid] });
-          void qc.invalidateQueries({ queryKey: ["profile", uid] });
-          void qc.invalidateQueries({ queryKey: ["role", uid] });
-        }, 500);
+        writeCachedSchool(uid, result.school);
       }
       void qc.invalidateQueries({ queryKey: ["schools"] });
     },

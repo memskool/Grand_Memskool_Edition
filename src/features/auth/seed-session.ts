@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { AppRole } from "@/types/roles";
 import type { UserProfile } from "@/types/user";
+import { writeCachedProfile } from "@/features/auth/account-cache";
 
 type SignupSeed = {
   role: AppRole;
@@ -68,4 +69,5 @@ export function seedSessionAfterSignup(
   };
   queryClient.setQueryData(["profile", input.userId], profile);
   queryClient.setQueryData(["role", input.userId], input.role);
+  writeCachedProfile(profile);
 }

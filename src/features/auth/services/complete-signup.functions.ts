@@ -6,7 +6,7 @@ import type { AppRole } from "@/types/roles";
 import { rosterLookupId, schoolCodeKey } from "@/lib/school-ids";
 import { looksLikeHtmlError } from "@/lib/errors/app-error";
 import { adminSet } from "@/lib/firebase/admin-repo";
-import { COLLECTIONS } from "@/lib/firebase/repo";
+import { COLLECTIONS } from "@/lib/firebase/collections";
 import { plainFirestoreData } from "@/lib/firebase/plain-data";
 import { rememberSchoolInCatalog } from "@/lib/school-catalog.server";
 import { rememberUserDirectory } from "@/features/auth/services/session-account.server";

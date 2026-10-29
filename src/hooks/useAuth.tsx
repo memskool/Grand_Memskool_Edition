@@ -7,6 +7,8 @@ import type { AppRole, AuthUser } from "@/types/roles";
 import type { UserProfile } from "@/types/user";
 import { claimsRoleToAppRole } from "@/types/roles";
 import { loadMyAccount } from "@/features/auth/services/session-account.functions";
+import { readCachedProfile, writeCachedProfile } from "@/features/auth/account-cache";
+import { isProfileComplete } from "@/features/auth/account-state";
 
 export type { AppRole, AuthUser };
 
@@ -24,6 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
+    let signOutTimer: ReturnType<typeof setTimeout> | undefined;
     void getCurrentAuthUser()
       .then((current) => {
         if (!active) return;
@@ -36,11 +39,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       });
     const unsub = subscribeAuth((next) => {
+      if (!active) return;
+      if (signOutTimer) {
+        clearTimeout(signOutTimer);
+        signOutTimer = undefined;
+      }
+      if (!next) {
+        // Tab focus / IndexedDB can emit a brief null; do not wipe the session instantly.
+        signOutTimer = setTimeout(() => {
+          if (!active) return;
+          if (!getFirebaseAuth().currentUser) {
+            setUser(null);
+            setLoading(false);
+          }
+        }, 750);
+        return;
+      }
       setUser(next);
       setLoading(false);
     });
     return () => {
       active = false;
+      if (signOutTimer) clearTimeout(signOutTimer);
       unsub();
     };
   }, []);
@@ -81,18 +101,27 @@ export function useProfile(user: AuthUser | null) {
     enabled: !!id,
     staleTime: 5 * 60_000,
     retry: 2,
+    placeholderData: (previous) => previous,
     queryFn: async (): Promise<UserProfile | null> => {
       try {
         const fromServer = unwrapProfile(await loadMyAccount());
-        if (fromServer) return fromServer;
+        if (fromServer && isProfileComplete(fromServer)) {
+          writeCachedProfile(fromServer);
+          return fromServer;
+        }
       } catch (error) {
         console.error("[profile] loadMyAccount failed:", error);
       }
       try {
-        return await getById<UserProfile>(COLLECTIONS.users, id!);
+        const fromClient = await getById<UserProfile>(COLLECTIONS.users, id!);
+        if (fromClient && isProfileComplete(fromClient)) {
+          writeCachedProfile(fromClient);
+          return fromClient;
+        }
       } catch {
-        return null;
+        // Client rules can fail while the Admin SDK profile is still valid in cache.
       }
+      return readCachedProfile(id!);
     },
   });
 }
@@ -107,6 +136,10 @@ export function useRole(user: AuthUser | null) {
     queryFn: async (): Promise<AppRole | null> => {
       if (profile.data?.role) {
         return profile.data.role === "admin" ? "institution" : profile.data.role;
+      }
+      const cached = id ? readCachedProfile(id) : null;
+      if (cached?.role) {
+        return cached.role === "admin" ? "institution" : cached.role;
       }
       let fromClaims: AppRole | null = null;
       const authUser = getFirebaseAuth().currentUser;

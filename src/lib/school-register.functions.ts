@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
 import { adminGetById, adminSet, adminDelete } from "@/lib/firebase/admin-repo";
-import { COLLECTIONS } from "@/lib/firebase/repo";
+import { COLLECTIONS } from "@/lib/firebase/collections";
 import { adminAuth } from "@/lib/firebase/admin.server";
 import { isSchoolManager, type AppRole } from "@/types/roles";
 import { schoolCodeKey } from "@/lib/school-ids";
@@ -240,7 +240,7 @@ export const listDirectorySchools = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     try {
       // Institution workspaces only ever see their own school — not the public catalog.
-      if (context.role === "institution") {
+      if (isSchoolManager(context.role) && context.role !== "superadmin") {
         const ownedAtUid = await adminGetById<{ owner_id?: string }>(
           COLLECTIONS.schools,
           context.userId,

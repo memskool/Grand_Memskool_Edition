@@ -22,6 +22,7 @@ import {
 } from "@/features/auth/services/session-account.functions";
 import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 import { seedSessionAfterSignup } from "@/features/auth/seed-session";
+import { readCachedSchool, writeCachedSchool } from "@/features/auth/account-cache";
 import { listSchoolMembers, setSchoolMemberStatus } from "@/lib/members.functions";
 
 export type MemberStatus = "pending" | "approved" | "rejected";
@@ -64,22 +65,31 @@ function unwrapManagedSchool(raw: unknown):
   return null;
 }
 
+type MySchoolRow = School & {
+  membership: MemberStatus | "owner";
+  memberRole: AppRole;
+  studentCode: string | null;
+};
+
 export function useMySchool(userId: string | undefined) {
   return useQuery({
     queryKey: ["my-school", userId],
     enabled: !!userId,
     staleTime: 60_000,
     retry: 2,
-    queryFn: async () => {
+    placeholderData: (previous) => previous,
+    queryFn: async (): Promise<MySchoolRow | null> => {
       try {
         const fromServer = unwrapManagedSchool(await loadMyManagedSchool());
         if (fromServer) {
-          return {
+          const row = {
             ...fromServer,
             membership: fromServer.membership,
             memberRole: fromServer.memberRole,
             studentCode: null as string | null,
           };
+          writeCachedSchool(userId!, row);
+          return row;
         }
       } catch (error) {
         console.error("[my-school] server load failed:", error);
@@ -90,33 +100,37 @@ export function useMySchool(userId: string | undefined) {
           getById<School>(COLLECTIONS.schools, userId!),
         ]);
         const schoolId = profile?.school_id || (ownedDirect ? userId! : null);
-        if (!schoolId) return null;
-        const school =
-          schoolId === userId && ownedDirect
-            ? ownedDirect
-            : await getById<School>(COLLECTIONS.schools, schoolId);
-        if (!school) return null;
-        const membership: MemberStatus | "owner" =
-          profile?.membership_status === "owner" ||
-          profile?.role === "institution" ||
-          profile?.role === "admin" ||
-          Boolean(ownedDirect)
-            ? "owner"
-            : profile?.membership_status === "pending" ||
-                profile?.membership_status === "rejected" ||
-                profile?.membership_status === "approved"
-              ? profile.membership_status
-              : "approved";
-        return {
-          ...school,
-          membership,
-          memberRole: profile?.role ?? "institution",
-          studentCode: profile?.student_code ?? null,
-        };
+        if (schoolId) {
+          const school =
+            schoolId === userId && ownedDirect
+              ? ownedDirect
+              : await getById<School>(COLLECTIONS.schools, schoolId);
+          if (school) {
+            const membership: MemberStatus | "owner" =
+              profile?.membership_status === "owner" ||
+              profile?.role === "institution" ||
+              profile?.role === "admin" ||
+              Boolean(ownedDirect)
+                ? "owner"
+                : profile?.membership_status === "pending" ||
+                    profile?.membership_status === "rejected" ||
+                    profile?.membership_status === "approved"
+                  ? profile.membership_status
+                  : "approved";
+            const row = {
+              ...school,
+              membership,
+              memberRole: profile?.role ?? "institution",
+              studentCode: profile?.student_code ?? null,
+            };
+            writeCachedSchool(userId!, row);
+            return row;
+          }
+        }
       } catch (error) {
         console.error("[my-school] client load failed:", error);
-        return null;
       }
+      return readCachedSchool<MySchoolRow>(userId!);
     },
   });
 }

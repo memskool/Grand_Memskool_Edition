@@ -13,10 +13,13 @@ export function accountState(input: {
   pendingApproval: boolean;
   suspended: boolean;
 }): AccountState {
-  if (!isProfileComplete(input.profile)) return "incomplete";
   const role =
-    input.role ?? (input.profile!.role === "admin" ? "institution" : input.profile!.role);
-  if (!role) return "incomplete";
+    input.role ??
+    (input.profile?.role === "admin" ? "institution" : input.profile?.role) ??
+    undefined;
+  // A live JWT/profile role means signup already finished — do not bounce to onboarding
+  // when the users/{uid} document is briefly unreadable.
+  if (!isProfileComplete(input.profile) && !role) return "incomplete";
   if (input.suspended) return "suspended";
   if (input.pendingApproval) return "pending";
   return "active";
