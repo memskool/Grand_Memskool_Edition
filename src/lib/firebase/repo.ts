@@ -7,6 +7,7 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  arrayUnion,
   query,
   where,
   orderBy,
@@ -81,6 +82,19 @@ export async function setById<T extends DocumentData>(
   merge = true,
 ): Promise<void> {
   await setDoc(docRef(name, id), plainFirestoreData(data as Record<string, unknown>), { merge });
+}
+
+/** Merge array-union fields (used to publish a school into the public Dream School index). */
+export async function unionById(
+  name: CollectionName,
+  id: string,
+  fields: Record<string, string[]>,
+): Promise<void> {
+  const payload: Record<string, unknown> = { updated_at: nowIso() };
+  for (const [key, values] of Object.entries(fields)) {
+    if (values.length) payload[key] = arrayUnion(...values);
+  }
+  await setDoc(docRef(name, id), payload, { merge: true });
 }
 
 export async function patchById(

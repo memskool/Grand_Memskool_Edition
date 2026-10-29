@@ -254,95 +254,58 @@ async function listCollectionViaRest(
  * Prefer single-document indexes and getAll — avoid Enterprise RunQuery.
  */
 export async function listDiscoverableSchools(): Promise<DiscoverableSchool[]> {
-  // 1) Public directory index (document get — works everywhere).
+  const ids = new Set<string>();
+
   try {
     const index = await adminGetById<DirectoryIndex>(
       COLLECTIONS.schoolDirectory,
       DIRECTORY_INDEX_ID,
     );
-    if (index?.school_ids?.length) {
-      const loaded = await loadDiscoverableSchoolsByIds(index.school_ids);
-      if (loaded.length > 0) return loaded;
-    }
+    for (const id of index?.school_ids ?? []) if (id) ids.add(id);
     if (index?.codes?.length) {
-      const loaded = await loadFromDirectoryCodes(index.codes);
-      if (loaded.length > 0) return loaded;
+      const fromCodes = await loadFromDirectoryCodes(index.codes);
+      for (const row of fromCodes) ids.add(row.id);
     }
   } catch (error) {
     console.error("[schools] directory __index lookup failed:", error);
   }
 
-  // 2) Ops catalog
   try {
     const catalog = await adminGetById<{ school_ids?: string[] }>(CATALOG_COLLECTION, CATALOG_ID);
-    const fromCatalog = await loadDiscoverableSchoolsByIds(catalog?.school_ids ?? []);
-    if (fromCatalog.length > 0) return fromCatalog;
+    for (const id of catalog?.school_ids ?? []) if (id) ids.add(id);
   } catch (error) {
     console.error("[schools] catalog lookup failed:", error);
   }
 
-  // 3) Admin listDocuments
   try {
     const rows = await adminListAll<SchoolDoc>(COLLECTIONS.schools, 100);
-    if (rows.length > 0) {
-      for (const row of rows) {
-        void rememberSchoolInCatalog(row.id, row.code).catch(() => undefined);
-      }
-      return rows.map((row) => mapSchool(row.id, row)).sort((a, b) => a.name.localeCompare(b.name));
-    }
+    for (const row of rows) if (row.id) ids.add(row.id);
   } catch (error) {
     console.error("[schools] listing schools collection failed:", error);
-  }
-
-  // 4) REST ListDocuments (same API the Firebase console / MCP uses)
-  try {
-    const restSchools = await listCollectionViaRest(COLLECTIONS.schools);
-    if (restSchools.length > 0) {
+    try {
+      const restSchools = await listCollectionViaRest(COLLECTIONS.schools);
       for (const row of restSchools) {
-        if (row.id && row.id !== DIRECTORY_INDEX_ID) {
-          void rememberSchoolInCatalog(
-            String(row.id),
-            typeof row["code"] === "string" ? row["code"] : null,
-          ).catch(() => undefined);
-        }
+        if (row.id && row.id !== DIRECTORY_INDEX_ID) ids.add(String(row.id));
       }
-      return restSchools
-        .filter((row) => row.id && row.id !== DIRECTORY_INDEX_ID)
-        .map((row) => mapSchool(String(row.id), row as SchoolDoc))
-        .sort((a, b) => a.name.localeCompare(b.name));
+    } catch (restError) {
+      console.error("[schools] REST schools list failed:", restError);
     }
-  } catch (error) {
-    console.error("[schools] REST schools list failed:", error);
   }
 
   try {
     const restDirs = await listCollectionViaRest(COLLECTIONS.schoolDirectory);
-    const usable = restDirs.filter((row) => row.id && row.id !== DIRECTORY_INDEX_ID);
-    const ids = usable.map((d) => String(d["school_id"] || "")).filter(Boolean);
-    const fromDir = await loadDiscoverableSchoolsByIds(ids);
-    if (fromDir.length > 0) {
-      for (const row of usable) {
-        void rememberSchoolInCatalog(String(row["school_id"] || ""), String(row.id || "")).catch(
-          () => undefined,
-        );
-      }
-      return fromDir;
+    for (const row of restDirs) {
+      if (!row.id || row.id === DIRECTORY_INDEX_ID) continue;
+      const schoolId = String(row["school_id"] || "");
+      if (schoolId) ids.add(schoolId);
     }
-    return usable
-      .map((d) =>
-        mapSchool(String(d["school_id"] || d.id), {
-          name: typeof d["name"] === "string" ? d["name"] : "School",
-          category: typeof d["category"] === "string" ? d["category"] : "secondary",
-          city: (d["city"] as string | null) ?? null,
-          country: (d["country"] as string | null) ?? null,
-          admissions_open: true,
-          code: String(d.id),
-        }),
-      )
-      .sort((a, b) => a.name.localeCompare(b.name));
   } catch (error) {
     console.error("[schools] REST directory list failed:", error);
   }
 
-  return [];
+  const loaded = await loadDiscoverableSchoolsByIds([...ids]);
+  for (const row of loaded) {
+    void rememberSchoolInCatalog(row.id, row.code).catch(() => undefined);
+  }
+  return loaded.sort((a, b) => a.name.localeCompare(b.name));
 }

@@ -8,6 +8,7 @@ import {
   getById,
   patchById,
   setById,
+  unionById,
   removeById,
   subscribeMany,
   where,
@@ -168,87 +169,78 @@ export function unwrapSchoolList(raw: unknown): School[] {
   return [];
 }
 
+function mapListedSchool(row: School & { id: string }): School {
+  return {
+    id: row.id,
+    name: row.name,
+    category: row.category || "secondary",
+    country: row.country || "",
+    city: row.city ?? null,
+    description: row.description ?? null,
+    website: row.website ?? null,
+    logo_url: row.logo_url ?? null,
+    fees_min: row.fees_min ?? null,
+    fees_max: row.fees_max ?? null,
+    fees_currency: row.fees_currency || "UGX",
+    fees_notes: row.fees_notes ?? null,
+    badges: row.badges ?? [],
+    is_international: Boolean(row.is_international),
+    admissions_open: row.admissions_open !== false,
+    contact_email: row.contact_email ?? null,
+    created_at: row.created_at || "",
+  };
+}
+
+function mergeSchools(groups: School[][]): School[] {
+  const byId = new Map<string, School>();
+  for (const group of groups) {
+    for (const row of group) {
+      if (row?.id && row.name) byId.set(row.id, row);
+    }
+  }
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export async function listSchoolsFromPublicIndex(): Promise<School[]> {
+  const schoolIds = new Set<string>();
   const index = await getById<{ school_ids?: string[]; codes?: string[] }>(
     COLLECTIONS.schoolDirectory,
     "__index",
   );
-  const schoolIds = index?.school_ids?.filter(Boolean) ?? [];
-  if (schoolIds.length > 0) {
-    const rows = await Promise.all(
-      schoolIds.slice(0, 80).map(async (id) => {
-        try {
-          return await getById<School>(COLLECTIONS.schools, id);
-        } catch {
-          return null;
-        }
-      }),
-    );
-    return rows
-      .filter((row): row is School & { id: string } => Boolean(row?.id && row.name))
-      .map((row) => ({
-        id: row.id,
-        name: row.name,
-        category: row.category || "secondary",
-        country: row.country || "",
-        city: row.city ?? null,
-        description: row.description ?? null,
-        website: row.website ?? null,
-        logo_url: row.logo_url ?? null,
-        fees_min: row.fees_min ?? null,
-        fees_max: row.fees_max ?? null,
-        fees_currency: row.fees_currency || "UGX",
-        fees_notes: row.fees_notes ?? null,
-        badges: row.badges ?? [],
-        is_international: Boolean(row.is_international),
-        admissions_open: row.admissions_open !== false,
-        contact_email: row.contact_email ?? null,
-        created_at: row.created_at || "",
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+  for (const id of index?.school_ids ?? []) if (id) schoolIds.add(id);
+
+  try {
+    const dirs = await findMany<{ school_id?: string }>(COLLECTIONS.schoolDirectory, [limit(80)]);
+    for (const dir of dirs) {
+      if (dir.id === "__index") continue;
+      if (dir.school_id) schoolIds.add(dir.school_id);
+    }
+  } catch (error) {
+    console.error("[schools] directory list failed:", error);
   }
 
-  const codes = index?.codes?.filter(Boolean) ?? [];
-  if (codes.length === 0) return [];
-  const fromCodes = await Promise.all(
-    codes.slice(0, 80).map(async (code) => {
+  for (const code of index?.codes ?? []) {
+    if (!code) continue;
+    try {
+      const dir = await getById<{ school_id?: string }>(COLLECTIONS.schoolDirectory, code);
+      if (dir?.school_id) schoolIds.add(dir.school_id);
+    } catch {
+      /* skip a missing code row */
+    }
+  }
+
+  const rows = await Promise.all(
+    [...schoolIds].slice(0, 80).map(async (id) => {
       try {
-        const dir = await getById<{
-          school_id?: string;
-          name?: string;
-          city?: string | null;
-          country?: string | null;
-          category?: string;
-        }>(COLLECTIONS.schoolDirectory, code);
-        if (!dir?.school_id) return null;
-        const school = await getById<School>(COLLECTIONS.schools, dir.school_id);
-        if (school) return school;
-        return {
-          id: dir.school_id,
-          name: dir.name || "School",
-          category: dir.category || "secondary",
-          country: dir.country || "",
-          city: dir.city ?? null,
-          description: null,
-          website: null,
-          logo_url: null,
-          fees_min: null,
-          fees_max: null,
-          fees_currency: "UGX",
-          fees_notes: null,
-          badges: [],
-          is_international: false,
-          admissions_open: true,
-          contact_email: null,
-          created_at: "",
-        } satisfies School;
+        return await getById<School>(COLLECTIONS.schools, id);
       } catch {
         return null;
       }
     }),
   );
-  return fromCodes
-    .filter((row): row is School => Boolean(row?.id && row.name))
+  return rows
+    .filter((row): row is School & { id: string } => Boolean(row?.id && row.name))
+    .map(mapListedSchool)
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -256,13 +248,19 @@ export function useSchools() {
   return useQuery({
     queryKey: ["schools"],
     queryFn: async (): Promise<School[]> => {
+      let fromServer: School[] = [];
       try {
-        const fromServer = unwrapSchoolList(await listDirectorySchools());
-        if (fromServer.length > 0) return fromServer;
+        fromServer = unwrapSchoolList(await listDirectorySchools());
       } catch (error) {
         console.error("[schools] server directory list failed:", error);
       }
-      return listSchoolsFromPublicIndex();
+      let fromIndex: School[] = [];
+      try {
+        fromIndex = await listSchoolsFromPublicIndex();
+      } catch (error) {
+        console.error("[schools] public index list failed:", error);
+      }
+      return mergeSchools([fromIndex, fromServer]);
     },
   });
 }
@@ -339,6 +337,14 @@ async function registerSchoolOnClient(
     });
   } catch (error) {
     console.error("[schools] directory write failed:", error);
+  }
+  try {
+    await unionById(COLLECTIONS.schoolDirectory, "__index", {
+      school_ids: [schoolId],
+      codes: [code],
+    });
+  } catch (error) {
+    console.error("[schools] public index write failed:", error);
   }
   try {
     await setById(COLLECTIONS.schoolMembers, uid, {
