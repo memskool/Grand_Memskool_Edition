@@ -732,6 +732,10 @@ function AdmissionsSection({ schoolId }: { schoolId?: string | undefined }) {
       <Panel title="Join requests" description="Teachers and staff waiting for your approval">
         {members.isLoading ? (
           <ListSkeleton rows={2} />
+        ) : members.isError ? (
+          <p className="text-sm text-muted-foreground">
+            Join requests could not be loaded. Refresh this page and try again.
+          </p>
         ) : pendingMembers.length === 0 ? (
           <EmptyState
             icon={Users}

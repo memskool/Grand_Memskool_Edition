@@ -307,48 +307,67 @@ export function useRemindSchool() {
   });
 }
 
+type SchoolMemberRow = {
+  id: string;
+  role: AppRole;
+  status: MemberStatus;
+  student_code: string | null;
+  created_at: string;
+  user_id: string;
+  user: { id: string; full_name: string; email: string | null } | null;
+};
+
+function unwrapMemberRows(raw: unknown): SchoolMemberRow[] {
+  if (Array.isArray(raw)) return raw as SchoolMemberRow[];
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    for (const key of ["data", "result", "payload", "value"]) {
+      const inner = unwrapMemberRows(obj[key]);
+      if (inner.length) return inner;
+    }
+  }
+  return [];
+}
+
 export function useSchoolMembers(schoolId: string | undefined) {
   return useQuery({
     queryKey: ["school-members", schoolId],
     enabled: !!schoolId,
     queryFn: async () => {
+      const byId = new Map<string, SchoolMemberRow>();
       try {
-        const raw = await listSchoolMembers();
-        if (Array.isArray(raw)) {
-          return raw as Array<{
-            id: string;
-            role: AppRole;
-            status: MemberStatus;
-            student_code: string | null;
-            created_at: string;
-            user_id: string;
-            user: { id: string; full_name: string; email: string | null } | null;
-          }>;
+        for (const row of unwrapMemberRows(await listSchoolMembers())) {
+          if (row.id) byId.set(row.id, row);
         }
       } catch (error) {
         console.error("[school-members] server list failed:", error);
       }
-      const members = await findMany<{
-        role: AppRole;
-        status: MemberStatus;
-        student_code: string | null;
-        created_at: string;
-        user_id: string;
-      }>(COLLECTIONS.schoolMembers, [
-        where("school_id", "==", schoolId!),
-        orderBy("created_at", "desc"),
-      ]);
-      return Promise.all(
-        members.map(async (m) => {
+      try {
+        const members = await findMany<{
+          role: AppRole;
+          status: MemberStatus;
+          student_code: string | null;
+          created_at: string;
+          user_id?: string;
+        }>(COLLECTIONS.schoolMembers, [where("school_id", "==", schoolId!)]);
+        for (const member of members) {
+          if (byId.has(member.id)) continue;
+          const userId = member.user_id || member.id;
           const user = await getById<{ full_name: string; email: string | null }>(
             COLLECTIONS.users,
-            m.user_id,
-          );
-          return {
-            ...m,
+            userId,
+          ).catch(() => null);
+          byId.set(member.id, {
+            ...member,
+            user_id: userId,
             user: user ? { id: user.id, full_name: user.full_name, email: user.email } : null,
-          };
-        }),
+          });
+        }
+      } catch (error) {
+        console.error("[school-members] client list failed:", error);
+      }
+      return [...byId.values()].sort((a, b) =>
+        (b.created_at ?? "").localeCompare(a.created_at ?? ""),
       );
     },
   });

@@ -11,6 +11,7 @@ import {
 } from "@/lib/firebase/admin-repo";
 import { parentLinkId } from "@/lib/parent-link";
 import { COLLECTIONS } from "@/lib/firebase/repo";
+import { toClientJson } from "@/lib/firebase/plain-data";
 import { isSchoolManager, type AppRole } from "@/types/roles";
 import { adminAuth } from "@/lib/firebase/admin.server";
 import { managedSchoolIdFor } from "@/lib/firebase/school-context.server";
@@ -110,20 +111,17 @@ type MemberRow = {
 };
 
 async function loadMembersForSchool(schoolId: string): Promise<MemberRow[]> {
+  let rows: MemberRow[] = [];
   try {
-    const rows = await adminWhere<MemberRow>(
-      COLLECTIONS.schoolMembers,
-      "school_id",
-      "==",
-      schoolId,
-    );
-    return rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
-  } catch {
-    const all = await adminListAll<MemberRow>(COLLECTIONS.schoolMembers, 500);
-    return all
-      .filter((row) => row.school_id === schoolId)
-      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    rows = await adminWhere<MemberRow>(COLLECTIONS.schoolMembers, "school_id", "==", schoolId);
+  } catch (error) {
+    console.error("[members] query failed:", error);
   }
+  if (rows.length === 0) {
+    const all = await adminListAll<MemberRow>(COLLECTIONS.schoolMembers, 500);
+    rows = all.filter((row) => row.school_id === schoolId);
+  }
+  return rows.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
 }
 
 /** School admin: list members with basic profile info. */
@@ -133,17 +131,21 @@ export const listSchoolMembers = createServerFn({ method: "POST" })
     await assertCanManageSchool(context);
     const schoolId = await managedSchoolIdFor(context);
     const members = await loadMembersForSchool(schoolId);
-    return Promise.all(
-      members.map(async (member) => {
-        const user = await adminGetById<{ full_name: string; email: string | null }>(
-          COLLECTIONS.users,
-          member.user_id,
-        );
-        return {
-          ...member,
-          user: user ? { id: user.id, full_name: user.full_name, email: user.email ?? null } : null,
-        };
-      }),
+    return toClientJson(
+      await Promise.all(
+        members.map(async (member) => {
+          const userId = member.user_id || member.id;
+          const user = await adminGetById<{ full_name: string; email: string | null }>(
+            COLLECTIONS.users,
+            userId,
+          );
+          return {
+            ...member,
+            user_id: userId,
+            user: user ? { id: user.id, full_name: user.full_name, email: user.email ?? null } : null,
+          };
+        }),
+      ),
     );
   });
 
