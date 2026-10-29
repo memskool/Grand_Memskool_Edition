@@ -113,7 +113,13 @@ function SchoolAdminPage() {
   return <SchoolAdminWorkspace userId={user?.id} schoolId={school.data?.id} />;
 }
 
-function SchoolAdminWorkspace({ userId, schoolId }: { userId?: string; schoolId?: string }) {
+function SchoolAdminWorkspace({
+  userId,
+  schoolId,
+}: {
+  userId?: string | undefined;
+  schoolId?: string | undefined;
+}) {
   const school = useMySchool(userId);
   const resolvedSchoolId = schoolId ?? school.data?.id;
   const [tab, setTab] = useState("school");
