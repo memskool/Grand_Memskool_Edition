@@ -703,6 +703,8 @@ export function useUpdateApplicationStatus() {
       qc.invalidateQueries({ queryKey: ["all-applications"] });
       qc.invalidateQueries({ queryKey: ["applications"] });
       qc.invalidateQueries({ queryKey: ["school-members"] });
+      qc.invalidateQueries({ queryKey: ["school-students"] });
+      qc.invalidateQueries({ queryKey: ["school-teachers"] });
       qc.invalidateQueries({ queryKey: ["my-school"] });
       qc.invalidateQueries({ queryKey: ["profile"] });
     },

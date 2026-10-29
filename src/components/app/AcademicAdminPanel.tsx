@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { PERIOD_LABELS, type PeriodLabel } from "@/types/academic";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
+import { useAllApplications } from "@/lib/discovery-data";
 import {
   useAcademicYears,
   useAcademicPeriods,
@@ -479,15 +480,30 @@ export function EnrolmentPanel({ schoolId }: { schoolId: string | undefined }) {
   const [className, setClassName] = useState("");
   const [yearId, setYearId] = useState("");
   const schoolTeachers = useSchoolTeachers(schoolId);
+  const applications = useAllApplications(schoolId);
 
   const classRows = (classes.data ?? []).filter((c) => c.status !== "archived");
-  const studentRows = students.data ?? [];
+  const studentRows = (() => {
+    const byId = new Map<string, { id: string; full_name: string }>();
+    for (const student of students.data ?? []) {
+      byId.set(student.id, { id: student.id, full_name: student.full_name });
+    }
+    for (const app of applications.data ?? []) {
+      if (app.status !== "approved" || !app.student_id) continue;
+      if (byId.has(app.student_id)) continue;
+      byId.set(app.student_id, {
+        id: app.student_id,
+        full_name: app.applicant_name?.trim() || app.email || "Student",
+      });
+    }
+    return [...byId.values()].sort((a, b) => a.full_name.localeCompare(b.full_name));
+  })();
 
   return (
     <div className="space-y-6">
       <Panel
         title="Classes"
-        description="Archive instead of deleting so academic history stays intact"
+        description="Create a class, select it, then enrol approved learners from Students & admissions."
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Input
@@ -583,35 +599,48 @@ export function EnrolmentPanel({ schoolId }: { schoolId: string | undefined }) {
         <>
           <Panel
             title="Students in this class"
-            description="Ending membership keeps the historical row"
+            description="Approve the learner under Students & admissions first, then enrol them here."
           >
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Select value={studentId} onValueChange={setStudentId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select student" />
-                </SelectTrigger>
-                <SelectContent>
-                  {studentRows.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                onClick={() =>
-                  enroll.mutate(
-                    { class_id: classId, student_id: studentId },
-                    {
-                      onSuccess: () => toast.success("Student enrolled"),
-                      onError: (e) => toast.error(authErrorMessage(e)),
-                    },
-                  )
-                }
-              >
-                <UserPlus className="size-4" /> Enrol
-              </Button>
-            </div>
+            {students.isLoading || applications.isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading approved learners…</p>
+            ) : studentRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No approved learners yet. Open Students & admissions, approve the application, then
+                return here to pick them from this list.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Select value={studentId} onValueChange={setStudentId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select student" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {studentRows.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  disabled={!studentId || enroll.isPending}
+                  onClick={() =>
+                    enroll.mutate(
+                      { class_id: classId, student_id: studentId },
+                      {
+                        onSuccess: () => {
+                          setStudentId("");
+                          toast.success("Student enrolled");
+                        },
+                        onError: (e) => toast.error(authErrorMessage(e)),
+                      },
+                    )
+                  }
+                >
+                  <UserPlus className="size-4" /> Enrol
+                </Button>
+              </div>
+            )}
             {roster.isLoading ? (
               <ListSkeleton rows={2} />
             ) : (

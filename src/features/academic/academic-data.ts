@@ -35,6 +35,7 @@ import {
   assignMissedWork,
   updateMissedWorkStatus,
 } from "./academic.functions";
+import { listSchoolApplications } from "@/lib/applications.functions";
 
 function nowIso() {
   return new Date().toISOString();
@@ -499,7 +500,30 @@ export function useEnrollStudent() {
   return useMutation({
     mutationFn: async (input: { class_id: string; student_id: string }) => {
       try {
-        return await enrollStudent({ data: input });
+        const raw = await enrollStudent({ data: input });
+        const id = unwrapNestedId(raw);
+        if (id) return { id };
+      } catch (error) {
+        console.error("[enrol] server enroll failed:", error);
+      }
+      const cls = await getById<{
+        school_id: string;
+        academic_year_id?: string | null;
+        academic_period_id?: string | null;
+      }>(COLLECTIONS.classes, input.class_id);
+      if (!cls) throw new Error("That class was not found.");
+      try {
+        const id = await createDoc(COLLECTIONS.classEnrollments, {
+          school_id: cls.school_id,
+          class_id: input.class_id,
+          student_id: input.student_id,
+          academic_year_id: cls.academic_year_id ?? null,
+          academic_period_id: cls.academic_period_id ?? null,
+          status: "active",
+          started_at: nowIso(),
+          ended_at: null,
+        });
+        return { id };
       } catch (error) {
         throw classifyFirebase(error);
       }
@@ -647,15 +671,121 @@ export function useUpdateMissedWork() {
   });
 }
 
+type DirectoryPerson = {
+  id: string;
+  full_name: string;
+  email: string | null;
+  role: string;
+};
+
+function unwrapNestedId(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj["id"] === "string" && obj["id"]) return obj["id"];
+  for (const key of ["data", "result", "payload", "value"]) {
+    const inner = obj[key];
+    if (inner && typeof inner === "object") {
+      const nested = inner as Record<string, unknown>;
+      if (typeof nested["id"] === "string" && nested["id"]) return nested["id"];
+    }
+  }
+  return null;
+}
+
+function unwrapRows<T>(raw: unknown): T[] {
+  if (Array.isArray(raw)) return raw as T[];
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    for (const key of ["data", "result", "payload", "value"]) {
+      const inner = obj[key];
+      if (Array.isArray(inner)) return inner as T[];
+    }
+  }
+  return [];
+}
+
+async function listSchoolPeople(
+  schoolId: string,
+  role: "student" | "teacher" | "parent",
+): Promise<DirectoryPerson[]> {
+  const byId = new Map<string, DirectoryPerson>();
+  const add = (id: string, name?: string | null, email?: string | null) => {
+    if (!id || byId.has(id)) return;
+    byId.set(id, {
+      id,
+      full_name: (name && name.trim()) || email || (role === "teacher" ? "Teacher" : "Student"),
+      email: email ?? null,
+      role,
+    });
+  };
+
+  try {
+    const members = await findMany<{ user_id?: string; role: string; status: string }>(
+      COLLECTIONS.schoolMembers,
+      [where("school_id", "==", schoolId)],
+    );
+    for (const member of members) {
+      if (member.role !== role || (member.status !== "approved" && member.status !== "owner")) {
+        continue;
+      }
+      const userId = member.user_id || member.id;
+      const user = await getById<{ full_name?: string; email?: string | null }>(
+        COLLECTIONS.users,
+        userId,
+      );
+      add(userId, user?.full_name, user?.email);
+    }
+  } catch (error) {
+    console.error(`[school-${role}s] members list failed:`, error);
+  }
+
+  if (role === "student") {
+    try {
+      const apps = unwrapRows<{
+        student_id: string;
+        applicant_name?: string;
+        email?: string | null;
+        status: string;
+      }>(await listSchoolApplications());
+      for (const app of apps) {
+        if (app.status === "approved") add(app.student_id, app.applicant_name, app.email);
+      }
+    } catch (error) {
+      console.error("[school-students] applications list failed:", error);
+    }
+    try {
+      const apps = await findMany<{
+        student_id: string;
+        applicant_name?: string;
+        email?: string | null;
+        status: string;
+      }>(COLLECTIONS.schoolApplications, [where("school_id", "==", schoolId)]);
+      for (const app of apps) {
+        if (app.status === "approved") add(app.student_id, app.applicant_name, app.email);
+      }
+    } catch (error) {
+      console.error("[school-students] applications client list failed:", error);
+    }
+  }
+
+  try {
+    const users = await findMany<{ full_name: string; email: string | null; role: string }>(
+      COLLECTIONS.users,
+      [where("school_id", "==", schoolId), where("role", "==", role)],
+    );
+    for (const user of users) add(user.id, user.full_name, user.email);
+  } catch (error) {
+    console.error(`[school-${role}s] users list failed:`, error);
+  }
+
+  return [...byId.values()].sort((a, b) => a.full_name.localeCompare(b.full_name));
+}
+
 export function useSchoolStudents(schoolId: string | undefined) {
   return useQuery({
     queryKey: ["school-students", schoolId],
     enabled: !!schoolId,
-    queryFn: () =>
-      findMany<{ full_name: string; email: string | null; role: string }>(COLLECTIONS.users, [
-        where("school_id", "==", schoolId!),
-        where("role", "==", "student"),
-      ]),
+    queryFn: () => listSchoolPeople(schoolId!, "student"),
   });
 }
 
@@ -675,11 +805,7 @@ export function useSchoolTeachers(schoolId: string | undefined) {
   return useQuery({
     queryKey: ["school-teachers", schoolId],
     enabled: !!schoolId,
-    queryFn: () =>
-      findMany<{ full_name: string; email: string | null; role: string }>(COLLECTIONS.users, [
-        where("school_id", "==", schoolId!),
-        where("role", "==", "teacher"),
-      ]),
+    queryFn: () => listSchoolPeople(schoolId!, "teacher"),
   });
 }
 

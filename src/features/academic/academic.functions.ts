@@ -5,6 +5,7 @@ import { requireFirebaseAuth, type AuthedContext } from "@/lib/firebase/require-
 import { adminCreate, adminGetById, adminUpdate, adminWhere } from "@/lib/firebase/admin-repo";
 import { COLLECTIONS } from "@/lib/firebase/repo";
 import { isSchoolManager } from "@/types/roles";
+import { managedSchoolIdFor } from "@/lib/firebase/school-context.server";
 import {
   EnrollSchema,
   TeacherAssignSchema,
@@ -20,11 +21,18 @@ function schoolOf(context: AuthedContext): string {
   return context.schoolId;
 }
 
-function requireManager(context: AuthedContext) {
-  if (context.role !== "institution" && context.role !== "admin") {
-    throw new Error("You do not have permission to perform this action.");
+async function requireManager(context: AuthedContext) {
+  if (!isSchoolManager(context.role)) {
+    const profile = await adminGetById<{ role?: string }>(COLLECTIONS.users, context.userId);
+    if (!isSchoolManager(profile?.role as "institution" | "admin" | undefined)) {
+      throw new Error("You do not have permission to perform this action.");
+    }
   }
-  return schoolOf(context);
+  try {
+    return await managedSchoolIdFor(context);
+  } catch {
+    return schoolOf(context);
+  }
 }
 
 function requireStaff(context: AuthedContext) {
@@ -45,7 +53,7 @@ export const enrollStudent = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
   .inputValidator((data: unknown) => EnrollSchema.parse(data))
   .handler(async ({ data, context }) => {
-    const schoolId = requireManager(context);
+    const schoolId = await requireManager(context);
     const cls = await adminGetById<{
       school_id: string;
       academic_year_id?: string | null;
@@ -58,8 +66,27 @@ export const enrollStudent = createServerFn({ method: "POST" })
       COLLECTIONS.users,
       data.student_id,
     );
-    if (!student || student.school_id !== schoolId)
-      throw new Error("That student is not in your school.");
+    const member = await adminGetById<{ school_id?: string; status?: string; role?: string }>(
+      COLLECTIONS.schoolMembers,
+      data.student_id,
+    );
+    const onRoll =
+      student?.school_id === schoolId ||
+      (member?.school_id === schoolId &&
+        member.status === "approved" &&
+        (member.role === "student" || member.role === "teacher"));
+    if (!onRoll) {
+      const apps = await adminWhere<{ student_id: string; school_id: string; status?: string }>(
+        COLLECTIONS.schoolApplications,
+        "school_id",
+        "==",
+        schoolId,
+      ).catch(() => []);
+      const admitted = apps.some(
+        (row) => row.student_id === data.student_id && row.status === "approved",
+      );
+      if (!admitted) throw new Error("That student is not in your school.");
+    }
 
     const existing = await adminWhere<{ student_id: string; class_id: string; status?: string }>(
       COLLECTIONS.classEnrollments,
@@ -90,7 +117,7 @@ export const endEnrollment = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
   .inputValidator((data: unknown) => z.object({ enrollment_id: z.string().min(1) }).parse(data))
   .handler(async ({ data, context }) => {
-    const schoolId = requireManager(context);
+    const schoolId = await requireManager(context);
     const row = await adminGetById<{ school_id: string }>(
       COLLECTIONS.classEnrollments,
       data.enrollment_id,
@@ -107,7 +134,7 @@ export const assignClassTeacher = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
   .inputValidator((data: unknown) => TeacherAssignSchema.parse(data))
   .handler(async ({ data, context }) => {
-    const schoolId = requireManager(context);
+    const schoolId = await requireManager(context);
     const cls = await adminGetById<{ school_id: string }>(COLLECTIONS.classes, data.class_id);
     if (!cls || cls.school_id !== schoolId) throw new Error("That class is not in your school.");
     const teacher = await adminGetById<{ school_id?: string | null; role?: string }>(
@@ -144,7 +171,7 @@ export const endClassTeacher = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
   .inputValidator((data: unknown) => z.object({ assignment_id: z.string().min(1) }).parse(data))
   .handler(async ({ data, context }) => {
-    const schoolId = requireManager(context);
+    const schoolId = await requireManager(context);
     const row = await adminGetById<{ school_id: string }>(
       COLLECTIONS.classTeacherAssignments,
       data.assignment_id,
