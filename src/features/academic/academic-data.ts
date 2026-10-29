@@ -183,12 +183,14 @@ export function useCreateCurriculum(schoolId: string | undefined) {
   return useMutation({
     mutationFn: async (values: { name: string; description: string | null }) => {
       if (!schoolId) throw new Error("Register your school first.");
-      await createDoc(COLLECTIONS.curricula, {
-        ...values,
-        school_id: schoolId,
-        created_at: nowIso(),
-        updated_at: nowIso(),
-      });
+      await writeWithClaimRefresh(() =>
+        createDoc(COLLECTIONS.curricula, {
+          ...values,
+          school_id: schoolId,
+          created_at: nowIso(),
+          updated_at: nowIso(),
+        }),
+      );
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["curricula", schoolId] }),
   });

@@ -224,7 +224,8 @@ service cloud.firestore {
     }
     match /subjects/{id} {
       allow read: if tenantRead(resource.data.school_id);
-      allow create, update: if isSchoolAdmin() && sameSchool(resource.data.school_id);
+      allow create: if isSchoolAdmin() && sameSchool(request.resource.data.school_id);
+      allow update: if isSchoolAdmin() && sameSchool(resource.data.school_id);
       allow delete: if isSchoolAdmin() && sameSchool(resource.data.school_id)
         && resource.data.status == 'archived';
     }
@@ -260,19 +261,23 @@ service cloud.firestore {
     }
     match /curricula/{id} {
       allow read: if tenantRead(resource.data.school_id);
-      allow create, update, delete: if isSchoolAdmin() && sameSchool(resource.data.school_id);
+      allow create: if isSchoolAdmin() && sameSchool(request.resource.data.school_id);
+      allow update, delete: if isSchoolAdmin() && sameSchool(resource.data.school_id);
     }
     match /curriculum_levels/{id} {
       allow read: if tenantRead(resource.data.school_id);
-      allow create, update, delete: if isSchoolAdmin() && sameSchool(resource.data.school_id);
+      allow create: if isSchoolAdmin() && sameSchool(request.resource.data.school_id);
+      allow update, delete: if isSchoolAdmin() && sameSchool(resource.data.school_id);
     }
     match /curriculum_topics/{id} {
       allow read: if tenantRead(resource.data.school_id);
-      allow create, update, delete: if isSchoolAdmin() && sameSchool(resource.data.school_id);
+      allow create: if isSchoolAdmin() && sameSchool(request.resource.data.school_id);
+      allow update, delete: if isSchoolAdmin() && sameSchool(resource.data.school_id);
     }
     match /curriculum_objectives/{id} {
       allow read: if tenantRead(resource.data.school_id);
-      allow create, update, delete: if isSchoolAdmin() && sameSchool(resource.data.school_id);
+      allow create: if isSchoolAdmin() && sameSchool(request.resource.data.school_id);
+      allow update, delete: if isSchoolAdmin() && sameSchool(resource.data.school_id);
     }
     match /lessons/{id} {
       allow read: if tenantRead(resource.data.school_id);
@@ -290,7 +295,8 @@ service cloud.firestore {
     }
     match /timetable_slots/{id} {
       allow read: if tenantRead(resource.data.school_id);
-      allow create, update, delete: if tenantWrite(resource.data.school_id);
+      allow create: if tenantWrite(request.resource.data.school_id);
+      allow update, delete: if tenantWrite(resource.data.school_id);
     }
     match /attendance/{id} {
       allow read: if isAuthenticated() && (
@@ -303,7 +309,8 @@ service cloud.firestore {
     }
     match /assignments/{id} {
       allow read: if tenantRead(resource.data.school_id);
-      allow create, update: if tenantWrite(resource.data.school_id);
+      allow create: if tenantWrite(request.resource.data.school_id);
+      allow update: if tenantWrite(resource.data.school_id);
       allow delete: if tenantWrite(resource.data.school_id) && resource.data.status == 'draft';
     }
     match /submissions/{id} {
@@ -399,7 +406,8 @@ service cloud.firestore {
     }
     match /library_books/{id} {
       allow read: if tenantRead(resource.data.school_id);
-      allow create, update, delete: if tenantWrite(resource.data.school_id);
+      allow create: if tenantWrite(request.resource.data.school_id);
+      allow update, delete: if tenantWrite(resource.data.school_id);
     }
     match /missed_work/{id} {
       allow read: if isAuthenticated() && (
@@ -535,7 +543,8 @@ service cloud.firestore {
     }
     match /school_meetings/{id} {
       allow read: if tenantRead(resource.data.school_id);
-      allow create, update, delete: if tenantWrite(resource.data.school_id);
+      allow create: if tenantWrite(request.resource.data.school_id);
+      allow update, delete: if tenantWrite(resource.data.school_id);
     }
     match /study_reminders/{id} {
       allow read, update, delete: if isOwner(resource.data.user_id);
