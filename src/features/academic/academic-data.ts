@@ -65,7 +65,7 @@ export function useAcademicPeriods(schoolId: string | undefined, yearId?: string
   });
 }
 
-async function writeWithClaimRefresh(write: () => Promise<void>) {
+async function writeWithClaimRefresh(write: () => Promise<unknown>) {
   try {
     await write();
   } catch (error) {
