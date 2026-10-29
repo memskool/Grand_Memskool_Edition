@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useExamMode } from "@/lib/exam-mode";
 import { useSession, useProfile } from "@/hooks/useAuth";
 import { useAccess } from "@/lib/access";
-import { navForRole, mobileTabsForRole, navPathActive } from "@/lib/nav";
+import { groupedNav, navForRole, mobileTabsForRole, navPathActive } from "@/lib/nav";
 import { BrandMark } from "@/components/app/BrandMark";
 
 export function MobileNav() {
@@ -51,29 +51,36 @@ export function MobileNav() {
             </div>
 
             <nav className="flex-1 overflow-y-auto p-3">
-              <ul className="space-y-1">
-                {links.map((item) => {
-                  const active = navPathActive(pathname, item.url);
-                  return (
-                    <li key={item.url}>
-                      <Link
-                        preload="intent"
-                        to={item.url}
-                        onClick={() => setOpen(false)}
-                        className={cn(
-                          "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors duration-150",
-                          active
-                            ? "bg-ink-foreground/12 text-ink-foreground"
-                            : "text-ink-foreground/85 hover:bg-ink-foreground/10",
-                        )}
-                      >
-                        <item.icon className="size-[18px]" />
-                        {item.title}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+              {groupedNav(links).map((group) => (
+                <div key={group.id} className="mb-4">
+                  <p className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                    {group.label}
+                  </p>
+                  <ul className="space-y-1">
+                    {group.items.map((item) => {
+                      const active = navPathActive(pathname, item.url);
+                      return (
+                        <li key={item.url}>
+                          <Link
+                            preload="intent"
+                            to={item.url}
+                            onClick={() => setOpen(false)}
+                            className={cn(
+                              "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors duration-150",
+                              active
+                                ? "bg-ink-foreground/12 text-ink-foreground"
+                                : "text-ink-foreground/85 hover:bg-ink-foreground/10",
+                            )}
+                          >
+                            <item.icon className="size-[18px]" />
+                            {item.title}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
             </nav>
           </div>
         </div>

@@ -141,8 +141,16 @@ export const assignClassTeacher = createServerFn({ method: "POST" })
       COLLECTIONS.users,
       data.teacher_id,
     );
-    if (!teacher || teacher.school_id !== schoolId)
-      throw new Error("That teacher is not in your school.");
+    const member = await adminGetById<{ school_id?: string; status?: string; role?: string }>(
+      COLLECTIONS.schoolMembers,
+      data.teacher_id,
+    );
+    const onStaff =
+      teacher?.school_id === schoolId ||
+      (member?.school_id === schoolId &&
+        member.status === "approved" &&
+        (member.role === "teacher" || member.role === "admin" || member.role === "institution"));
+    if (!onStaff) throw new Error("That teacher is not in your school.");
 
     const existing = await adminWhere<{
       teacher_id: string;

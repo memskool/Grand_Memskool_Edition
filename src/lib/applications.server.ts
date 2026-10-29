@@ -40,20 +40,22 @@ async function assertCanManageSchool(context: AuthedContext): Promise<void> {
 }
 
 async function loadApplicationsForSchool(schoolId: string): Promise<ApplicationRow[]> {
+  let rows: ApplicationRow[] = [];
   try {
-    const rows = await adminWhere<ApplicationRow>(
+    rows = await adminWhere<ApplicationRow>(
       COLLECTIONS.schoolApplications,
       "school_id",
       "==",
       schoolId,
     );
-    return rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
-  } catch {
-    const all = await adminListAll<ApplicationRow>(COLLECTIONS.schoolApplications, 200);
-    return all
-      .filter((row) => row.school_id === schoolId)
-      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  } catch (error) {
+    console.error("[applications] query failed:", error);
   }
+  if (rows.length === 0) {
+    const all = await adminListAll<ApplicationRow>(COLLECTIONS.schoolApplications, 200);
+    rows = all.filter((row) => row.school_id === schoolId);
+  }
+  return rows.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
 }
 
 export async function listSchoolApplicationsHandler(context: AuthedContext) {

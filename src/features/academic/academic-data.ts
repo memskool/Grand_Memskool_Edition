@@ -551,7 +551,25 @@ export function useAssignTeacher() {
   return useMutation({
     mutationFn: async (input: { class_id: string; subject_id: string; teacher_id: string }) => {
       try {
-        return await assignClassTeacher({ data: input });
+        const raw = await assignClassTeacher({ data: input });
+        const id = unwrapNestedId(raw);
+        if (id) return { id };
+      } catch (error) {
+        console.error("[assign-teacher] server failed:", error);
+      }
+      const cls = await getById<{ school_id: string }>(COLLECTIONS.classes, input.class_id);
+      if (!cls) throw new Error("That class was not found.");
+      try {
+        const id = await createDoc(COLLECTIONS.classTeacherAssignments, {
+          school_id: cls.school_id,
+          class_id: input.class_id,
+          subject_id: input.subject_id,
+          teacher_id: input.teacher_id,
+          status: "active",
+          started_at: nowIso(),
+          ended_at: null,
+        });
+        return { id };
       } catch (error) {
         throw classifyFirebase(error);
       }

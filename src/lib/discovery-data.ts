@@ -507,24 +507,42 @@ export function useAllApplications(schoolId: string | undefined) {
     queryKey: ["all-applications", schoolId],
     enabled: !!schoolId,
     queryFn: async (): Promise<SchoolApplication[]> => {
+      const byId = new Map<string, SchoolApplication>();
       try {
         const raw = await listSchoolApplications();
-        if (Array.isArray(raw)) return raw as SchoolApplication[];
-        if (raw && typeof raw === "object") {
-          const obj = raw as Record<string, unknown>;
-          for (const key of ["data", "result", "payload", "value"]) {
-            const inner = obj[key];
-            if (Array.isArray(inner)) return inner as SchoolApplication[];
-          }
+        const rows = Array.isArray(raw)
+          ? (raw as SchoolApplication[])
+          : raw && typeof raw === "object"
+            ? (() => {
+                const obj = raw as Record<string, unknown>;
+                for (const key of ["data", "result", "payload", "value"]) {
+                  const inner = obj[key];
+                  if (Array.isArray(inner)) return inner as SchoolApplication[];
+                }
+                return [];
+              })()
+            : [];
+        for (const row of rows) {
+          if (row.id) byId.set(row.id, row);
         }
       } catch (error) {
         console.error("[applications] server list failed:", error);
       }
-      const rows = await findMany<Omit<SchoolApplication, "school">>(
-        COLLECTIONS.schoolApplications,
-        [where("school_id", "==", schoolId!), orderBy("created_at", "desc")],
+      try {
+        const rows = await findMany<Omit<SchoolApplication, "school">>(
+          COLLECTIONS.schoolApplications,
+          [where("school_id", "==", schoolId!)],
+        );
+        const hydrated = await Promise.all(rows.map(hydrateApplication));
+        for (const row of hydrated) {
+          if (row.id && !byId.has(row.id)) byId.set(row.id, row);
+        }
+      } catch (error) {
+        console.error("[applications] client list failed:", error);
+      }
+      return [...byId.values()].sort((a, b) =>
+        (b.created_at ?? "").localeCompare(a.created_at ?? ""),
       );
-      return Promise.all(rows.map(hydrateApplication));
     },
   });
 }
@@ -948,42 +966,89 @@ export type StaffMember = {
   profile: { id: string; full_name: string; email: string | null } | null;
 };
 
-export function useStaffDirectory(enabled: boolean) {
+export function useStaffDirectory(enabled: boolean, schoolId?: string | undefined) {
   return useQuery({
-    queryKey: ["staff-directory"],
+    queryKey: ["staff-directory", schoolId],
     enabled,
     queryFn: async (): Promise<StaffMember[]> => {
-      const schoolId = await userSchoolId();
-      if (!schoolId) return [];
-      const rows = await findMany<{
-        role: string;
-        full_name: string;
-        email: string | null;
-      }>(COLLECTIONS.users, [where("school_id", "==", schoolId)]);
-      return rows
-        .filter((r) => ["teacher", "admin", "institution", "superadmin"].includes(r.role))
-        .map((r) => ({
-          user_id: r.id,
-          role: r.role,
-          profile: { id: r.id, full_name: r.full_name, email: r.email },
-        }));
+      const resolved = schoolId || (await userSchoolId());
+      if (!resolved) return [];
+      const byId = new Map<string, StaffMember>();
+      try {
+        const members = await findMany<{ user_id?: string; role: string; status: string }>(
+          COLLECTIONS.schoolMembers,
+          [where("school_id", "==", resolved)],
+        );
+        for (const member of members) {
+          if (
+            member.status !== "approved" &&
+            member.status !== "owner" &&
+            member.status !== "pending"
+          ) {
+            continue;
+          }
+          if (!["teacher", "admin", "institution", "superadmin"].includes(member.role)) continue;
+          const userId = member.user_id || member.id;
+          const user = await getById<{ full_name?: string; email?: string | null }>(
+            COLLECTIONS.users,
+            userId,
+          ).catch(() => null);
+          byId.set(userId, {
+            user_id: userId,
+            role: member.role,
+            profile: user
+              ? { id: user.id, full_name: user.full_name ?? "Staff", email: user.email ?? null }
+              : { id: userId, full_name: "Staff", email: null },
+          });
+        }
+      } catch (error) {
+        console.error("[staff] members list failed:", error);
+      }
+      try {
+        const rows = await findMany<{
+          role: string;
+          full_name: string;
+          email: string | null;
+        }>(COLLECTIONS.users, [where("school_id", "==", resolved)]);
+        for (const row of rows) {
+          if (!["teacher", "admin", "institution", "superadmin"].includes(row.role)) continue;
+          if (byId.has(row.id)) continue;
+          byId.set(row.id, {
+            user_id: row.id,
+            role: row.role,
+            profile: { id: row.id, full_name: row.full_name, email: row.email },
+          });
+        }
+      } catch (error) {
+        console.error("[staff] users list failed:", error);
+      }
+      return [...byId.values()];
     },
   });
 }
 
-export function useAllClasses(enabled: boolean) {
+export function useAllClasses(enabled: boolean, schoolId?: string | undefined) {
   return useQuery({
-    queryKey: ["all-classes"],
+    queryKey: ["all-classes", schoolId],
     enabled,
     queryFn: async () => {
-      const schoolId = await userSchoolId();
-      if (!schoolId) return [];
-      const rows = await findMany<{
+      const resolved = schoolId || (await userSchoolId());
+      if (!resolved) return [];
+      let rows: Array<{
+        id: string;
         name: string;
         room: string | null;
         subject_id: string | null;
         teacher_id: string | null;
-      }>(COLLECTIONS.classes, [where("school_id", "==", schoolId), orderBy("name")]);
+      }> = [];
+      try {
+        rows = await findMany(COLLECTIONS.classes, [
+          where("school_id", "==", resolved),
+          orderBy("name"),
+        ]);
+      } catch {
+        rows = await findMany(COLLECTIONS.classes, [where("school_id", "==", resolved)]);
+      }
       return Promise.all(
         rows.map(async (row) => {
           const withSubject = await attachSubject(row);

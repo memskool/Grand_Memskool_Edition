@@ -71,7 +71,9 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
               Refresh
             </Button>
             <Button asChild className="rounded-full">
-              <Link to="/school-admin">Create school</Link>
+              <Link to="/school-admin" search={{ tab: "overview" }}>
+                Create school
+              </Link>
             </Button>
           </div>
         }
@@ -129,7 +131,9 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
         {editing ? null : (
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild className="rounded-full">
-              <Link to="/school-admin">Manage school</Link>
+              <Link to="/school-admin" search={{ tab: "overview" }}>
+                Manage school
+              </Link>
             </Button>
             <Button
               variant="outline"
@@ -153,6 +157,49 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
             </Button>
           </div>
         )}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Button asChild variant="outline" className="h-auto justify-start rounded-2xl p-4 text-left">
+          <Link to="/school-admin" search={{ tab: "people" }}>
+            <span>
+              <span className="block text-sm font-semibold">People</span>
+              <span className="block text-xs font-normal text-muted-foreground">
+                Approve teachers and student applications
+              </span>
+            </span>
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="h-auto justify-start rounded-2xl p-4 text-left">
+          <Link to="/school-admin" search={{ tab: "classes" }}>
+            <span>
+              <span className="block text-sm font-semibold">Classes</span>
+              <span className="block text-xs font-normal text-muted-foreground">
+                Create a class and enrol approved learners
+              </span>
+            </span>
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="h-auto justify-start rounded-2xl p-4 text-left">
+          <Link to="/virtual-classroom">
+            <span>
+              <span className="block text-sm font-semibold">Live class</span>
+              <span className="block text-xs font-normal text-muted-foreground">
+                Open a lesson for a class
+              </span>
+            </span>
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="h-auto justify-start rounded-2xl p-4 text-left">
+          <Link to="/school-admin" search={{ tab: "notices" }}>
+            <span>
+              <span className="block text-sm font-semibold">Notices</span>
+              <span className="block text-xs font-normal text-muted-foreground">
+                Meetings and announcements
+              </span>
+            </span>
+          </Link>
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   Building2,
   CalendarPlus,
@@ -60,7 +60,32 @@ import {
 } from "@/components/ui/select";
 import { DAYS, formatDateTime } from "@/lib/format";
 
+const SCHOOL_ADMIN_TABS = ["overview", "people", "classes", "notices"] as const;
+export type SchoolAdminTab = (typeof SCHOOL_ADMIN_TABS)[number];
+
+function parseSchoolAdminSearch(search: Record<string, unknown>): { tab?: SchoolAdminTab } {
+  const raw = typeof search["tab"] === "string" ? search["tab"] : undefined;
+  if (!raw) return {};
+  if (raw === "people" || raw === "admissions" || raw === "staff" || raw === "families") {
+    return { tab: "people" };
+  }
+  if (
+    raw === "classes" ||
+    raw === "enrolment" ||
+    raw === "academic" ||
+    raw === "curriculum" ||
+    raw === "timetable"
+  ) {
+    return { tab: "classes" };
+  }
+  if (raw === "notices" || raw === "meetings" || raw === "announcements") {
+    return { tab: "notices" };
+  }
+  return { tab: "overview" };
+}
+
 export const Route = createFileRoute("/_authenticated/school-admin")({
+  validateSearch: parseSchoolAdminSearch,
   head: () => ({
     meta: [
       { title: "School Administration — Memskool" },
@@ -122,39 +147,51 @@ function SchoolAdminWorkspace({
 }) {
   const school = useMySchool(userId);
   const resolvedSchoolId = schoolId ?? school.data?.id;
-  const [tab, setTab] = useState("school");
+  const { tab: tabFromSearch } = Route.useSearch();
+  const tab = tabFromSearch ?? "overview";
+  const navigate = useNavigate({ from: "/school-admin" });
   const applications = useAllApplications(resolvedSchoolId);
   const pendingCount = (applications.data ?? []).filter(
     (row) => row.status === "pending" || row.status === "under_review",
   ).length;
+  const members = useSchoolMembers(resolvedSchoolId);
+  const joinCount = (members.data ?? []).filter((row) => row.status === "pending").length;
+  const peopleBadge = pendingCount + joinCount;
+
+  const openTab = (next: SchoolAdminTab) => {
+    void navigate({ search: { tab: next } });
+  };
 
   return (
     <>
       <PageHeader
         title="School Administration"
-        subtitle="Run your school from one place — one online school per institution account."
+        subtitle="Four places to run the school: details, people, classes, and notices."
       />
-      <Tabs value={tab} onValueChange={setTab} className="space-y-6">
+      <Tabs
+        value={tab}
+        onValueChange={(value) => openTab(value as SchoolAdminTab)}
+        className="space-y-6"
+      >
         <TabsList className="flex h-auto min-h-10 w-full flex-wrap justify-start gap-1">
-          <TabsTrigger value="school">School</TabsTrigger>
-          <TabsTrigger value="admissions">
-            Students & admissions
-            {pendingCount ? ` (${pendingCount})` : ""}
+          <TabsTrigger value="overview">School</TabsTrigger>
+          <TabsTrigger value="people">
+            People
+            {peopleBadge ? ` (${peopleBadge})` : ""}
           </TabsTrigger>
-          <TabsTrigger value="academic">Academic year</TabsTrigger>
-          <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
-          <TabsTrigger value="enrolment">Classes & enrolment</TabsTrigger>
-          <TabsTrigger value="families">Families</TabsTrigger>
-          <TabsTrigger value="classes">Timetable</TabsTrigger>
-          <TabsTrigger value="staff">Teachers</TabsTrigger>
-          <TabsTrigger value="meetings">Meetings</TabsTrigger>
-          <TabsTrigger value="announcements">Announcements</TabsTrigger>
+          <TabsTrigger value="classes">Classes</TabsTrigger>
+          <TabsTrigger value="notices">Notices</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="school">
-          <SchoolSection userId={userId} onOpenAdmissions={() => setTab("admissions")} />
+        <TabsContent value="overview" className="space-y-6">
+          <SchoolSection userId={userId} onOpenAdmissions={() => openTab("people")} />
         </TabsContent>
-        <TabsContent value="academic">
+        <TabsContent value="people" className="space-y-8">
+          <AdmissionsSection schoolId={resolvedSchoolId} />
+          <StaffSection schoolId={resolvedSchoolId} />
+          <FamilyLinkPanel schoolId={resolvedSchoolId} />
+        </TabsContent>
+        <TabsContent value="classes" className="space-y-8">
           <AcademicStructurePanel
             schoolId={resolvedSchoolId}
             currentYearId={
@@ -170,30 +207,13 @@ function SchoolAdminWorkspace({
                 : null
             }
           />
-        </TabsContent>
-        <TabsContent value="curriculum">
           <CurriculumPanel schoolId={resolvedSchoolId} userId={userId} />
-        </TabsContent>
-        <TabsContent value="enrolment">
           <EnrolmentPanel schoolId={resolvedSchoolId} />
+          <ClassesSection userId={userId} schoolId={resolvedSchoolId} />
         </TabsContent>
-        <TabsContent value="families">
-          <FamilyLinkPanel schoolId={resolvedSchoolId} />
-        </TabsContent>
-        <TabsContent value="classes">
-          <ClassesSection userId={userId} />
-        </TabsContent>
-        <TabsContent value="staff">
-          <StaffSection />
-        </TabsContent>
-        <TabsContent value="admissions">
-          <AdmissionsSection schoolId={resolvedSchoolId} />
-        </TabsContent>
-        <TabsContent value="meetings">
-          <MeetingsSection userId={userId} />
-        </TabsContent>
-        <TabsContent value="announcements">
-          <AnnouncementsSection />
+        <TabsContent value="notices" className="space-y-8">
+          <MeetingsSection userId={userId} schoolId={resolvedSchoolId} />
+          <AnnouncementsSection schoolId={resolvedSchoolId} />
         </TabsContent>
       </Tabs>
     </>
@@ -454,10 +474,16 @@ function SchoolSection({
 
 /* ---------------------------------------------------------------- */
 
-function ClassesSection({ userId }: { userId?: string | undefined }) {
-  const classes = useAllClasses(true);
+function ClassesSection({
+  userId,
+  schoolId,
+}: {
+  userId?: string | undefined;
+  schoolId?: string | undefined;
+}) {
+  const classes = useAllClasses(true, schoolId);
   const subjects = useSubjects();
-  const staff = useStaffDirectory(true);
+  const staff = useStaffDirectory(true, schoolId);
   const timetable = useWeeklyTimetable(userId);
   const createClass = useCreateClass();
   const createSlot = useCreateSlotSafe();
@@ -642,8 +668,8 @@ function ClassesSection({ userId }: { userId?: string | undefined }) {
 
 /* ---------------------------------------------------------------- */
 
-function StaffSection() {
-  const staff = useStaffDirectory(true);
+function StaffSection({ schoolId }: { schoolId?: string | undefined }) {
+  const staff = useStaffDirectory(true, schoolId);
   const rows = (staff.data ?? []).filter((r) => r.role === "teacher" || r.role === "admin");
 
   return (
@@ -910,9 +936,15 @@ function AdmissionsSection({ schoolId }: { schoolId?: string | undefined }) {
 
 /* ---------------------------------------------------------------- */
 
-function MeetingsSection({ userId }: { userId?: string | undefined }) {
+function MeetingsSection({
+  userId,
+  schoolId,
+}: {
+  userId?: string | undefined;
+  schoolId?: string | undefined;
+}) {
   const meetings = useMeetings();
-  const classes = useAllClasses(true);
+  const classes = useAllClasses(true, schoolId);
   const create = useCreateMeeting(userId);
   const remove = useDeleteMeeting();
 
@@ -1075,8 +1107,8 @@ function MeetingsSection({ userId }: { userId?: string | undefined }) {
 
 /* ---------------------------------------------------------------- */
 
-function AnnouncementsSection() {
-  const classes = useAllClasses(true);
+function AnnouncementsSection({ schoolId }: { schoolId?: string | undefined }) {
+  const classes = useAllClasses(true, schoolId);
   return (
     <AnnouncementComposer
       canBroadcastSchoolWide

@@ -35,9 +35,16 @@ assert(!parent.includes("/home-studio"), "parents do not publish");
 const school = urls("institution");
 assert(school.includes("/school-admin"), "schools run School Admin");
 assert(school.includes("/home-studio"), "schools can publish as a channel");
+assert(school.includes("/virtual-classroom"), "schools can open live class");
+assert(!school.includes("/timetable"), "timetable lives inside School Admin");
 assert(!school.includes("/gold"), "schools do not tutor on Gold");
 assert(!school.includes("/ai-tutor"), "schools do not get the AI tutor");
 assert(!school.includes("/dream-school"), "schools do not browse Dream School");
+assert(
+  canAccessRoute("institution", "/timetable"),
+  "school can still open timetable from School Admin shortcuts",
+);
+assert(canAccessRoute("institution", "/assessments"), "school can still open assessments");
 
 assert(!canAccessRoute("parent", "/gold"), "parent blocked from Gold");
 assert(!canAccessRoute("teacher", "/locker"), "teacher blocked from locker");

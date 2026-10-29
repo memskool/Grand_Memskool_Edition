@@ -205,11 +205,7 @@ const parentMsg = { ...ITEM.messages, group: "family" as const };
 
 const opsDash = { ...ITEM.dashboard, group: "operations" as const };
 const opsClass = { ...ITEM.classroom, group: "operations" as const };
-const opsTime = { ...ITEM.timetable, group: "operations" as const };
-const opsAssess = { ...ITEM.assessments, group: "operations" as const };
-const opsLib = { ...ITEM.library, group: "operations" as const };
 const opsMsg = { ...ITEM.messages, group: "operations" as const };
-const opsStore = { ...ITEM.marketplace, group: "publish" as const };
 
 /**
  * Each role gets only the tools for that job. Students learn, teachers teach,
@@ -249,11 +245,7 @@ const BY_ROLE: Record<AppRole, NavItem[]> = {
     ITEM.schoolAdmin,
     opsClass,
     opsMsg,
-    opsTime,
-    opsAssess,
-    opsLib,
     ITEM.homeStudio,
-    opsStore,
     ITEM.settings,
   ],
   admin: [
@@ -261,11 +253,7 @@ const BY_ROLE: Record<AppRole, NavItem[]> = {
     ITEM.schoolAdmin,
     opsClass,
     opsMsg,
-    opsTime,
-    opsAssess,
-    opsLib,
     ITEM.homeStudio,
-    opsStore,
     ITEM.settings,
   ],
   superadmin: [
@@ -357,6 +345,14 @@ export function canAccessRoute(
     );
   }
   if (path === "/home" || path.startsWith("/home/")) return true;
+  if (
+    (role === "institution" || role === "admin") &&
+    ["/timetable", "/assessments", "/library", "/marketplace"].some(
+      (url) => path === url || path.startsWith(`${url}/`),
+    )
+  ) {
+    return true;
+  }
   return allowed.some((url) => path === url || path.startsWith(`${url}/`));
 }
 
