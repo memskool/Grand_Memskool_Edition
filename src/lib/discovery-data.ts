@@ -7,6 +7,7 @@ import {
   findMany,
   getById,
   patchById,
+  setById,
   removeById,
   subscribeMany,
   where,
@@ -266,64 +267,175 @@ export function useSchools() {
   });
 }
 
+function unwrapRegisteredSchool(raw: unknown): {
+  schoolId: string;
+  code: string | null;
+  created_at: string | null;
+} | null {
+  let current: unknown = raw;
+  for (let i = 0; i < 6; i++) {
+    if (!current || typeof current !== "object" || Array.isArray(current)) return null;
+    const obj = current as Record<string, unknown>;
+    if (typeof obj["schoolId"] === "string" && obj["schoolId"]) {
+      return {
+        schoolId: obj["schoolId"],
+        code: typeof obj["code"] === "string" ? obj["code"] : null,
+        created_at: typeof obj["created_at"] === "string" ? obj["created_at"] : null,
+      };
+    }
+    current = obj["data"] ?? obj["result"] ?? obj["payload"] ?? obj["value"];
+  }
+  return null;
+}
+
+async function registerSchoolOnClient(
+  uid: string,
+  email: string | null,
+  displayName: string | null,
+  values: Partial<School> & { name: string },
+): Promise<{ schoolId: string; code: string; created_at: string }> {
+  const schoolId = uid;
+  let code = `MS-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  for (let i = 0; i < 8; i++) {
+    const taken = await getById(COLLECTIONS.schoolDirectory, code);
+    if (!taken) break;
+    code = `MS-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  }
+  const now = new Date().toISOString();
+  const existing = await getById<{ code?: string; created_at?: string }>(
+    COLLECTIONS.schools,
+    schoolId,
+  );
+  if (existing?.code) code = String(existing.code);
+  await setById(COLLECTIONS.schools, schoolId, {
+    name: values.name,
+    code,
+    category: values.category ?? "secondary",
+    city: values.city ?? null,
+    country: values.country ?? "Uganda",
+    website: values.website ?? null,
+    description: values.description ?? null,
+    fees_min: values.fees_min ?? null,
+    fees_max: values.fees_max ?? null,
+    fees_currency: "UGX",
+    badges: values.badges ?? [],
+    is_international: values.is_international ?? false,
+    admissions_open: values.admissions_open !== false,
+    contact_email: email,
+    logo_url: null,
+    owner_id: uid,
+    created_by: uid,
+    created_at: existing?.created_at ?? now,
+    updated_at: now,
+  });
+  try {
+    await setById(COLLECTIONS.schoolDirectory, code, {
+      school_id: schoolId,
+      name: values.name,
+      city: values.city ?? null,
+      country: values.country ?? "Uganda",
+      category: values.category ?? "secondary",
+      admissions_open: values.admissions_open !== false,
+    });
+  } catch (error) {
+    console.error("[schools] directory write failed:", error);
+  }
+  try {
+    await setById(COLLECTIONS.schoolMembers, uid, {
+      school_id: schoolId,
+      user_id: uid,
+      role: "institution",
+      status: "approved",
+      student_code: null,
+      created_at: now,
+    });
+  } catch (error) {
+    console.error("[schools] member write failed:", error);
+  }
+  try {
+    await setById(COLLECTIONS.users, uid, {
+      full_name: displayName?.trim() || values.name,
+      email,
+      avatar_url: null,
+      phone: null,
+      school_id: schoolId,
+      student_code: null,
+      role: "institution",
+      membership_status: "owner",
+      created_at: now,
+      updated_at: now,
+    });
+  } catch (error) {
+    console.error("[schools] profile write failed:", error);
+  }
+  const saved = await getById(COLLECTIONS.schools, schoolId);
+  if (!saved) throw new Error("School was not saved. Try again.");
+  return { schoolId, code, created_at: existing?.created_at ?? now };
+}
+
 export function useCreateSchool(userId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (values: Partial<School> & { name: string }) => {
-      const raw = await registerDigitalSchool({
-        data: {
-          name: values.name,
-          category: values.category ?? "secondary",
-          city: values.city ?? null,
-          country: values.country ?? "Uganda",
-          website: values.website ?? null,
-          description: values.description ?? null,
-          fees_min: values.fees_min ?? null,
-          fees_max: values.fees_max ?? null,
-          badges: values.badges ?? [],
-          is_international: values.is_international ?? false,
-          admissions_open: values.admissions_open,
-        },
-      });
-      const payload = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
-      const nested =
-        payload && payload["data"] && typeof payload["data"] === "object"
-          ? (payload["data"] as Record<string, unknown>)
-          : payload;
-      const schoolId = nested && typeof nested["schoolId"] === "string" ? nested["schoolId"] : null;
-      const code = nested && typeof nested["code"] === "string" ? nested["code"] : null;
+      const payload = {
+        name: values.name,
+        category: values.category ?? "secondary",
+        city: values.city ?? null,
+        country: values.country ?? "Uganda",
+        website: values.website ?? null,
+        description: values.description ?? null,
+        fees_min: values.fees_min ?? null,
+        fees_max: values.fees_max ?? null,
+        badges: values.badges ?? [],
+        is_international: values.is_international ?? false,
+        admissions_open: values.admissions_open,
+      };
+      let registered: ReturnType<typeof unwrapRegisteredSchool> = null;
+      try {
+        registered = unwrapRegisteredSchool(await registerDigitalSchool({ data: payload }));
+      } catch (error) {
+        console.error("[schools] server register failed:", error);
+      }
       const user = getFirebaseAuth().currentUser;
       const uid = userId || user?.uid;
-      const school = schoolId
-        ? {
-            id: schoolId,
-            name: values.name,
-            code: code ?? "",
-            category: values.category ?? "secondary",
-            country: values.country ?? "Uganda",
-            city: values.city ?? null,
-            description: values.description ?? null,
-            website: values.website ?? null,
-            logo_url: null,
-            fees_min: values.fees_min ?? null,
-            fees_max: values.fees_max ?? null,
-            fees_currency: "UGX",
-            fees_notes: null,
-            badges: values.badges ?? [],
-            is_international: values.is_international ?? false,
-            admissions_open: values.admissions_open !== false,
-            contact_email: user?.email ?? null,
-            owner_id: uid ?? "",
-            created_at:
-              nested && typeof nested["created_at"] === "string"
-                ? nested["created_at"]
-                : new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            membership: "owner" as const,
-            memberRole: "institution" as AppRole,
-            studentCode: null as string | null,
-          }
-        : null;
+      if (!registered?.schoolId && uid) {
+        registered = await registerSchoolOnClient(
+          uid,
+          user?.email ?? null,
+          user?.displayName ?? null,
+          values,
+        );
+      }
+      const schoolId = registered?.schoolId ?? null;
+      const code = registered?.code ?? null;
+      if (!schoolId) {
+        throw new Error("School was not saved. Try again.");
+      }
+      const school = {
+        id: schoolId,
+        name: values.name,
+        code: code ?? "",
+        category: values.category ?? "secondary",
+        country: values.country ?? "Uganda",
+        city: values.city ?? null,
+        description: values.description ?? null,
+        website: values.website ?? null,
+        logo_url: null,
+        fees_min: values.fees_min ?? null,
+        fees_max: values.fees_max ?? null,
+        fees_currency: "UGX",
+        fees_notes: null,
+        badges: values.badges ?? [],
+        is_international: values.is_international ?? false,
+        admissions_open: values.admissions_open !== false,
+        contact_email: user?.email ?? null,
+        owner_id: uid ?? "",
+        created_at: registered?.created_at ?? new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        membership: "owner" as const,
+        memberRole: "institution" as AppRole,
+        studentCode: null as string | null,
+      };
       if (uid && school) {
         await qc.cancelQueries({ queryKey: ["my-school", uid] });
         await qc.cancelQueries({ queryKey: ["profile", uid] });

@@ -79,7 +79,14 @@ service cloud.firestore {
 
     match /school_directory/{code} {
       allow read: if true;
-      allow write: if false;
+      // Owner bootstrap (when Admin SDK is unavailable): one directory row per uid.
+      allow create: if isAuthenticated()
+        && request.resource.data.school_id == uid()
+        && stringMax(request.resource.data.name, 160);
+      allow update: if isAuthenticated()
+        && resource.data.school_id == uid()
+        && request.resource.data.school_id == uid();
+      allow delete: if false;
     }
 
     match /user_directory/{email} {
@@ -92,14 +99,29 @@ service cloud.firestore {
       );
       allow create: if isOwner(userId)
         && isValidUser(request.resource.data)
-        && request.resource.data.role == 'student'
-        && request.resource.data.school_id == null;
+        && (
+          (request.resource.data.role == 'student' && request.resource.data.school_id == null)
+          || (request.resource.data.role in ['teacher', 'parent']
+              && request.resource.data.school_id == null)
+          || (request.resource.data.role in ['institution', 'admin']
+              && (request.resource.data.school_id == null
+                  || request.resource.data.school_id == userId))
+        );
       allow update: if isOwner(userId)
         && isValidUser(request.resource.data)
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.school_id == resource.data.school_id
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['full_name', 'phone', 'avatar_url', 'updated_at']);
+        && (
+          (
+            request.resource.data.role == resource.data.role
+            && request.resource.data.school_id == resource.data.school_id
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['full_name', 'phone', 'avatar_url', 'updated_at'])
+          )
+          || (
+            request.resource.data.role in ['institution', 'admin']
+            && request.resource.data.school_id == userId
+            && (resource.data.school_id == null || resource.data.school_id == userId)
+          )
+        );
       allow delete: if false;
     }
 
@@ -109,9 +131,15 @@ service cloud.firestore {
       // must not browse other schools from the client.
       allow get: if isAuthenticated();
       allow list: if isSuperAdmin();
-      allow create: if false;
-      allow update: if isSchoolAdmin() && sameSchool(schoolId)
-        && request.resource.data.owner_id == resource.data.owner_id
+      allow create: if isAuthenticated()
+        && schoolId == uid()
+        && request.resource.data.owner_id == uid()
+        && stringMax(request.resource.data.name, 160);
+      allow update: if request.resource.data.owner_id == resource.data.owner_id
+        && (
+          (isSchoolAdmin() && sameSchool(schoolId))
+          || (resource.data.owner_id == uid() && schoolId == uid())
+        )
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['name', 'city', 'country', 'contact_email', 'website', 'logo_url', 'admissions_open', 'code', 'updated_at', 'academic_period_label', 'current_academic_year_id', 'category', 'description', 'fees_min', 'fees_max', 'fees_currency', 'badges', 'is_international']);
       allow delete: if isSuperAdmin();
@@ -123,10 +151,20 @@ service cloud.firestore {
       );
       allow create: if isAuthenticated()
         && isOwner(request.resource.data.user_id)
-        && request.resource.data.status == 'pending'
-        && request.resource.data.role in ['student', 'teacher', 'parent']
-        && request.resource.data.school_id is string
-        && exists(/databases/$(database)/documents/schools/$(request.resource.data.school_id));
+        && (
+          (
+            request.resource.data.status == 'pending'
+            && request.resource.data.role in ['student', 'teacher', 'parent']
+            && request.resource.data.school_id is string
+            && exists(/databases/$(database)/documents/schools/$(request.resource.data.school_id))
+          )
+          || (
+            request.resource.data.status == 'approved'
+            && request.resource.data.role == 'institution'
+            && request.resource.data.school_id == uid()
+            && request.resource.data.user_id == uid()
+          )
+        );
       allow update: if isSchoolAdmin() && sameSchool(resource.data.school_id)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
       allow delete: if isSchoolAdmin() && sameSchool(resource.data.school_id);
