@@ -75,7 +75,11 @@ export async function listSchoolApplicationsHandler(context: AuthedContext) {
 }
 
 export async function reviewSchoolApplicationHandler(
-  data: { applicationId: string; status: ApplicationStatus; notes?: string | null },
+  data: {
+    applicationId: string;
+    status: ApplicationStatus;
+    notes?: string | null | undefined;
+  },
   context: AuthedContext,
 ) {
   await assertCanManageSchool(context);

@@ -28,6 +28,7 @@ import {
 } from "@/lib/school-register.functions";
 import { listSchoolApplications, reviewSchoolApplication } from "@/lib/applications.functions";
 import { refreshAuthClaims } from "@/features/auth/services/auth.service";
+import { classifyFirebase } from "@/lib/errors/app-error";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { seedSessionAfterSignup } from "@/features/auth/seed-session";
 import { writeCachedSchool } from "@/features/auth/account-cache";
@@ -616,11 +617,15 @@ async function reviewApplicationOnClient(input: {
   }>(COLLECTIONS.schoolApplications, input.id);
   if (!existing) throw new Error("That application was not found.");
   const now = new Date().toISOString();
-  await patchById(COLLECTIONS.schoolApplications, input.id, {
-    status: input.status,
-    review_notes: input.notes ?? null,
-    reviewed_at: now,
-  });
+  try {
+    await patchById(COLLECTIONS.schoolApplications, input.id, {
+      status: input.status,
+      review_notes: input.notes ?? null,
+      reviewed_at: now,
+    });
+  } catch (error) {
+    throw classifyFirebase(error);
+  }
   const saved = await getById<{ status?: string }>(COLLECTIONS.schoolApplications, input.id);
   if (saved?.status !== input.status) {
     throw new Error("Application was not saved. Try again.");

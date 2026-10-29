@@ -55,11 +55,21 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/schools/$(schoolId))
         && get(/databases/$(database)/documents/schools/$(schoolId)).data.owner_id == uid();
     }
+    function managesSchool(schoolId) {
+      return isAuthenticated()
+        && schoolId is string
+        && schoolId.size() > 0
+        && (
+          schoolId == uid()
+          || ownsSchoolDoc(schoolId)
+          || (isSchoolAdmin() && sameSchool(schoolId))
+        );
+    }
     function sameSchool(schoolId) {
       return isAuthenticated()
         && schoolId is string
         && schoolId.size() > 0
-        && (tokenSchool() == schoolId || ownsSchoolDoc(schoolId));
+        && (tokenSchool() == schoolId || ownsSchoolDoc(schoolId) || schoolId == uid());
     }
     function isOwner(userId) {
       return isAuthenticated() && uid() == userId;
@@ -139,22 +149,22 @@ service cloud.firestore {
               && (request.resource.data.school_id == null
                   || request.resource.data.school_id == userId))
         );
-      allow update: if isOwner(userId)
-        && isValidUser(request.resource.data)
-        && (
+      allow update: if isValidUser(request.resource.data) && (
           (
-            request.resource.data.role == resource.data.role
+            isOwner(userId)
+            && request.resource.data.role == resource.data.role
             && request.resource.data.school_id == resource.data.school_id
             && request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly(['full_name', 'phone', 'avatar_url', 'updated_at'])
           )
           || (
-            request.resource.data.role in ['institution', 'admin']
+            isOwner(userId)
+            && request.resource.data.role in ['institution', 'admin']
             && request.resource.data.school_id == userId
             && (resource.data.school_id == null || resource.data.school_id == userId)
           )
           || (
-            ownsSchoolDoc(request.resource.data.school_id)
+            managesSchool(request.resource.data.school_id)
             && request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly(['school_id', 'membership_status', 'updated_at'])
             && (resource.data.school_id == null
@@ -188,34 +198,31 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (
         isOwner(resource.data.user_id) || sameSchool(resource.data.school_id) || isSuperAdmin()
       );
-      allow create: if isAuthenticated()
-        && isOwner(request.resource.data.user_id)
-        && (
+      allow create: if isAuthenticated() && (
           (
-            request.resource.data.status == 'pending'
+            isOwner(request.resource.data.user_id)
+            && request.resource.data.status == 'pending'
             && request.resource.data.role in ['student', 'teacher', 'parent']
             && request.resource.data.school_id is string
             && exists(/databases/$(database)/documents/schools/$(request.resource.data.school_id))
           )
           || (
-            request.resource.data.status == 'approved'
+            isOwner(request.resource.data.user_id)
+            && request.resource.data.status == 'approved'
             && request.resource.data.role == 'institution'
             && request.resource.data.school_id == uid()
-            && request.resource.data.user_id == uid()
           )
           || (
-            ownsSchoolDoc(request.resource.data.school_id)
+            managesSchool(request.resource.data.school_id)
             && request.resource.data.role in ['student', 'teacher', 'parent']
             && request.resource.data.status in ['approved', 'rejected']
           )
         );
-      allow update: if (
-          (isSchoolAdmin() && sameSchool(resource.data.school_id))
-          || ownsSchoolDoc(resource.data.school_id)
-        )
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updated_at']);
-      allow delete: if (isSchoolAdmin() && sameSchool(resource.data.school_id))
-        || ownsSchoolDoc(resource.data.school_id);
+      allow update: if managesSchool(resource.data.school_id)
+        && request.resource.data.school_id == resource.data.school_id
+        && request.resource.data.user_id == resource.data.user_id
+        && request.resource.data.status in ['pending', 'approved', 'rejected'];
+      allow delete: if managesSchool(resource.data.school_id);
     }
 
     match /school_roster/{id} {
@@ -577,18 +584,15 @@ service cloud.firestore {
     match /school_applications/{id} {
       allow read: if isOwner(resource.data.student_id) || isOwner(resource.data.user_id)
         || isLinkedParent(resource.data.student_id)
-        || (isSchoolAdmin() && sameSchool(resource.data.school_id))
-        || ownsSchoolDoc(resource.data.school_id);
+        || managesSchool(resource.data.school_id);
       allow create: if isOwner(request.resource.data.student_id) || isOwner(request.resource.data.user_id);
       allow delete: if isOwner(resource.data.student_id) || isOwner(resource.data.user_id)
         || (isSchoolAdmin() && sameSchool(resource.data.school_id))
         || ownsSchoolDoc(resource.data.school_id);
-      allow update: if (
-          (isSchoolAdmin() && sameSchool(resource.data.school_id))
-          || ownsSchoolDoc(resource.data.school_id)
-        )
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'review_notes', 'reviewed_at']);
+      allow update: if managesSchool(resource.data.school_id)
+        && request.resource.data.school_id == resource.data.school_id
+        && request.resource.data.student_id == resource.data.student_id
+        && request.resource.data.status in ['pending', 'under_review', 'approved', 'rejected'];
     }
     match /school_meetings/{id} {
       allow read: if tenantRead(resource.data.school_id);
