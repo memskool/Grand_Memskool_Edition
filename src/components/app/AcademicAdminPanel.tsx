@@ -503,7 +503,7 @@ export function EnrolmentPanel({ schoolId }: { schoolId: string | undefined }) {
     <div className="space-y-6">
       <Panel
         title="Classes"
-        description="Create a class, select it, then enrol approved learners from Students & admissions."
+        description="Create a class, select it, then enrol approved learners from People."
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Input

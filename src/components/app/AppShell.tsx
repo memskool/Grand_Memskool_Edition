@@ -30,10 +30,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <AppSidebar />
-      <SidebarInset className="canvas-mesh">
+      <SidebarInset className="canvas-mesh min-w-0 overflow-x-clip">
         <NetworkBanner />
-        <header className="relative sticky top-0 z-10 flex h-14 items-center gap-2 border-b border-border/80 bg-background/88 px-3 backdrop-blur-md sm:h-14 sm:gap-3 sm:px-6">
-          <SidebarTrigger className="rounded-lg" />
+        <header className="relative sticky top-0 z-10 flex h-12 items-center gap-2 border-b border-border/80 bg-background/88 px-3 pt-[env(safe-area-inset-top)] backdrop-blur-md sm:h-14 sm:gap-3 sm:px-6">
+          <SidebarTrigger className="hidden rounded-lg md:inline-flex" />
           <BrandMark size={32} priority />
           <span className="hidden font-display text-sm font-semibold tracking-tight text-foreground sm:inline">
             Memskool
@@ -50,7 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <main
           id="main"
-          className="page-enter mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-24 sm:px-6 sm:py-8 md:pb-8"
+          className="page-enter mx-auto w-full min-w-0 max-w-6xl flex-1 px-4 py-5 pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-8 md:pb-8"
         >
           <IdentityGate>
             <IdentityBanners />
@@ -60,7 +60,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </IdentityGate>
         </main>
 
-        <SiteFooter className="pb-24 md:pb-8" />
+        <SiteFooter className="hidden md:block md:pb-8" />
         <MobileNav />
       </SidebarInset>
     </SidebarProvider>

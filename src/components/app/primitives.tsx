@@ -13,9 +13,9 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="relative mb-7 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 border-b border-border pb-5 sm:flex sm:flex-wrap sm:justify-between">
+    <div className="relative mb-5 flex flex-col gap-3 border-b border-border pb-4 sm:mb-7 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:pb-5">
       <div className="min-w-0">
-        <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground sm:text-[1.75rem]">
+        <h1 className="font-display text-[1.45rem] font-semibold leading-tight tracking-tight text-foreground sm:text-[1.75rem]">
           {title}
         </h1>
         {subtitle ? (
@@ -65,7 +65,7 @@ export function StatCard({
   } as const;
 
   return (
-    <div className="surface-card surface-lift flex items-center gap-4 p-5">
+    <div className="surface-card flex items-center gap-3 p-4 sm:gap-4 sm:p-5">
       <span
         className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg", tones[tone])}
       >
@@ -97,7 +97,7 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={cn("surface-card p-5 sm:p-6", className)}>
+    <section className={cn("surface-card p-4 sm:p-6", className)}>
       <header className="mb-4">
         <h2 className="font-display text-base font-semibold">{title}</h2>
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}

@@ -60,10 +60,18 @@ assert(
   "student mobile starts at dashboard",
 );
 assert(
+  mobileTabsForRole("parent", false, false).length === 3,
+  "parent mobile bar stays at three tabs",
+);
+assert(
   mobileTabsForRole("parent", false, false).every((item) =>
-    ["/dashboard", "/timetable", "/assessments", "/messages"].includes(item.url),
+    ["/dashboard", "/timetable", "/assessments"].includes(item.url),
   ),
   "parent mobile tabs stay on family tools",
+);
+assert(
+  mobileTabsForRole("institution", false, false).some((item) => item.url === "/school-admin"),
+  "school mobile bar includes School Admin",
 );
 
 console.log("nav role workspace checks passed");

@@ -290,13 +290,35 @@ export function navPathActive(pathname: string, url: string): boolean {
   return pathname.startsWith(`${url}/`);
 }
 
-/** Up to four primary destinations for the mobile bottom bar. */
+const MOBILE_TAB_URLS: Record<AppRole, string[]> = {
+  student: ["/dashboard", "/virtual-classroom", "/assessments"],
+  teacher: ["/dashboard", "/virtual-classroom", "/assessments"],
+  parent: ["/dashboard", "/timetable", "/assessments"],
+  institution: ["/dashboard", "/school-admin", "/virtual-classroom"],
+  admin: ["/dashboard", "/school-admin", "/virtual-classroom"],
+  superadmin: ["/dashboard", "/home-admin", "/settings"],
+};
+
+/** Three thumb-friendly destinations for the mobile bar. Everything else is in Menu. */
 export function mobileTabsForRole(
   role: AppRole | undefined,
   examActive: boolean,
   pendingApproval = false,
 ): NavItem[] {
-  return navForRole(role, examActive, pendingApproval).slice(0, 4);
+  const items = navForRole(role, examActive, pendingApproval);
+  const preferred = MOBILE_TAB_URLS[role ?? "student"] ?? MOBILE_TAB_URLS.student;
+  const picked: NavItem[] = [];
+  for (const url of preferred) {
+    const match = items.find((item) => item.url === url);
+    if (match) picked.push(match);
+  }
+  if (picked.length >= 3) return picked.slice(0, 3);
+  for (const item of items) {
+    if (picked.some((row) => row.url === item.url)) continue;
+    picked.push(item);
+    if (picked.length >= 3) break;
+  }
+  return picked;
 }
 
 export function groupedNav(

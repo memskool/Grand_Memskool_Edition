@@ -173,7 +173,7 @@ function SchoolAdminWorkspace({
         onValueChange={(value) => openTab(value as SchoolAdminTab)}
         className="space-y-6"
       >
-        <TabsList className="flex h-auto min-h-10 w-full flex-wrap justify-start gap-1">
+        <TabsList className="sticky top-[calc(3rem+env(safe-area-inset-top))] z-[9] w-full justify-start bg-muted/95 backdrop-blur-md md:top-14">
           <TabsTrigger value="overview">School</TabsTrigger>
           <TabsTrigger value="people">
             People

@@ -160,7 +160,11 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Button asChild variant="outline" className="h-auto justify-start rounded-2xl p-4 text-left">
+        <Button
+          asChild
+          variant="outline"
+          className="h-auto w-full justify-start whitespace-normal rounded-2xl p-4 text-left"
+        >
           <Link to="/school-admin" search={{ tab: "people" }}>
             <span>
               <span className="block text-sm font-semibold">People</span>
@@ -170,7 +174,11 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
             </span>
           </Link>
         </Button>
-        <Button asChild variant="outline" className="h-auto justify-start rounded-2xl p-4 text-left">
+        <Button
+          asChild
+          variant="outline"
+          className="h-auto w-full justify-start whitespace-normal rounded-2xl p-4 text-left"
+        >
           <Link to="/school-admin" search={{ tab: "classes" }}>
             <span>
               <span className="block text-sm font-semibold">Classes</span>
@@ -180,7 +188,11 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
             </span>
           </Link>
         </Button>
-        <Button asChild variant="outline" className="h-auto justify-start rounded-2xl p-4 text-left">
+        <Button
+          asChild
+          variant="outline"
+          className="h-auto w-full justify-start whitespace-normal rounded-2xl p-4 text-left"
+        >
           <Link to="/virtual-classroom">
             <span>
               <span className="block text-sm font-semibold">Live class</span>
@@ -190,7 +202,11 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
             </span>
           </Link>
         </Button>
-        <Button asChild variant="outline" className="h-auto justify-start rounded-2xl p-4 text-left">
+        <Button
+          asChild
+          variant="outline"
+          className="h-auto w-full justify-start whitespace-normal rounded-2xl p-4 text-left"
+        >
           <Link to="/school-admin" search={{ tab: "notices" }}>
             <span>
               <span className="block text-sm font-semibold">Notices</span>

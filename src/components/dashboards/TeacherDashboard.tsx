@@ -74,7 +74,11 @@ export function TeacherDashboard({ user }: { user: AuthUser }) {
   return (
     <div className="space-y-6">
       <div className="grid gap-3 sm:grid-cols-3">
-        <Button asChild variant="outline" className="h-auto justify-start rounded-2xl p-4 text-left">
+        <Button
+          asChild
+          variant="outline"
+          className="h-auto w-full justify-start whitespace-normal rounded-2xl p-4 text-left"
+        >
           <Link to="/virtual-classroom">
             <span>
               <span className="block text-sm font-semibold">Start live class</span>
@@ -84,7 +88,11 @@ export function TeacherDashboard({ user }: { user: AuthUser }) {
             </span>
           </Link>
         </Button>
-        <Button asChild variant="outline" className="h-auto justify-start rounded-2xl p-4 text-left">
+        <Button
+          asChild
+          variant="outline"
+          className="h-auto w-full justify-start whitespace-normal rounded-2xl p-4 text-left"
+        >
           <Link to="/assessments">
             <span>
               <span className="block text-sm font-semibold">Mark work</span>
@@ -94,7 +102,11 @@ export function TeacherDashboard({ user }: { user: AuthUser }) {
             </span>
           </Link>
         </Button>
-        <Button asChild variant="outline" className="h-auto justify-start rounded-2xl p-4 text-left">
+        <Button
+          asChild
+          variant="outline"
+          className="h-auto w-full justify-start whitespace-normal rounded-2xl p-4 text-left"
+        >
           <Link to="/messages">
             <span>
               <span className="block text-sm font-semibold">Messages</span>

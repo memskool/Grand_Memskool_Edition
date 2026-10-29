@@ -250,6 +250,7 @@
   html {
     -webkit-tap-highlight-color: transparent;
     text-size-adjust: 100%;
+    overflow-x: clip;
   }
 
   body {
@@ -259,6 +260,15 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    overflow-x: clip;
+    min-width: 0;
+  }
+
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
   }
 
   h1,
@@ -329,7 +339,13 @@
 @utility canvas-mesh {
   background-color: var(--color-background);
   background-image: var(--gradient-mesh);
-  background-attachment: fixed;
+  background-attachment: scroll;
+}
+
+@media (min-width: 768px) {
+  .canvas-mesh {
+    background-attachment: fixed;
+  }
 }
 
 @utility accent-rail {
