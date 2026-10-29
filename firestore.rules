@@ -36,17 +36,30 @@ service cloud.firestore {
     function isSuperAdmin() {
       return isAuthenticated() && tokenRole() == 'superadmin';
     }
+    function profileRole() {
+      return exists(/databases/$(database)/documents/users/$(uid()))
+        ? get(/databases/$(database)/documents/users/$(uid())).data.role
+        : null;
+    }
     function isSchoolAdmin() {
-      return isAuthenticated() && tokenRole() in ['admin', 'institution', 'superadmin'];
+      return isAuthenticated() && (
+        tokenRole() in ['admin', 'institution', 'superadmin']
+        || profileRole() in ['admin', 'institution', 'superadmin']
+      );
     }
     function isTeacher() {
       return isAuthenticated() && tokenRole() == 'teacher' && isApproved();
+    }
+    function ownsSchoolDoc(schoolId) {
+      return schoolId == uid()
+        && exists(/databases/$(database)/documents/schools/$(schoolId))
+        && get(/databases/$(database)/documents/schools/$(schoolId)).data.owner_id == uid();
     }
     function sameSchool(schoolId) {
       return isAuthenticated()
         && schoolId is string
         && schoolId.size() > 0
-        && tokenSchool() == schoolId;
+        && (tokenSchool() == schoolId || ownsSchoolDoc(schoolId));
     }
     function isOwner(userId) {
       return isAuthenticated() && uid() == userId;

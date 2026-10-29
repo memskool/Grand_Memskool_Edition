@@ -10,6 +10,7 @@ import {
 } from "@/lib/firebase/repo";
 import { userSchoolId } from "@/lib/firebase/hydrate";
 import { classifyFirebase } from "@/lib/errors/app-error";
+import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 import type {
   AcademicYear,
   AcademicPeriod,
@@ -64,17 +65,35 @@ export function useAcademicPeriods(schoolId: string | undefined, yearId?: string
   });
 }
 
+async function writeWithClaimRefresh(write: () => Promise<void>) {
+  try {
+    await write();
+  } catch (error) {
+    const classified = classifyFirebase(error);
+    const msg = classified.message.toLowerCase();
+    if (!msg.includes("permission") && !msg.includes("insufficient")) throw classified;
+    await refreshAuthClaims();
+    try {
+      await write();
+    } catch (retryError) {
+      throw classifyFirebase(retryError);
+    }
+  }
+}
+
 export function useCreateAcademicYear(schoolId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (values: { name: string; starts_on: string; ends_on: string }) => {
       if (!schoolId) throw new Error("Register your school first.");
-      await createDoc(COLLECTIONS.academicYears, {
-        ...values,
-        school_id: schoolId,
-        created_at: nowIso(),
-        updated_at: nowIso(),
-      });
+      await writeWithClaimRefresh(() =>
+        createDoc(COLLECTIONS.academicYears, {
+          ...values,
+          school_id: schoolId,
+          created_at: nowIso(),
+          updated_at: nowIso(),
+        }),
+      );
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["academic-years", schoolId] }),
   });
@@ -91,12 +110,14 @@ export function useCreateAcademicPeriod(schoolId: string | undefined) {
       ends_on: string;
     }) => {
       if (!schoolId) throw new Error("Register your school first.");
-      await createDoc(COLLECTIONS.academicPeriods, {
-        ...values,
-        school_id: schoolId,
-        created_at: nowIso(),
-        updated_at: nowIso(),
-      });
+      await writeWithClaimRefresh(() =>
+        createDoc(COLLECTIONS.academicPeriods, {
+          ...values,
+          school_id: schoolId,
+          created_at: nowIso(),
+          updated_at: nowIso(),
+        }),
+      );
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["academic-periods"] }),
   });
