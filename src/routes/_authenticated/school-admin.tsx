@@ -110,32 +110,47 @@ function SchoolAdminPage() {
     );
   }
 
+  return <SchoolAdminWorkspace userId={user?.id} schoolId={school.data?.id} />;
+}
+
+function SchoolAdminWorkspace({ userId, schoolId }: { userId?: string; schoolId?: string }) {
+  const school = useMySchool(userId);
+  const resolvedSchoolId = schoolId ?? school.data?.id;
+  const [tab, setTab] = useState("school");
+  const applications = useAllApplications(resolvedSchoolId);
+  const pendingCount = (applications.data ?? []).filter(
+    (row) => row.status === "pending" || row.status === "under_review",
+  ).length;
+
   return (
     <>
       <PageHeader
         title="School Administration"
         subtitle="Run your school from one place — one online school per institution account."
       />
-      <Tabs defaultValue="school" className="space-y-6">
-        <TabsList className="flex-wrap">
+      <Tabs value={tab} onValueChange={setTab} className="space-y-6">
+        <TabsList className="flex h-auto min-h-10 w-full flex-wrap justify-start gap-1">
           <TabsTrigger value="school">School</TabsTrigger>
+          <TabsTrigger value="admissions">
+            Students & admissions
+            {pendingCount ? ` (${pendingCount})` : ""}
+          </TabsTrigger>
           <TabsTrigger value="academic">Academic year</TabsTrigger>
           <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
           <TabsTrigger value="enrolment">Classes & enrolment</TabsTrigger>
           <TabsTrigger value="families">Families</TabsTrigger>
           <TabsTrigger value="classes">Timetable</TabsTrigger>
           <TabsTrigger value="staff">Teachers</TabsTrigger>
-          <TabsTrigger value="admissions">Admissions</TabsTrigger>
           <TabsTrigger value="meetings">Meetings</TabsTrigger>
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
         </TabsList>
 
         <TabsContent value="school">
-          <SchoolSection userId={user?.id} />
+          <SchoolSection userId={userId} onOpenAdmissions={() => setTab("admissions")} />
         </TabsContent>
         <TabsContent value="academic">
           <AcademicStructurePanel
-            schoolId={school.data?.id}
+            schoolId={resolvedSchoolId}
             currentYearId={
               school.data && "current_academic_year_id" in school.data
                 ? ((school.data as { current_academic_year_id?: string | null })
@@ -151,25 +166,25 @@ function SchoolAdminPage() {
           />
         </TabsContent>
         <TabsContent value="curriculum">
-          <CurriculumPanel schoolId={school.data?.id} userId={user?.id ?? undefined} />
+          <CurriculumPanel schoolId={resolvedSchoolId} userId={userId} />
         </TabsContent>
         <TabsContent value="enrolment">
-          <EnrolmentPanel schoolId={school.data?.id} />
+          <EnrolmentPanel schoolId={resolvedSchoolId} />
         </TabsContent>
         <TabsContent value="families">
-          <FamilyLinkPanel schoolId={school.data?.id} />
+          <FamilyLinkPanel schoolId={resolvedSchoolId} />
         </TabsContent>
         <TabsContent value="classes">
-          <ClassesSection userId={user?.id} />
+          <ClassesSection userId={userId} />
         </TabsContent>
         <TabsContent value="staff">
           <StaffSection />
         </TabsContent>
         <TabsContent value="admissions">
-          <AdmissionsSection schoolId={school.data?.id} />
+          <AdmissionsSection schoolId={resolvedSchoolId} />
         </TabsContent>
         <TabsContent value="meetings">
-          <MeetingsSection userId={user?.id} />
+          <MeetingsSection userId={userId} />
         </TabsContent>
         <TabsContent value="announcements">
           <AnnouncementsSection />
@@ -199,7 +214,13 @@ type SchoolProfileFields = {
   admissions_open?: boolean;
 };
 
-function SchoolSection({ userId }: { userId?: string | undefined }) {
+function SchoolSection({
+  userId,
+  onOpenAdmissions,
+}: {
+  userId?: string | undefined;
+  onOpenAdmissions?: () => void;
+}) {
   const mySchool = useMySchool(userId);
   const save = useCreateSchool(userId);
   const school = (mySchool.data ?? null) as SchoolProfileFields | null;
@@ -308,6 +329,24 @@ function SchoolSection({ userId }: { userId?: string | undefined }) {
                   <Copy className="size-4" /> Copy ID
                 </Button>
               ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {hasSchool ? (
+          <div className="mb-5 rounded-xl border border-border/80 bg-background/50 px-4 py-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-medium">Students & admissions</p>
+                <p className="text-sm text-muted-foreground">
+                  Review Dream School applications, approve join requests, and see enrolled
+                  students. Share School ID {code || "—"} so they can find{" "}
+                  {school?.name || "your school"}.
+                </p>
+              </div>
+              <Button className="rounded-full" onClick={onOpenAdmissions}>
+                Open admissions
+              </Button>
             </div>
           </div>
         ) : null}
@@ -648,6 +687,9 @@ function AdmissionsSection({ schoolId }: { schoolId?: string | undefined }) {
   const [draftNotes, setDraftNotes] = useState("");
 
   const pendingMembers = (members.data ?? []).filter((m) => m.status === "pending");
+  const enrolledStudents = (members.data ?? []).filter(
+    (m) => m.role === "student" && m.status === "approved",
+  );
 
   if (!schoolId) {
     return (
@@ -816,6 +858,41 @@ function AdmissionsSection({ schoolId }: { schoolId?: string | undefined }) {
             </div>
           )}
         />
+      </Panel>
+
+      <Panel
+        title="Enrolled students"
+        description="Students who have been approved into this school"
+      >
+        {members.isLoading ? (
+          <ListSkeleton rows={2} />
+        ) : enrolledStudents.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="No enrolled students yet"
+            hint="Approve a Dream School application or a join request and the student appears here."
+          />
+        ) : (
+          <ul className="space-y-2">
+            {enrolledStudents.map((m) => (
+              <li
+                key={m.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-secondary/50 px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    {m.user?.full_name || m.user?.email || "Student"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {m.user?.email || "Enrolled"}
+                    {m.student_code ? ` · ${m.student_code}` : ""}
+                  </p>
+                </div>
+                <Badge variant="secondary">Enrolled</Badge>
+              </li>
+            ))}
+          </ul>
+        )}
       </Panel>
     </div>
   );

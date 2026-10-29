@@ -35,7 +35,11 @@ export function ApplicationsTracker({
       <EmptyState
         icon={FileCheck2}
         title="No applications yet"
-        hint="Browse the Dream School directory and apply to the schools you're aiming for."
+        hint={
+          variant === "admin"
+            ? "When a student applies from Dream School, their application appears here so you can approve or decline it."
+            : "Browse the Dream School directory and apply to the schools you're aiming for."
+        }
       />
     );
   }

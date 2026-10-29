@@ -10,8 +10,15 @@ import {
 } from "@/lib/firebase/admin-repo";
 import { adminAuth } from "@/lib/firebase/admin.server";
 import { COLLECTIONS } from "@/lib/firebase/repo";
-import { isSchoolManager } from "@/types/roles";
+import { isSchoolManager, type AppRole } from "@/types/roles";
 import { managedSchoolIdFor } from "@/lib/firebase/school-context.server";
+
+async function assertCanManageSchool(context: { userId: string; role: AppRole }): Promise<void> {
+  if (isSchoolManager(context.role)) return;
+  const profile = await adminGetById<{ role?: AppRole }>(COLLECTIONS.users, context.userId);
+  if (isSchoolManager(profile?.role)) return;
+  throw new Error("You do not have permission to perform this action.");
+}
 
 const ApplicationStatusSchema = z.enum(["pending", "under_review", "approved", "rejected"]);
 
@@ -53,9 +60,7 @@ async function loadApplicationsForSchool(schoolId: string): Promise<ApplicationR
 export const listSchoolApplications = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
   .handler(async ({ context }) => {
-    if (!isSchoolManager(context.role)) {
-      throw new Error("You do not have permission to perform this action.");
-    }
+    await assertCanManageSchool(context);
     const schoolId = await managedSchoolIdFor(context);
     const rows = await loadApplicationsForSchool(schoolId);
     const school = await adminGetById<{ name: string; category: string; city: string | null }>(
@@ -83,9 +88,7 @@ export const reviewSchoolApplication = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
-    if (!isSchoolManager(context.role)) {
-      throw new Error("You do not have permission to perform this action.");
-    }
+    await assertCanManageSchool(context);
     const application = await adminGetById<ApplicationRow>(
       COLLECTIONS.schoolApplications,
       data.applicationId,
