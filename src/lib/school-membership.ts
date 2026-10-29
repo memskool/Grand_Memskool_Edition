@@ -264,11 +264,71 @@ export function useSchoolMembers(schoolId: string | undefined) {
   });
 }
 
+function unwrapOkStatus(raw: unknown): { ok: boolean; status: string | null } {
+  let current: unknown = raw;
+  for (let i = 0; i < 6; i++) {
+    if (!current || typeof current !== "object" || Array.isArray(current)) break;
+    const obj = current as Record<string, unknown>;
+    if (obj["ok"] === true && typeof obj["status"] === "string") {
+      return { ok: true, status: obj["status"] };
+    }
+    current = obj["data"] ?? obj["result"] ?? obj["payload"] ?? obj["value"];
+  }
+  return { ok: false, status: null };
+}
+
 export function useSetMemberStatus(schoolId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: MemberStatus }) => {
-      await setSchoolMemberStatus({ data: { memberId: id, status } });
+      let reviewed = unwrapOkStatus(
+        await setSchoolMemberStatus({ data: { memberId: id, status } }).catch((error) => {
+          console.error("[members] server status failed:", error);
+          return null;
+        }),
+      );
+      if (!reviewed.ok || reviewed.status !== status) {
+        const now = new Date().toISOString();
+        const member = await getById<{
+          school_id: string;
+          user_id: string;
+          role?: string;
+        }>(COLLECTIONS.schoolMembers, id);
+        if (!member) throw new Error("That membership was not found.");
+        await patchById(COLLECTIONS.schoolMembers, id, { status, updated_at: now });
+        const saved = await getById<{ status?: string }>(COLLECTIONS.schoolMembers, id);
+        if (saved?.status !== status) throw new Error("Membership was not saved. Try again.");
+        try {
+          await patchById(COLLECTIONS.users, member.user_id, {
+            school_id: status === "rejected" ? null : member.school_id,
+            membership_status: status === "rejected" ? "approved" : status,
+            updated_at: now,
+          });
+        } catch (error) {
+          console.error("[members] profile update failed:", error);
+        }
+        try {
+          await createDoc(COLLECTIONS.notifications, {
+            user_id: member.user_id,
+            title: status === "approved" ? "School access approved" : "School access update",
+            body:
+              status === "approved"
+                ? "Your school has approved your account. School tools are now available."
+                : status === "rejected"
+                  ? "Your school request was not approved. Contact your administrator."
+                  : "Your school membership is pending review.",
+            kind: "security",
+            link: "/dashboard",
+            read: false,
+            school_id: member.school_id,
+            created_at: now,
+          });
+        } catch (error) {
+          console.error("[members] notify failed:", error);
+        }
+        reviewed = { ok: true, status };
+      }
+      if (!reviewed.ok) throw new Error("Membership was not saved. Try again.");
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["school-members", schoolId] });

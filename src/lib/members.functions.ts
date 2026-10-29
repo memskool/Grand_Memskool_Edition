@@ -11,9 +11,16 @@ import {
 } from "@/lib/firebase/admin-repo";
 import { parentLinkId } from "@/lib/parent-link";
 import { COLLECTIONS } from "@/lib/firebase/repo";
-import { isSchoolManager } from "@/types/roles";
+import { isSchoolManager, type AppRole } from "@/types/roles";
 import { adminAuth } from "@/lib/firebase/admin.server";
 import { managedSchoolIdFor } from "@/lib/firebase/school-context.server";
+
+async function assertCanManageSchool(context: { userId: string; role: AppRole }): Promise<void> {
+  if (isSchoolManager(context.role)) return;
+  const profile = await adminGetById<{ role?: AppRole }>(COLLECTIONS.users, context.userId);
+  if (isSchoolManager(profile?.role)) return;
+  throw new Error("You do not have permission to perform this action.");
+}
 
 export const setSchoolMemberStatus = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
@@ -26,9 +33,7 @@ export const setSchoolMemberStatus = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
-    if (!isSchoolManager(context.role)) {
-      throw new Error("You do not have permission to perform this action.");
-    }
+    await assertCanManageSchool(context);
     const member = await adminGetById<{
       school_id: string;
       user_id: string;
@@ -42,6 +47,10 @@ export const setSchoolMemberStatus = createServerFn({ method: "POST" })
 
     const now = new Date().toISOString();
     await adminUpdate(COLLECTIONS.schoolMembers, member.id, { status: data.status });
+    const saved = await adminGetById<{ status?: string }>(COLLECTIONS.schoolMembers, member.id);
+    if (saved?.status !== data.status) {
+      throw new Error("Membership was not saved. Try again.");
+    }
     const independentAgain = data.status === "rejected";
     await adminSet(COLLECTIONS.users, member.user_id, {
       school_id: independentAgain ? null : member.school_id,
@@ -55,29 +64,37 @@ export const setSchoolMemberStatus = createServerFn({ method: "POST" })
     );
     const storedRole = profile?.role ?? member.role;
     const claimRole = storedRole === "institution" ? "admin" : storedRole;
-    await adminAuth().setCustomUserClaims(member.user_id, {
-      role: claimRole,
-      schoolId: independentAgain ? null : member.school_id,
-      approved: data.status !== "pending",
-    });
+    try {
+      await adminAuth().setCustomUserClaims(member.user_id, {
+        role: claimRole,
+        schoolId: independentAgain ? null : member.school_id,
+        approved: data.status !== "pending",
+      });
+    } catch (claimsError) {
+      console.error("[setSchoolMemberStatus] claims", claimsError);
+    }
 
-    const { createAndQueueNotification, dispatchNotifications } =
-      await import("./notifications.server");
-    await createAndQueueNotification({
-      userId: member.user_id,
-      title: data.status === "approved" ? "School access approved" : "School access update",
-      body:
-        data.status === "approved"
-          ? "Your school has approved your teacher account. Teaching tools are now available."
-          : data.status === "rejected"
-            ? "Your school request was not approved. Contact your administrator."
-            : "Your school membership is pending review.",
-      kind: "security",
-      link: "/dashboard",
-      schoolId: member.school_id,
-      createdAt: now,
-    });
-    void dispatchNotifications();
+    try {
+      const { createAndQueueNotification, dispatchNotifications } =
+        await import("./notifications.server");
+      await createAndQueueNotification({
+        userId: member.user_id,
+        title: data.status === "approved" ? "School access approved" : "School access update",
+        body:
+          data.status === "approved"
+            ? "Your school has approved your teacher account. Teaching tools are now available."
+            : data.status === "rejected"
+              ? "Your school request was not approved. Contact your administrator."
+              : "Your school membership is pending review.",
+        kind: "security",
+        link: "/dashboard",
+        schoolId: member.school_id,
+        createdAt: now,
+      });
+      void dispatchNotifications();
+    } catch (notifyError) {
+      console.error("[setSchoolMemberStatus] notify", notifyError);
+    }
 
     return { ok: true as const, status: data.status };
   });
@@ -113,9 +130,7 @@ async function loadMembersForSchool(schoolId: string): Promise<MemberRow[]> {
 export const listSchoolMembers = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
   .handler(async ({ context }) => {
-    if (!isSchoolManager(context.role)) {
-      throw new Error("You do not have permission to perform this action.");
-    }
+    await assertCanManageSchool(context);
     const schoolId = await managedSchoolIdFor(context);
     const members = await loadMembersForSchool(schoolId);
     return Promise.all(

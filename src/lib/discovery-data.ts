@@ -569,6 +569,100 @@ export function useWithdrawApplication() {
   });
 }
 
+function unwrapReviewResult(raw: unknown): { ok: boolean; status: string | null } {
+  let current: unknown = raw;
+  for (let i = 0; i < 6; i++) {
+    if (!current || typeof current !== "object" || Array.isArray(current)) break;
+    const obj = current as Record<string, unknown>;
+    if (obj["ok"] === true && typeof obj["status"] === "string") {
+      return { ok: true, status: obj["status"] };
+    }
+    current = obj["data"] ?? obj["result"] ?? obj["payload"] ?? obj["value"];
+  }
+  return { ok: false, status: null };
+}
+
+async function notifyApplicantOnClient(input: {
+  userId: string;
+  schoolId: string;
+  title: string;
+  body: string;
+}) {
+  try {
+    await createDoc(COLLECTIONS.notifications, {
+      user_id: input.userId,
+      title: input.title,
+      body: input.body,
+      kind: "application",
+      link: "/dream-school",
+      read: false,
+      school_id: input.schoolId,
+      created_at: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("[applications] in-app notify failed:", error);
+  }
+}
+
+async function reviewApplicationOnClient(input: {
+  id: string;
+  status: ApplicationStatus;
+  notes?: string | null;
+}) {
+  const existing = await getById<{
+    school_id: string;
+    student_id: string;
+    status?: string;
+  }>(COLLECTIONS.schoolApplications, input.id);
+  if (!existing) throw new Error("That application was not found.");
+  const now = new Date().toISOString();
+  await patchById(COLLECTIONS.schoolApplications, input.id, {
+    status: input.status,
+    review_notes: input.notes ?? null,
+    reviewed_at: now,
+  });
+  const saved = await getById<{ status?: string }>(COLLECTIONS.schoolApplications, input.id);
+  if (saved?.status !== input.status) {
+    throw new Error("Application was not saved. Try again.");
+  }
+  if (input.status === "approved") {
+    await setById(COLLECTIONS.schoolMembers, existing.student_id, {
+      school_id: existing.school_id,
+      user_id: existing.student_id,
+      role: "student",
+      status: "approved",
+      student_code: null,
+      created_at: now,
+      updated_at: now,
+    });
+    try {
+      await patchById(COLLECTIONS.users, existing.student_id, {
+        school_id: existing.school_id,
+        membership_status: "approved",
+        updated_at: now,
+      });
+    } catch (error) {
+      console.error("[applications] student profile update failed:", error);
+    }
+  }
+  const school = await getById<{ name?: string }>(COLLECTIONS.schools, existing.school_id);
+  const schoolName = school?.name ?? "your school";
+  const statusCopy =
+    input.status === "approved"
+      ? `Congratulations — ${schoolName} approved your application.`
+      : input.status === "rejected"
+        ? `${schoolName} could not offer a place this time.`
+        : input.status === "under_review"
+          ? `${schoolName} is reviewing your application.`
+          : `Your application to ${schoolName} is pending review.`;
+  await notifyApplicantOnClient({
+    userId: existing.student_id,
+    schoolId: existing.school_id,
+    title: "Admission application update",
+    body: input.notes?.trim() ? `${statusCopy} Note: ${input.notes.trim()}` : statusCopy,
+  });
+}
+
 export function useUpdateApplicationStatus() {
   const qc = useQueryClient();
   return useMutation({
@@ -581,13 +675,24 @@ export function useUpdateApplicationStatus() {
       status: ApplicationStatus;
       notes?: string;
     }) => {
-      await reviewSchoolApplication({
-        data: {
-          applicationId: id,
-          status,
-          notes: notes ?? null,
-        },
-      });
+      let reviewed = unwrapReviewResult(
+        await reviewSchoolApplication({
+          data: {
+            applicationId: id,
+            status,
+            notes: notes ?? null,
+          },
+        }).catch((error) => {
+          console.error("[applications] server review failed:", error);
+          return null;
+        }),
+      );
+      if (!reviewed.ok || reviewed.status !== status) {
+        await reviewApplicationOnClient({ id, status, notes: notes ?? null });
+        reviewed = { ok: true, status };
+      }
+      if (!reviewed.ok) throw new Error("Application was not saved. Try again.");
+      return reviewed;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["all-applications"] });
