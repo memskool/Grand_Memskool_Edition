@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createServerFn } from "@tanstack/react-start";
+import { schoolCodeKey } from "@/lib/school-ids";
 
 export type SchoolLookupResult = {
   id: string;
@@ -20,7 +21,7 @@ export const lookupSchoolByCode = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<SchoolLookupResult> => {
     try {
       const { adminDb } = await import("@/lib/firebase/admin.server");
-      const code = data.code.trim().toUpperCase();
+      const code = schoolCodeKey(data.code);
       const snap = await adminDb().collection("school_directory").doc(code).get();
       if (!snap.exists) return null;
       const row = snap.data();

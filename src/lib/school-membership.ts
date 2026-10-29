@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AppRole } from "@/hooks/useAuth";
 import type { UserProfile } from "@/types/user";
 import { lookupSchoolByCode } from "@/lib/school-lookup.functions";
-import { rosterLookupId } from "@/lib/school-ids";
+import { rosterLookupId, schoolCodeKey } from "@/lib/school-ids";
+import { getFirebaseAuth } from "@/lib/firebase/client";
 import {
   COLLECTIONS,
   createDoc,
@@ -34,11 +35,64 @@ export type SchoolSummary = {
   country: string | null;
 };
 
+function unwrapTeacherJoin(raw: unknown): { schoolId: string; schoolName: string | null } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj["schoolId"] === "string" && obj["schoolId"]) {
+    return {
+      schoolId: obj["schoolId"],
+      schoolName: typeof obj["schoolName"] === "string" ? obj["schoolName"] : null,
+    };
+  }
+  for (const key of ["data", "result", "payload", "value"]) {
+    const inner = unwrapTeacherJoin(obj[key]);
+    if (inner) return inner;
+  }
+  return null;
+}
+
+function unwrapSchoolSummary(raw: unknown): SchoolSummary | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj["id"] === "string" && obj["id"] && typeof obj["name"] === "string") {
+    return {
+      id: obj["id"],
+      name: obj["name"],
+      city: typeof obj["city"] === "string" ? obj["city"] : null,
+      country: typeof obj["country"] === "string" ? obj["country"] : null,
+    };
+  }
+  for (const key of ["data", "result", "payload", "value"]) {
+    const inner = unwrapSchoolSummary(obj[key]);
+    if (inner) return inner;
+  }
+  return null;
+}
+
 export async function lookupSchool(code: string): Promise<SchoolSummary | null> {
-  const trimmed = code.trim();
-  if (!trimmed) return null;
-  const row = await lookupSchoolByCode({ data: { code: trimmed } });
-  return row ? (row as SchoolSummary) : null;
+  const trimmed = schoolCodeKey(code);
+  if (trimmed.length < 3) return null;
+  try {
+    const fromServer = unwrapSchoolSummary(await lookupSchoolByCode({ data: { code: trimmed } }));
+    if (fromServer) return fromServer;
+  } catch (error) {
+    console.error("[lookup-school] server lookup failed:", error);
+  }
+  const dir = await getById<{
+    school_id?: string;
+    name?: string;
+    city?: string | null;
+    country?: string | null;
+  }>(COLLECTIONS.schoolDirectory, trimmed);
+  if (dir?.school_id) {
+    return {
+      id: dir.school_id,
+      name: dir.name?.trim() || "School",
+      city: dir.city ?? null,
+      country: dir.country ?? null,
+    };
+  }
+  return null;
 }
 
 function unwrapManagedSchool(raw: unknown):
@@ -198,7 +252,43 @@ export function useRequestTeacherJoin() {
   return useMutation({
     mutationFn: async (schoolCode: string) => {
       const { requestTeacherSchoolJoin } = await import("@/lib/members.functions");
-      return requestTeacherSchoolJoin({ data: { schoolCode } });
+      try {
+        const raw = await requestTeacherSchoolJoin({ data: { schoolCode } });
+        const joined = unwrapTeacherJoin(raw);
+        if (joined) return { ok: true as const, ...joined };
+      } catch (error) {
+        console.error("[teacher-join] server join failed:", error);
+      }
+      const school = await lookupSchool(schoolCode);
+      if (!school?.id) {
+        throw new Error("That School ID isn't on Memskool yet. Check it with your school.");
+      }
+      const uid = getFirebaseAuth().currentUser?.uid;
+      if (!uid) throw new Error("Sign in to apply to a school.");
+      const now = new Date().toISOString();
+      try {
+        await setById(COLLECTIONS.schoolMembers, uid, {
+          school_id: school.id,
+          user_id: uid,
+          role: "teacher",
+          status: "pending",
+          student_code: null,
+          created_at: now,
+          updated_at: now,
+        });
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
+      try {
+        await patchById(COLLECTIONS.users, uid, {
+          school_id: school.id,
+          membership_status: "pending",
+          updated_at: now,
+        });
+      } catch (error) {
+        console.error("[teacher-join] profile update failed:", error);
+      }
+      return { ok: true as const, schoolId: school.id, schoolName: school.name };
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["my-school"] });

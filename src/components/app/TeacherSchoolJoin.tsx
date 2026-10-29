@@ -51,19 +51,28 @@ export function TeacherSchoolJoin() {
           className="space-y-3"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!foundSchool) {
-              toast.error("That School ID isn't on Memskool yet. Check it with your school.");
-              return;
-            }
-            join.mutate(schoolCode.trim(), {
-              onSuccess: async (result) => {
-                await refreshAuthClaims().catch(() => undefined);
-                toast.success(
-                  `Request sent to ${result.schoolName ?? foundSchool.name}. You can still teach on Gold while you wait.`,
-                );
-              },
-              onError: (error) => toast.error(authErrorMessage(error)),
-            });
+            const typed = schoolCode.trim();
+            void (async () => {
+              const school = foundSchool ?? (await lookupSchool(typed));
+              if (!school) {
+                toast.error("That School ID isn't on Memskool yet. Check it with your school.");
+                return;
+              }
+              setFoundSchool(school);
+              join.mutate(typed, {
+                onSuccess: async (result) => {
+                  await refreshAuthClaims().catch(() => undefined);
+                  const schoolName =
+                    result && typeof result === "object" && "schoolName" in result
+                      ? (result as { schoolName?: string | null }).schoolName
+                      : null;
+                  toast.success(
+                    `Request sent to ${schoolName ?? school.name}. You can still teach on Gold while you wait.`,
+                  );
+                },
+                onError: (error) => toast.error(authErrorMessage(error)),
+              });
+            })();
           }}
         >
           <div className="space-y-1.5">
