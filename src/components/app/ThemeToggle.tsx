@@ -74,10 +74,11 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={toggle}
-      className="rounded-full"
+      className="relative size-11 shrink-0 rounded-full text-foreground hover:bg-secondary"
       aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
     >
-      {theme === "dark" ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
+      <Sun className="size-[18px] rotate-0 scale-100 transition-transform duration-300 ease-out dark:-rotate-90 dark:scale-0" />
+      <Moon className="absolute size-[18px] rotate-90 scale-0 transition-transform duration-300 ease-out dark:rotate-0 dark:scale-100" />
     </Button>
   );
 }

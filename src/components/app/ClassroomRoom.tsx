@@ -638,8 +638,8 @@ function MaterialsPanel({
   lessonId: string | null;
 }) {
   return (
-    <div className="rounded-[20px] border border-border bg-white p-4 text-black">
-      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-500">
+    <div className="surface-card p-4">
+      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
         Lesson materials
       </p>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
@@ -657,7 +657,7 @@ function MaterialsPanel({
           ))}
         </ul>
       ) : (
-        <p className="mt-2 text-xs text-neutral-500">
+        <p className="mt-2 text-xs text-muted-foreground">
           {lessonId
             ? "No files are attached to this lesson yet."
             : "Start the session from a lesson to show its materials here."}
@@ -690,7 +690,7 @@ function MaterialLink({ material }: { material: LessonMaterial }) {
       type="button"
       onClick={() => void open()}
       disabled={busy || (!material.url && !material.storage_path)}
-      className="flex w-full items-center gap-2 rounded-xl border border-neutral-200 px-3 py-2 text-left text-sm hover:bg-neutral-50 disabled:opacity-60"
+      className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-left text-sm text-foreground hover:bg-secondary disabled:opacity-60"
     >
       {material.kind === "link" ? (
         <ExternalLink className="size-3.5" />

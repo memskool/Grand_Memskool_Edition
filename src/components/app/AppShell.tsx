@@ -32,7 +32,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <AppSidebar />
       <SidebarInset className="canvas-mesh min-w-0 overflow-x-clip">
         <NetworkBanner />
-        <header className="relative sticky top-0 z-10 flex h-12 items-center gap-2 border-b border-border/80 bg-background/88 px-3 pt-[env(safe-area-inset-top)] backdrop-blur-md sm:h-14 sm:gap-3 sm:px-6">
+        <header className="relative sticky top-0 z-10 flex min-h-14 items-center gap-2 border-b border-border/80 bg-background/88 px-3 pt-[env(safe-area-inset-top)] backdrop-blur-md sm:gap-3 sm:px-6">
           <SidebarTrigger className="hidden rounded-lg md:inline-flex" />
           <BrandMark size={32} priority />
           <span className="hidden font-display text-sm font-semibold tracking-tight text-foreground sm:inline">

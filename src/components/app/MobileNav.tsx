@@ -7,6 +7,7 @@ import { useSession, useProfile } from "@/hooks/useAuth";
 import { useAccess } from "@/lib/access";
 import { groupedNav, navForRole, mobileTabsForRole, navPathActive } from "@/lib/nav";
 import { BrandMark } from "@/components/app/BrandMark";
+import { ThemeToggle } from "@/components/app/ThemeToggle";
 
 export function MobileNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -64,11 +65,12 @@ export function MobileNav() {
                   {workspace} · {user?.email}
                 </p>
               </div>
+              <ThemeToggle />
               <button
                 type="button"
                 aria-label="Close menu"
                 onClick={() => setOpen(false)}
-                className="flex size-11 items-center justify-center rounded-full bg-secondary"
+                className="flex size-11 items-center justify-center rounded-full bg-secondary text-foreground"
               >
                 <X className="size-4" />
               </button>
@@ -145,6 +147,7 @@ export function MobileNav() {
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
+              aria-label={open ? "Close more destinations" : "Open more destinations"}
               className={cn(
                 "flex min-h-12 w-full flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium",
                 open ? "text-primary" : "text-muted-foreground",

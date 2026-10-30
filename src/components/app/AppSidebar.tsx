@@ -75,7 +75,7 @@ export function AppSidebar() {
                         isActive={active}
                         tooltip={item.title}
                         className={cn(
-                          "h-10 rounded-lg transition-[background-color,color,transform] duration-150 ease-out hover:translate-x-0.5 data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground",
+                          "h-11 min-h-11 rounded-lg transition-[background-color,color,transform] duration-150 ease-out hover:translate-x-0.5 data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-10",
                           ACCENT[item.accent ?? "navy"],
                         )}
                       >

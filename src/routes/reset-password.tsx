@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SiteFooter } from "@/components/app/SiteFooter";
+import { PublicHeader } from "@/components/app/PublicHeader";
 
 export const Route = createFileRoute("/reset-password")({
   ssr: false,
@@ -74,7 +75,8 @@ function ResetPasswordPage() {
   };
 
   return (
-    <div className="surface-gradient flex min-h-screen flex-col">
+    <div className="canvas-mesh flex min-h-screen flex-col">
+      <PublicHeader />
       <div className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="mb-8 flex flex-col items-center text-center">

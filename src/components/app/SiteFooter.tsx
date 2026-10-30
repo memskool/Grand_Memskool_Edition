@@ -69,17 +69,20 @@ export function SiteFooter({ className = "" }: { className?: string }) {
           © {new Date().getFullYear()} Mem-Industries. Built by Altrastate Technologies Ltd. All
           rights reserved.
         </p>
-        <nav className="flex flex-wrap gap-4 text-xs">
-          <a href="/home" className="hover:text-foreground">
+        <nav aria-label="Footer" className="flex flex-wrap gap-2 text-xs">
+          <a href="/home" className="inline-flex min-h-11 items-center px-1 hover:text-foreground">
             Home
           </a>
-          <a href="/privacy" className="hover:text-foreground">
+          <a
+            href="/privacy"
+            className="inline-flex min-h-11 items-center px-1 hover:text-foreground"
+          >
             Privacy
           </a>
-          <a href="/terms" className="hover:text-foreground">
+          <a href="/terms" className="inline-flex min-h-11 items-center px-1 hover:text-foreground">
             Terms
           </a>
-          <a href="/auth" className="hover:text-foreground">
+          <a href="/auth" className="inline-flex min-h-11 items-center px-1 hover:text-foreground">
             Sign in
           </a>
         </nav>

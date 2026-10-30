@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { BrandMark } from "@/components/app/BrandMark";
 import { SiteFooter } from "@/components/app/SiteFooter";
+import { PublicHeader } from "@/components/app/PublicHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -221,7 +222,8 @@ function OnboardingPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-background">
+    <div className="canvas-mesh relative flex min-h-screen flex-col">
+      <PublicHeader />
       <div className="relative flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="mb-8 flex flex-col items-center text-center">

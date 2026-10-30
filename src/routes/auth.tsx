@@ -35,6 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SiteFooter } from "@/components/app/SiteFooter";
+import { PublicHeader } from "@/components/app/PublicHeader";
 import { lookupSchool, type SchoolSummary } from "@/lib/school-membership";
 
 function unwrapProfile(raw: unknown): UserProfile | null {
@@ -356,6 +357,7 @@ function AuthPage() {
 
   return (
     <div className="canvas-mesh relative flex min-h-screen flex-col">
+      <PublicHeader />
       <div className="relative flex flex-1 items-center justify-center px-4 py-12">
         <div className="page-enter w-full max-w-md">
           <div className="mb-8 flex flex-col items-center text-center">

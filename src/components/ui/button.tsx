@@ -22,10 +22,10 @@ const buttonVariants = cva(
         leaf: "bg-leaf text-leaf-foreground shadow-sm hover:bg-leaf/90 hover:-translate-y-px",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-8 rounded-lg px-3 text-xs",
-        lg: "h-11 rounded-lg px-8",
-        icon: "h-10 w-10",
+        default: "min-h-11 h-11 px-4 py-2",
+        sm: "min-h-9 h-9 rounded-lg px-3 text-xs",
+        lg: "min-h-12 h-12 rounded-lg px-8",
+        icon: "size-11",
       },
     },
     defaultVariants: {

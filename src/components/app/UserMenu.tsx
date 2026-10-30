@@ -48,8 +48,11 @@ export function UserMenu() {
         </Badge>
       ) : null}
       <DropdownMenu>
-        <DropdownMenuTrigger className="rounded-full outline-none ring-ring focus-visible:ring-2">
-          <Avatar className="size-9">
+        <DropdownMenuTrigger
+          aria-label="Account menu"
+          className="rounded-full outline-none ring-ring focus-visible:ring-2"
+        >
+          <Avatar className="size-11">
             {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt="" /> : null}
             <AvatarFallback className="bg-primary/10 text-sm font-medium text-primary">
               {initials || <UserIcon className="size-4" />}

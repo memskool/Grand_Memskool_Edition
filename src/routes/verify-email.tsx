@@ -9,6 +9,7 @@ import {
 import { toUserMessage } from "@/lib/errors/app-error";
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/app/SiteFooter";
+import { PublicHeader } from "@/components/app/PublicHeader";
 
 export const Route = createFileRoute("/verify-email")({
   ssr: false,
@@ -52,7 +53,8 @@ function VerifyEmailPage() {
   }, [navigate]);
 
   return (
-    <div className="surface-gradient flex min-h-screen flex-col">
+    <div className="canvas-mesh flex min-h-screen flex-col">
+      <PublicHeader />
       <div className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-md text-center">
           <span className="brand-gradient brand-shadow mx-auto mb-4 flex size-14 items-center justify-center rounded-3xl">
