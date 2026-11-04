@@ -207,13 +207,14 @@ function RoomLoader({
   if (session.isLoading) return <ListSkeleton rows={4} />;
 
   if (session.data) {
+    const isHost = session.data.host_id === userId;
     return (
       <Suspense fallback={<ListSkeleton rows={4} />}>
         <ClassroomRoom
           session={session.data}
           className={className}
           userId={userId}
-          isTeacher={isTeacher}
+          isTeacher={isTeacher || isHost}
           onExit={onExit}
         />
       </Suspense>

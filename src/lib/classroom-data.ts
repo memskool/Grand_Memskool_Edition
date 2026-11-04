@@ -252,7 +252,21 @@ async function startSessionOnClient(input: {
   } catch (error) {
     console.error("[live] existing-session lookup failed:", error);
   }
-  if (existing) return existing;
+  if (existing) {
+    // Rejoin must re-seed the host so the room never shows "Waiting for the teacher"
+    // when the starter is already in the session.
+    try {
+      await seedHostParticipant({
+        sessionId: existing.id,
+        userId: input.hostId,
+        schoolId: cls.school_id,
+        isHost: existing.host_id === input.hostId,
+      });
+    } catch (error) {
+      console.error("[live] host re-seed on existing session failed:", error);
+    }
+    return existing;
+  }
 
   const now = nowIso();
   const title = input.title ?? cls.name ?? "Live class";
@@ -352,20 +366,40 @@ export function useEndSession() {
     mutationFn: async (session: ClassroomSession) => {
       try {
         await endLiveSession({ data: { sessionId: session.id } });
+        return session;
       } catch (error) {
         if (!looksLikeDirnameCrash(error)) {
-          // Fall through to client end when Admin SDK is unavailable.
           console.error("[live] server end failed:", error);
         }
-        try {
-          await patchById(COLLECTIONS.classroomSessions, session.id, {
-            status: "ended",
-            is_active: false,
-            ended_at: nowIso(),
-          });
-        } catch (clientError) {
-          throw classifyFirebase(clientError);
+      }
+      const endedAt = nowIso();
+      try {
+        await patchById(COLLECTIONS.classroomSessions, session.id, {
+          status: "ended",
+          is_active: false,
+          ended_at: endedAt,
+        });
+        if (session.school_id) {
+          const rows = await findMany<{ id: string; left_at?: string | null }>(
+            COLLECTIONS.classroomParticipants,
+            [
+              where("school_id", "==", session.school_id),
+              where("session_id", "==", session.id),
+            ],
+          );
+          await Promise.all(
+            rows
+              .filter((row) => !row.left_at)
+              .map((row) =>
+                patchById(COLLECTIONS.classroomParticipants, row.id, {
+                  left_at: endedAt,
+                  hand_raised: false,
+                }),
+              ),
+          );
         }
+      } catch (clientError) {
+        throw classifyFirebase(clientError);
       }
       return session;
     },
@@ -444,23 +478,33 @@ export function useJoinRoom() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { sessionId: string; userId: string; isHost: boolean }) => {
+      const session = await getById<{
+        school_id?: string | null;
+        host_id?: string | null;
+        is_active?: boolean;
+      }>(COLLECTIONS.classroomSessions, input.sessionId);
+      if (!session?.school_id) throw new Error("That live session was not found.");
+      if (session.is_active === false) throw new Error("This session has ended.");
+
+      // Prefer client seed — Admin join still trips ESM `__dirname` on Vercel.
+      // Host flag must follow session.host_id, not generic staff role.
+      const isHost = session.host_id === input.userId;
+      try {
+        await seedHostParticipant({
+          sessionId: input.sessionId,
+          userId: input.userId,
+          schoolId: session.school_id,
+          isHost,
+        });
+        return { id: participantDocId(input.sessionId, input.userId) };
+      } catch (clientError) {
+        console.error("[live] client join failed, trying server:", clientError);
+      }
       try {
         return await joinLiveSession({ data: { sessionId: input.sessionId } });
       } catch (error) {
-        console.error("[live] server join failed, using client:", error);
+        throw classifyFirebase(error);
       }
-      const session = await getById<{ school_id?: string | null }>(
-        COLLECTIONS.classroomSessions,
-        input.sessionId,
-      );
-      if (!session?.school_id) throw new Error("That live session was not found.");
-      await seedHostParticipant({
-        sessionId: input.sessionId,
-        userId: input.userId,
-        schoolId: session.school_id,
-        isHost: input.isHost,
-      });
-      return { id: participantDocId(input.sessionId, input.userId) };
     },
     onSuccess: (_d, v) => {
       qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] });
@@ -496,16 +540,36 @@ export function useLeaveRoom() {
 
 export function useReportPresence() {
   return useMutation({
-    mutationFn: async (sessionId: string) => {
+    mutationFn: async (input: string | { sessionId: string; userId: string }) => {
+      const sessionId = typeof input === "string" ? input : input.sessionId;
+      const userId =
+        typeof input === "string"
+          ? (await import("@/lib/firebase/client")).getFirebaseAuth().currentUser?.uid
+          : input.userId;
       try {
         await reportLivePresence({ data: { sessionId } });
         return;
       } catch (error) {
         console.error("[live] server presence failed, using client:", error);
       }
-      // Best-effort: mark connected_at on the caller's participant doc if it exists.
-      // Full join is handled by useJoinRoom.
-      void sessionId;
+      if (!userId) return;
+      const id = participantDocId(sessionId, userId);
+      const now = nowIso();
+      try {
+        const existing = await getById<{ connected_at?: string | null; rejoin_count?: number }>(
+          COLLECTIONS.classroomParticipants,
+          id,
+        );
+        if (!existing) return;
+        await patchById(COLLECTIONS.classroomParticipants, id, {
+          connected_at: existing.connected_at ?? now,
+          last_connected_at: now,
+          left_at: null,
+          rejoin_count: (existing.rejoin_count ?? 0) + (existing.connected_at ? 1 : 0),
+        });
+      } catch (clientError) {
+        console.error("[live] client presence patch failed:", clientError);
+      }
     },
   });
 }
@@ -731,9 +795,15 @@ export function useMyParticipation(sessionId?: string, userId?: string) {
     queryKey: ["my-participation", sessionId, userId],
     enabled: !!sessionId && !!userId,
     queryFn: async () => {
+      const schoolId = await schoolIdForSession(sessionId!);
+      if (!schoolId) return null;
       return findOne<{ connected_at?: string | null; left_at?: string | null }>(
         COLLECTIONS.classroomParticipants,
-        [where("session_id", "==", sessionId!), where("user_id", "==", userId!)],
+        [
+          where("school_id", "==", schoolId),
+          where("session_id", "==", sessionId!),
+          where("user_id", "==", userId!),
+        ],
       );
     },
   });

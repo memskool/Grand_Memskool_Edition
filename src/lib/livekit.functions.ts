@@ -68,7 +68,9 @@ export const issueClassroomToken = createServerFn({ method: "POST" })
       auth.role === "admin" ||
       auth.role === "institution" ||
       auth.role === "superadmin";
-    if (!isHost && !(sameSchool && (isStaff || auth.role === "student"))) {
+    const isStudent = auth.role === "student";
+    // Host always; same-school staff/students for live rooms.
+    if (!isHost && !(sameSchool && (isStaff || isStudent))) {
       throw new Error("You are not allowed to join this class.");
     }
 

@@ -81,10 +81,13 @@ type Props = {
 };
 
 export function ClassroomRoom({ session, className, userId, isTeacher, onExit }: Props) {
-  const [ready, setReady] = useState(false);
+  const isSessionHost = session.host_id === userId;
+  // Staff chrome (mute-all, end, etc.) vs session host (stage ownership).
+  const canModerate = isTeacher || isSessionHost;
   const media = useLiveKit(session.id);
-  const participants = useParticipants(ready ? session.id : undefined);
-  const chat = useClassroomChat(ready ? session.id : undefined);
+  // Presence/chat must load even if join is slow — otherwise host UI says "Waiting for the teacher".
+  const participants = useParticipants(session.id);
+  const chat = useClassroomChat(session.id);
   const join = useJoinRoom();
   const leave = useLeaveRoom();
   const update = useUpdateParticipant();
@@ -100,6 +103,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
   const [spotlight, setSpotlight] = useState<string | null>(null);
   const [review, setReview] = useState(false);
   const [tick, setTick] = useState(0);
+  const [joinAttempt, setJoinAttempt] = useState(0);
   const joinedRef = useRef(false);
   const presenceRef = useRef(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -111,22 +115,39 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
   void tick;
 
   useEffect(() => {
+    joinedRef.current = false;
+    presenceRef.current = false;
+    setJoinAttempt(0);
+  }, [session.id, userId]);
+
+  useEffect(() => {
     if (joinedRef.current) return;
     joinedRef.current = true;
     join.mutate(
-      { sessionId: session.id, userId, isHost: isTeacher },
+      { sessionId: session.id, userId, isHost: isSessionHost },
       {
-        onSuccess: () => setReady(true),
-        onError: (e) => toast.error(authErrorMessage(e)),
+        onSuccess: () => {
+          void participants.refetch();
+        },
+        onError: (e) => {
+          joinedRef.current = false;
+          toast.error(authErrorMessage(e));
+          // One automatic retry for transient permission/network failures.
+          if (joinAttempt < 1) {
+            window.setTimeout(() => setJoinAttempt((n) => n + 1), 1200);
+          }
+        },
       },
     );
-  }, [session.id, userId, isTeacher, join]);
+    // join/participants identities are stable hooks; retry via joinAttempt.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.id, userId, isSessionHost, joinAttempt]);
 
   useEffect(() => {
     if (!media.connected || presenceRef.current) return;
     presenceRef.current = true;
-    presence.mutate(session.id);
-  }, [media.connected, presence, session.id]);
+    presence.mutate({ sessionId: session.id, userId });
+  }, [media.connected, presence, session.id, userId]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -137,12 +158,32 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
     [participants.data],
   );
   const me = live.find((p) => p.user_id === userId);
-  const host = live.find((p) => p.is_host) ?? null;
-  const learners = live.filter((p) => !p.is_host);
+  const host =
+    live.find((p) => p.is_host || p.user_id === session.host_id) ?? null;
+  const learners = live.filter((p) => !p.is_host && p.user_id !== session.host_id);
+  // Count the host even before their participant row finishes loading.
+  const peopleCount = Math.max(
+    live.length,
+    isSessionHost && !live.some((p) => p.user_id === userId) ? live.length + 1 : live.length,
+  );
   const screenRemote = Object.values(media.remotes).find((r) => r.screenTrack) ?? null;
   const stageRemote =
     screenRemote ??
     (host && host.user_id !== userId ? (media.remotes[host.user_id] ?? null) : null);
+
+  const stageEmptyCopy = (() => {
+    if (isSessionHost || (isTeacher && me?.is_host)) {
+      return media.starting
+        ? "Connecting your classroom…"
+        : media.connected
+          ? "You are live — turn on your camera or share your screen"
+          : "You are hosting this class";
+    }
+    if (host) {
+      return `${host.profile?.full_name ?? "Teacher"} is broadcasting`;
+    }
+    return "Waiting for the teacher…";
+  })();
 
   useEffect(() => {
     if (!me) return;
@@ -215,7 +256,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
     );
   };
 
-  if (review && isTeacher) {
+  if (review && canModerate) {
     return <AttendanceReview session={session} className={className} onDone={onExit} />;
   }
 
@@ -247,7 +288,8 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
             <Badge className="bg-destructive text-destructive-foreground">● Live</Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            {elapsedLabel(session.started_at)} · {live.length} in the room
+            {elapsedLabel(session.started_at)} · {peopleCount} in the room
+            {isSessionHost ? " · You are hosting" : ""}
             {session.lesson_id ? " · Lesson linked" : ""}
           </p>
         </div>
@@ -320,7 +362,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
                 <span className="size-1.5 rounded-full bg-current" /> Live
               </span>
               <span className="flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1 text-[11px] font-medium text-white backdrop-blur">
-                <Users className="size-3.5" /> {live.length}
+                <Users className="size-3.5" /> {peopleCount}
               </span>
             </div>
 
@@ -365,10 +407,8 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
                 <span className="flex size-20 items-center justify-center rounded-full bg-white/10 font-display text-2xl">
                   {initials(host?.profile?.full_name ?? className)}
                 </span>
-                <p className="text-sm text-ink-muted">
-                  {host
-                    ? `${host.profile?.full_name ?? "Teacher"} is broadcasting`
-                    : "Waiting for the teacher…"}
+                <p className="max-w-[22rem] px-4 text-center text-sm text-ink-muted">
+                  {stageEmptyCopy}
                 </p>
                 {media.starting ? <Loader2 className="size-4 animate-spin opacity-70" /> : null}
               </div>
@@ -408,7 +448,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
               >
                 {media.camOn ? <VideoIcon className="size-5" /> : <VideoOff className="size-5" />}
               </Button>
-              {isTeacher && media.canShareScreen ? (
+              {canModerate && media.canShareScreen ? (
                 <Button
                   className={cn(media.screenShareOn ? controlBtnOn : controlBtn)}
                   onClick={() => void media.toggleScreenShare()}
@@ -426,7 +466,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
                   </span>
                 </Button>
               ) : null}
-              {!isTeacher ? (
+              {!canModerate ? (
                 <Button
                   className={cn(me?.hand_raised ? controlBtnOn : controlBtn)}
                   onClick={() => patch({ hand_raised: !me?.hand_raised })}
@@ -447,9 +487,9 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
               <Button variant="destructive" className="rounded-full" onClick={handleLeave}>
                 <PhoneOff className="size-4" /> Leave
               </Button>
-              {isTeacher ? (
+              {canModerate ? (
                 <Button
-                  className={controlBtnSoft}
+                  className={cn(controlBtn, "bg-destructive text-destructive-foreground hover:bg-destructive/90")}
                   onClick={handleEnd}
                   disabled={endSession.isPending}
                 >
@@ -458,7 +498,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
               ) : null}
             </div>
 
-            {isTeacher ? (
+            {canModerate ? (
               <div className="flex flex-wrap items-center justify-center gap-2 border-t border-border pt-3">
                 <span className="w-full text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground sm:mr-1 sm:w-auto sm:text-left">
                   Teacher controls
@@ -520,7 +560,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
                     participant={p}
                     remote={media.remotes[p.user_id] ?? null}
                     spotlighted={spotlight === p.user_id}
-                    isTeacher={isTeacher}
+                    isTeacher={canModerate}
                     onToggleCamera={() =>
                       patch({ camera_allowed: !p.camera_allowed, cam_on: false }, p.user_id)
                     }
@@ -534,7 +574,9 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
               </div>
             ) : (
               <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-                No learners have joined yet.
+                {canModerate
+                  ? "No learners have joined yet. Share the live class with your students."
+                  : "No other learners are in the room yet."}
               </p>
             )}
           </div>
