@@ -478,17 +478,53 @@ service cloud.firestore {
     match /classroom_sessions/{id} {
       allow read: if tenantRead(resource.data.school_id)
         || (isAuthenticated() && resource.data.kind == 'gold');
-      allow create, update, delete: if false;
+      // Teachers/admins start and end live rooms from the browser (avoids Admin SDK
+      // `__dirname` crashes on the Vercel ESM server bundle).
+      allow create: if isAuthenticated()
+        && (isTeacher() || isSchoolAdmin())
+        && sameSchool(request.resource.data.school_id)
+        && isOwner(request.resource.data.host_id)
+        && request.resource.data.class_id is string
+        && request.resource.data.status == 'live'
+        && request.resource.data.is_active == true;
+      allow update: if isAuthenticated()
+        && sameSchool(resource.data.school_id)
+        && (
+          isOwner(resource.data.host_id)
+          || isTeacher()
+          || isSchoolAdmin()
+        )
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'status',
+            'is_active',
+            'ended_at',
+            'cancelled_at',
+            'attendance_finalized_at',
+            'provider_room',
+            'title',
+            'notified_live_at',
+            'lesson_id'
+          ]);
+      allow delete: if false;
     }
     match /classroom_participants/{id} {
       allow read: if tenantRead(resource.data.school_id) && (
         isTeacher() || isSchoolAdmin() || isOwner(resource.data.user_id)
         || isLiveParticipant(resource.data.session_id)
       );
-      allow create, delete: if false;
+      allow create: if isAuthenticated()
+        && isOwner(request.resource.data.user_id)
+        && request.resource.data.session_id is string
+        && request.resource.data.school_id is string
+        && sameSchool(request.resource.data.school_id)
+        && id == request.resource.data.session_id + '_' + uid()
+        && exists(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id))
+        && get(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id)).data.is_active == true;
+      allow delete: if false;
       allow update: if isOwner(resource.data.user_id)
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['hand_raised', 'mic_on', 'cam_on']);
+          .hasOnly(['hand_raised', 'mic_on', 'cam_on', 'connected_at', 'left_at', 'duration_ms']);
     }
     match /classroom_messages/{id} {
       allow read: if tenantRead(resource.data.school_id) && (

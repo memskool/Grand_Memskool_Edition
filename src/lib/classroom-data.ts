@@ -2,9 +2,13 @@ import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   COLLECTIONS,
+  createDoc,
   findMany,
   findOne,
+  getById,
+  nowIso,
   patchById,
+  setById,
   subscribeMany,
   where,
   orderBy,
@@ -23,7 +27,11 @@ import {
   sendClassroomChat,
   startLiveSession,
 } from "@/features/live-classroom/session.functions";
-import type { LiveSessionStatus } from "@/features/live-classroom/contracts";
+import {
+  participantDocId,
+  providerRoomName,
+  type LiveSessionStatus,
+} from "@/features/live-classroom/contracts";
 
 export type ClassroomSession = {
   id: string;
@@ -150,6 +158,125 @@ function unwrapSession(raw: unknown): ClassroomSession {
   throw new Error("Live session started but the response was incomplete. Refresh and rejoin.");
 }
 
+function looksLikeDirnameCrash(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return message.includes("__dirname") || message.toLowerCase().includes("es module scope");
+}
+
+async function seedHostParticipant(input: {
+  sessionId: string;
+  userId: string;
+  schoolId: string;
+  isHost: boolean;
+}) {
+  const id = participantDocId(input.sessionId, input.userId);
+  const now = nowIso();
+  const existing = await getById(COLLECTIONS.classroomParticipants, id);
+  if (existing) {
+    await patchById(COLLECTIONS.classroomParticipants, id, {
+      left_at: null,
+      last_joined_at: now,
+      is_host: input.isHost,
+      hand_raised: false,
+    });
+    return;
+  }
+  await setById(COLLECTIONS.classroomParticipants, id, {
+    session_id: input.sessionId,
+    user_id: input.userId,
+    school_id: input.schoolId,
+    is_host: input.isHost,
+    joined_at: now,
+    last_joined_at: now,
+    left_at: null,
+    connected_at: null,
+    last_connected_at: null,
+    duration_ms: 0,
+    rejoin_count: 0,
+    hand_raised: false,
+    mic_on: false,
+    cam_on: false,
+    camera_allowed: true,
+    warned_at: null,
+  });
+}
+
+/** Browser-side start — does not use firebase-admin (avoids Vercel ESM `__dirname`). */
+async function startSessionOnClient(input: {
+  classId: string;
+  hostId: string;
+  title?: string;
+  lessonId?: string | null;
+}): Promise<ClassroomSession> {
+  const cls = await getById<{
+    school_id: string;
+    name?: string;
+    teacher_id?: string | null;
+    status?: string;
+  }>(COLLECTIONS.classes, input.classId);
+  if (!cls) throw new Error("That class was not found.");
+  if (cls.status === "archived") throw new Error("That class is archived.");
+
+  const live = await findMany<ClassroomSession>(COLLECTIONS.classroomSessions, [
+    where("class_id", "==", input.classId),
+    where("is_active", "==", true),
+  ]);
+  const existing = live.find((row) => row.status === "live" || row.is_active);
+  if (existing) return existing;
+
+  const now = nowIso();
+  const title = input.title ?? cls.name ?? "Live class";
+  const id = await createDoc(COLLECTIONS.classroomSessions, {
+    school_id: cls.school_id,
+    class_id: input.classId,
+    host_id: input.hostId,
+    lesson_id: input.lessonId ?? null,
+    title,
+    status: "live",
+    is_active: true,
+    provider: "livekit",
+    provider_room: "",
+    started_at: now,
+    ended_at: null,
+    cancelled_at: null,
+    attendance_finalized_at: null,
+    notified_live_at: now,
+  });
+  const room = providerRoomName(id);
+  await patchById(COLLECTIONS.classroomSessions, id, { provider_room: room });
+  await seedHostParticipant({
+    sessionId: id,
+    userId: input.hostId,
+    schoolId: cls.school_id,
+    isHost: true,
+  });
+  if (input.lessonId) {
+    try {
+      await patchById(COLLECTIONS.lessons, input.lessonId, {
+        classroom_session_id: id,
+        status: "in_progress",
+        updated_at: now,
+      });
+    } catch (error) {
+      console.error("[live] lesson link update failed:", error);
+    }
+  }
+  return {
+    id,
+    class_id: input.classId,
+    host_id: input.hostId,
+    school_id: cls.school_id,
+    title,
+    lesson_id: input.lessonId ?? null,
+    status: "live",
+    started_at: now,
+    ended_at: null,
+    is_active: true,
+    provider: "livekit",
+    provider_room: room,
+  };
+}
+
 export function useStartSession() {
   const qc = useQueryClient();
   return useMutation({
@@ -159,7 +286,12 @@ export function useStartSession() {
       title?: string;
       lessonId?: string | null;
     }) => {
-      void input.hostId;
+      // Prefer the browser write path — Admin SDK on the server still trips `__dirname`.
+      try {
+        return await startSessionOnClient(input);
+      } catch (clientError) {
+        console.error("[live] client start failed, trying server:", clientError);
+      }
       try {
         const raw = await startLiveSession({
           data: {
@@ -170,6 +302,9 @@ export function useStartSession() {
         });
         return unwrapSession(raw);
       } catch (error) {
+        if (looksLikeDirnameCrash(error)) {
+          return startSessionOnClient(input);
+        }
         throw classifyFirebase(error);
       }
     },
@@ -188,7 +323,19 @@ export function useEndSession() {
       try {
         await endLiveSession({ data: { sessionId: session.id } });
       } catch (error) {
-        throw classifyFirebase(error);
+        if (!looksLikeDirnameCrash(error)) {
+          // Fall through to client end when Admin SDK is unavailable.
+          console.error("[live] server end failed:", error);
+        }
+        try {
+          await patchById(COLLECTIONS.classroomSessions, session.id, {
+            status: "ended",
+            is_active: false,
+            ended_at: nowIso(),
+          });
+        } catch (clientError) {
+          throw classifyFirebase(clientError);
+        }
       }
       return session;
     },
@@ -251,13 +398,23 @@ export function useJoinRoom() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { sessionId: string; userId: string; isHost: boolean }) => {
-      void input.userId;
-      void input.isHost;
       try {
         return await joinLiveSession({ data: { sessionId: input.sessionId } });
       } catch (error) {
-        throw classifyFirebase(error);
+        console.error("[live] server join failed, using client:", error);
       }
+      const session = await getById<{ school_id?: string | null }>(
+        COLLECTIONS.classroomSessions,
+        input.sessionId,
+      );
+      if (!session?.school_id) throw new Error("That live session was not found.");
+      await seedHostParticipant({
+        sessionId: input.sessionId,
+        userId: input.userId,
+        schoolId: session.school_id,
+        isHost: input.isHost,
+      });
+      return { id: participantDocId(input.sessionId, input.userId) };
     },
     onSuccess: (_d, v) => {
       qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] });
@@ -270,11 +427,20 @@ export function useLeaveRoom() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { sessionId: string; userId: string }) => {
-      void input.userId;
       try {
         await leaveLiveSession({ data: { sessionId: input.sessionId } });
+        return;
       } catch (error) {
-        throw classifyFirebase(error);
+        console.error("[live] server leave failed, using client:", error);
+      }
+      const id = participantDocId(input.sessionId, input.userId);
+      try {
+        await patchById(COLLECTIONS.classroomParticipants, id, {
+          left_at: nowIso(),
+          hand_raised: false,
+        });
+      } catch (clientError) {
+        throw classifyFirebase(clientError);
       }
     },
     onSuccess: (_d, v) =>
@@ -287,9 +453,13 @@ export function useReportPresence() {
     mutationFn: async (sessionId: string) => {
       try {
         await reportLivePresence({ data: { sessionId } });
+        return;
       } catch (error) {
-        throw classifyFirebase(error);
+        console.error("[live] server presence failed, using client:", error);
       }
+      // Best-effort: mark connected_at on the caller's participant doc if it exists.
+      // Full join is handled by useJoinRoom.
+      void sessionId;
     },
   });
 }

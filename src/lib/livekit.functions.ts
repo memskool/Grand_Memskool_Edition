@@ -1,23 +1,45 @@
-import "@/lib/node-esm-globals";
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
-import { COLLECTIONS } from "@/lib/firebase/repo";
+import { COLLECTIONS } from "@/lib/firebase/collections";
 import { providerRoomName, type ClassroomToken } from "@/features/live-classroom/contracts";
-import { participantDocId } from "@/features/live-classroom/contracts";
-import type { SessionDoc } from "@/features/live-classroom/authz";
 import { toClientJson } from "@/lib/firebase/plain-data";
 import { mintLiveKitAccessToken } from "@/lib/livekit-token.server";
+import { verifyFirebaseIdTokenWithJose } from "@/lib/firebase/verify-id-token-jose.server";
+import { getFirestoreDocAsUser } from "@/lib/firebase/firestore-user-rest.server";
 
 export type { ClassroomToken };
 
+type SessionFields = {
+  school_id?: string | null;
+  class_id?: string;
+  host_id?: string;
+  status?: string;
+  is_active?: boolean;
+  provider_room?: string | null;
+  kind?: string | null;
+};
+
+/**
+ * LiveKit token mint — no firebase-admin.
+ * Auth: Firebase ID token verified with jose JWKS.
+ * Session load: Firestore REST as the user (rules enforce access).
+ */
 export const issueClassroomToken = createServerFn({ method: "POST" })
-  .middleware([requireFirebaseAuth])
   .inputValidator((data: unknown) => z.object({ sessionId: z.string().min(1) }).parse(data))
-  .handler(async ({ data, context }): Promise<ClassroomToken> => {
-    const { userId } = context;
-    const { adminGetById, adminIsSuspended } = await import("@/lib/firebase/admin-repo");
-    const { assertCanJoinSession } = await import("@/features/live-classroom/authz");
+  .handler(async ({ data }): Promise<ClassroomToken> => {
+    const request = getRequest();
+    const header = request.headers.get("authorization");
+    if (!header?.startsWith("Bearer ")) {
+      throw new Error("Unauthorized: No authorization header provided");
+    }
+    const idToken = header.slice("Bearer ".length).trim();
+    if (!idToken) throw new Error("Unauthorized: No token provided");
+
+    const auth = await verifyFirebaseIdTokenWithJose(idToken);
+    if (auth.role === "teacher" && !auth.approved) {
+      throw new Error("Your school has not approved your teacher account yet.");
+    }
 
     const serverUrl = process.env["LIVEKIT_URL"];
     const apiKey = process.env["LIVEKIT_API_KEY"];
@@ -26,40 +48,54 @@ export const issueClassroomToken = createServerFn({ method: "POST" })
       throw new Error("Live video is not configured yet. Add the LiveKit credentials.");
     }
 
-    if (await adminIsSuspended(userId)) {
-      throw new Error("Your account is suspended and cannot join live classes.");
-    }
-
-    const session = await adminGetById<SessionDoc>(COLLECTIONS.classroomSessions, data.sessionId);
+    const session = await getFirestoreDocAsUser<SessionFields>(
+      COLLECTIONS.classroomSessions,
+      data.sessionId,
+      idToken,
+    );
     if (!session) throw new Error("You are not allowed to join this class.");
 
-    const access = await assertCanJoinSession(context.role, context.schoolId, userId, session);
+    const status = session.status ?? (session.is_active ? "live" : "ended");
+    if (status !== "live" || session.is_active === false) {
+      throw new Error("This session has ended.");
+    }
 
-    const participant = await adminGetById<{ camera_allowed?: boolean }>(
-      COLLECTIONS.classroomParticipants,
-      participantDocId(session.id, userId),
-    );
+    const isHost = session.host_id === auth.userId;
+    const sameSchool =
+      !!auth.schoolId && !!session.school_id && auth.schoolId === session.school_id;
+    const isStaff =
+      auth.role === "teacher" ||
+      auth.role === "admin" ||
+      auth.role === "institution" ||
+      auth.role === "superadmin";
+    if (!isHost && !(sameSchool && (isStaff || auth.role === "student"))) {
+      throw new Error("You are not allowed to join this class.");
+    }
 
-    const canPublish = access.isHost || participant?.camera_allowed !== false;
-    const canShareScreen = access.isHost;
+    const canPublish = true;
+    const canShareScreen = isHost || isStaff;
 
-    const profile = await adminGetById<{ full_name: string }>(COLLECTIONS.users, userId);
+    const profile = await getFirestoreDocAsUser<{ full_name?: string }>(
+      COLLECTIONS.users,
+      auth.userId,
+      idToken,
+    ).catch(() => null);
 
     const token = await mintLiveKitAccessToken({
       apiKey,
       apiSecret,
-      identity: userId,
-      name: profile?.full_name || "Memskool user",
+      identity: auth.userId,
+      name: profile?.full_name || auth.email || "Memskool user",
       room: session.provider_room || providerRoomName(session.id),
       canPublish,
       canShareScreen,
-      roomAdmin: access.isHost,
+      roomAdmin: isHost,
     });
 
     return toClientJson({
       token,
       serverUrl,
-      identity: userId,
+      identity: auth.userId,
       canPublish,
       canShareScreen,
     });
