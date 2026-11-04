@@ -35,24 +35,64 @@ export const requireFirebaseAuth = createMiddleware({ type: "function" }).server
 
     const { verifyIdToken } = await import("./admin.server");
     const decoded = await verifyIdToken(token);
-    const role = claimsRoleToAppRole(
-      typeof decoded["role"] === "string" ? decoded["role"] : undefined,
-    );
-    const schoolId = typeof decoded["schoolId"] === "string" ? decoded["schoolId"] : null;
-    const approved = decoded["approved"] === true || role !== "teacher";
+    const resolved = await resolveAuthedContext(decoded);
 
     return next({
-      context: {
-        userId: decoded.uid,
-        email: decoded.email ?? null,
-        role,
-        schoolId,
-        approved,
-        token: decoded,
-      } satisfies AuthedContext,
+      context: resolved satisfies AuthedContext,
     });
   },
 );
+
+async function resolveAuthedContext(decoded: DecodedIdToken): Promise<AuthedContext> {
+  let role = claimsRoleToAppRole(
+    typeof decoded["role"] === "string" ? decoded["role"] : undefined,
+  );
+  let schoolId = typeof decoded["schoolId"] === "string" ? decoded["schoolId"] : null;
+  let approved = decoded["approved"] === true || role !== "teacher";
+
+  // Claims can lag behind Firestore after Google signup or join/approve.
+  if (!decoded["role"] || (!schoolId && role === "teacher")) {
+    try {
+      const { adminGetById } = await import("./admin-repo");
+      const { COLLECTIONS } = await import("./collections");
+      const profile = await adminGetById<{
+        role?: string;
+        school_id?: string | null;
+        membership_status?: string | null;
+      }>(COLLECTIONS.users, decoded.uid);
+      if (profile?.role) role = claimsRoleToAppRole(profile.role);
+      if (typeof profile?.school_id === "string" && profile.school_id) {
+        schoolId = profile.school_id;
+      }
+      if (profile?.membership_status === "pending") approved = false;
+      if (profile?.membership_status === "approved" || profile?.membership_status === "owner") {
+        approved = true;
+      }
+      if (!schoolId) {
+        const member = await adminGetById<{
+          school_id?: string;
+          role?: string;
+          status?: string;
+        }>(COLLECTIONS.schoolMembers, decoded.uid);
+        if (member?.role) role = claimsRoleToAppRole(member.role);
+        if (typeof member?.school_id === "string" && member.school_id) schoolId = member.school_id;
+        if (member?.status === "pending") approved = false;
+        if (member?.status === "approved" || member?.status === "owner") approved = true;
+      }
+    } catch (error) {
+      console.error("[auth] profile/member role resolve failed:", error);
+    }
+  }
+
+  return {
+    userId: decoded.uid,
+    email: decoded.email ?? null,
+    role,
+    schoolId,
+    approved,
+    token: decoded,
+  };
+}
 
 /** Public Home feed can run signed-out; likes and uploads still use requireFirebaseAuth. */
 export const optionalFirebaseAuth = createMiddleware({ type: "function" }).server(

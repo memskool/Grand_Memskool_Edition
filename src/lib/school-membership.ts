@@ -149,11 +149,18 @@ export function useMySchool(userId: string | undefined) {
         console.error("[my-school] server load failed:", error);
       }
       try {
-        const [profile, ownedDirect] = await Promise.all([
+        const [profile, ownedDirect, member] = await Promise.all([
           getById<UserProfile>(COLLECTIONS.users, userId!),
           getById<School>(COLLECTIONS.schools, userId!),
+          getById<{
+            school_id?: string;
+            status?: string;
+            role?: string;
+            student_code?: string | null;
+          }>(COLLECTIONS.schoolMembers, userId!),
         ]);
-        const schoolId = profile?.school_id || (ownedDirect ? userId! : null);
+        const schoolId =
+          profile?.school_id || member?.school_id || (ownedDirect ? userId! : null);
         if (schoolId) {
           const school =
             schoolId === userId && ownedDirect
@@ -164,18 +171,25 @@ export function useMySchool(userId: string | undefined) {
               profile?.membership_status === "owner" ||
               profile?.role === "institution" ||
               profile?.role === "admin" ||
+              member?.status === "owner" ||
               Boolean(ownedDirect)
                 ? "owner"
-                : profile?.membership_status === "pending" ||
-                    profile?.membership_status === "rejected" ||
-                    profile?.membership_status === "approved"
-                  ? profile.membership_status
-                  : "approved";
+                : member?.status === "pending" ||
+                    member?.status === "rejected" ||
+                    member?.status === "approved"
+                  ? member.status
+                  : profile?.membership_status === "pending" ||
+                      profile?.membership_status === "rejected" ||
+                      profile?.membership_status === "approved"
+                    ? profile.membership_status
+                    : "approved";
             const row = {
               ...school,
               membership,
-              memberRole: profile?.role ?? "institution",
-              studentCode: profile?.student_code ?? null,
+              memberRole: (profile?.role ||
+                (member?.role === "admin" ? "institution" : member?.role) ||
+                "institution") as AppRole,
+              studentCode: profile?.student_code ?? member?.student_code ?? null,
             };
             writeCachedSchool(userId!, row);
             return row;
@@ -252,11 +266,13 @@ export function useRequestTeacherJoin() {
   return useMutation({
     mutationFn: async (schoolCode: string) => {
       const { requestTeacherSchoolJoin } = await import("@/lib/members.functions");
+      let serverError: unknown = null;
       try {
         const raw = await requestTeacherSchoolJoin({ data: { schoolCode } });
         const joined = unwrapTeacherJoin(raw);
         if (joined) return { ok: true as const, ...joined };
       } catch (error) {
+        serverError = error;
         console.error("[teacher-join] server join failed:", error);
       }
       const school = await lookupSchool(schoolCode);
@@ -265,28 +281,64 @@ export function useRequestTeacherJoin() {
       }
       const uid = getFirebaseAuth().currentUser?.uid;
       if (!uid) throw new Error("Sign in to apply to a school.");
+      const existing = await getById<{
+        school_id?: string;
+        status?: string;
+        role?: string;
+      }>(COLLECTIONS.schoolMembers, uid).catch(() => null);
+      if (
+        existing?.school_id === school.id &&
+        (existing.status === "pending" || existing.status === "approved")
+      ) {
+        return {
+          ok: true as const,
+          schoolId: school.id,
+          schoolName: school.name,
+        };
+      }
       const now = new Date().toISOString();
       try {
-        await setById(COLLECTIONS.schoolMembers, uid, {
-          school_id: school.id,
-          user_id: uid,
-          role: "teacher",
-          status: "pending",
-          student_code: null,
-          created_at: now,
-          updated_at: now,
-        });
+        if (!existing) {
+          await setById(COLLECTIONS.schoolMembers, uid, {
+            school_id: school.id,
+            user_id: uid,
+            role: "teacher",
+            status: "pending",
+            student_code: null,
+            created_at: now,
+            updated_at: now,
+          });
+        } else if (existing.status === "rejected" || existing.school_id !== school.id) {
+          await patchById(COLLECTIONS.schoolMembers, uid, {
+            school_id: school.id,
+            role: "teacher",
+            status: "pending",
+            updated_at: now,
+          });
+        }
       } catch (error) {
+        if (serverError) throw classifyFirebase(serverError);
         throw classifyFirebase(error);
       }
       try {
-        await patchById(COLLECTIONS.users, uid, {
-          school_id: school.id,
-          membership_status: "pending",
-          updated_at: now,
-        });
+        const profile = await getById<UserProfile>(COLLECTIONS.users, uid);
+        if (!profile) {
+          const authUser = getFirebaseAuth().currentUser;
+          await setById(COLLECTIONS.users, uid, {
+            full_name: authUser?.displayName?.trim() || authUser?.email?.split("@")[0] || "Teacher",
+            email: authUser?.email ?? null,
+            avatar_url: authUser?.photoURL ?? null,
+            phone: null,
+            school_id: null,
+            student_code: null,
+            role: "teacher",
+            membership_status: null,
+            created_at: now,
+            updated_at: now,
+          });
+        }
       } catch (error) {
-        console.error("[teacher-join] profile update failed:", error);
+        console.error("[teacher-join] profile bootstrap failed:", error);
       }
       return { ok: true as const, schoolId: school.id, schoolName: school.name };
     },

@@ -291,10 +291,13 @@ export const requestTeacherSchoolJoin = createServerFn({ method: "POST" })
     z.object({ schoolCode: z.string().trim().min(3).max(24) }).parse(data),
   )
   .handler(async ({ data, context }) => {
-    if (context.role !== "teacher") {
+    const { adminDb } = await import("@/lib/firebase/admin.server");
+    const profile = await adminGetById<{ role?: string }>(COLLECTIONS.users, context.userId);
+    const member = await adminGetById<{ role?: string }>(COLLECTIONS.schoolMembers, context.userId);
+    const resolvedRole = profile?.role || member?.role || context.role;
+    if (resolvedRole !== "teacher") {
       throw new Error("Only teacher accounts can apply to join a school as staff.");
     }
-    const { adminDb } = await import("@/lib/firebase/admin.server");
     const { applyTeacherToSchool } = await import("@/lib/teacher-join.server");
     const now = new Date().toISOString();
     const joined = await applyTeacherToSchool({
@@ -303,6 +306,7 @@ export const requestTeacherSchoolJoin = createServerFn({ method: "POST" })
       email: context.email,
       schoolCode: data.schoolCode,
       now,
+      claimsRole: context.role,
     });
 
     const school = await adminGetById<{ owner_id?: string; name?: string }>(

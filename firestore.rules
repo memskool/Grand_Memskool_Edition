@@ -218,10 +218,24 @@ service cloud.firestore {
             && request.resource.data.status in ['approved', 'rejected']
           )
         );
-      allow update: if managesSchool(resource.data.school_id)
-        && request.resource.data.school_id == resource.data.school_id
-        && request.resource.data.user_id == resource.data.user_id
-        && request.resource.data.status in ['pending', 'approved', 'rejected'];
+      allow update: if (
+          (
+            managesSchool(resource.data.school_id)
+            && request.resource.data.school_id == resource.data.school_id
+            && request.resource.data.user_id == resource.data.user_id
+            && request.resource.data.status in ['pending', 'approved', 'rejected']
+          )
+          || (
+            // Teachers/students may re-apply after rejection, or move a pending request.
+            isOwner(resource.data.user_id)
+            && isOwner(request.resource.data.user_id)
+            && request.resource.data.role in ['student', 'teacher', 'parent']
+            && request.resource.data.status == 'pending'
+            && resource.data.status in ['pending', 'rejected']
+            && request.resource.data.school_id is string
+            && exists(/databases/$(database)/documents/schools/$(request.resource.data.school_id))
+          )
+        );
       allow delete: if managesSchool(resource.data.school_id);
     }
 

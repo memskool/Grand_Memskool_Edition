@@ -406,6 +406,10 @@ export async function resolveSessionAccount(input: {
     return profile;
   }
 
+  // Membership row can exist after join/approve even when the users profile was never written.
+  const healedFromMember = await healProfileFromMembership(db, input);
+  if (healedFromMember) return healedFromMember;
+
   if (!input.email?.trim()) return profile;
 
   if (!profile) {
@@ -424,6 +428,64 @@ export async function resolveSessionAccount(input: {
   );
   if (claimed) return claimed;
   if (profile) await ensureClaimsMatchProfile(profile);
+  return profile;
+}
+
+async function healProfileFromMembership(
+  db: Firestore,
+  input: { userId: string; email: string | null },
+): Promise<UserProfile | null> {
+  const member = await db.collection(COLLECTIONS.schoolMembers).doc(input.userId).get();
+  if (!member.exists) return null;
+  const schoolId = String(member.get("school_id") ?? "");
+  const roleRaw = String(member.get("role") ?? "");
+  const statusRaw = String(member.get("status") ?? "");
+  if (!schoolId || !roleRaw) return null;
+  if (!["student", "teacher", "parent", "institution", "admin"].includes(roleRaw)) return null;
+  if (!["pending", "approved", "owner", "rejected"].includes(statusRaw)) return null;
+
+  const authUser = await adminAuth()
+    .getUser(input.userId)
+    .catch(() => null);
+  const now = new Date().toISOString();
+  const fullName =
+    authUser?.displayName?.trim() ||
+    (input.email ? input.email.split("@")[0] : null) ||
+    (roleRaw === "teacher" ? "Teacher" : roleRaw === "student" ? "Student" : "Member");
+  const role = (roleRaw === "admin" ? "institution" : roleRaw) as AppRole;
+  const membershipStatus =
+    statusRaw === "owner" ? "owner" : (statusRaw as UserProfile["membership_status"]);
+
+  await adminSet(COLLECTIONS.users, input.userId, {
+    full_name: fullName,
+    email: input.email ?? authUser?.email ?? null,
+    avatar_url: authUser?.photoURL ?? null,
+    phone: null,
+    school_id: schoolId,
+    student_code: (member.get("student_code") as string | null) ?? null,
+    role,
+    membership_status: membershipStatus,
+    created_at: typeof member.get("created_at") === "string" ? member.get("created_at") : now,
+    updated_at: now,
+  });
+
+  const profile: UserProfile = {
+    id: input.userId,
+    full_name: fullName,
+    email: input.email ?? authUser?.email ?? null,
+    avatar_url: authUser?.photoURL ?? null,
+    phone: null,
+    school_id: schoolId,
+    student_code: (member.get("student_code") as string | null) ?? null,
+    role,
+    membership_status: membershipStatus,
+    created_at: typeof member.get("created_at") === "string" ? String(member.get("created_at")) : now,
+    updated_at: now,
+  };
+  await ensureClaimsMatchProfile(profile);
+  if (input.email) {
+    void rememberUserDirectory(input.email, input.userId, { role, schoolId });
+  }
   return profile;
 }
 
@@ -497,27 +559,38 @@ export async function loadManagedSchool(input: { userId: string; email: string |
   const profile = await resolveSessionAccount(input);
   const db = adminDb();
   const ownedId = await alreadyOwnedSchoolId(db, input.userId, profile?.school_id ?? null);
-  const schoolId = ownedId ?? profile?.school_id ?? null;
+  const member = await db.collection(COLLECTIONS.schoolMembers).doc(input.userId).get();
+  const memberSchoolId = member.exists ? String(member.get("school_id") ?? "") : "";
+  const schoolId = ownedId ?? profile?.school_id ?? (memberSchoolId || null);
   if (!schoolId) return null;
   let school = await db.collection(COLLECTIONS.schools).doc(schoolId).get();
   if (!school.exists && schoolId !== input.userId) {
     school = await db.collection(COLLECTIONS.schools).doc(input.userId).get();
   }
   if (!school.exists) return null;
+  const memberStatus = member.exists ? String(member.get("status") ?? "") : "";
   const membership =
     profile?.membership_status === "owner" ||
     profile?.role === "institution" ||
-    profile?.role === "admin"
+    profile?.role === "admin" ||
+    memberStatus === "owner"
       ? "owner"
-      : profile?.membership_status === "pending" ||
-          profile?.membership_status === "rejected" ||
-          profile?.membership_status === "approved"
-        ? profile.membership_status
-        : "approved";
+      : memberStatus === "pending" ||
+          memberStatus === "rejected" ||
+          memberStatus === "approved"
+        ? (memberStatus as "pending" | "approved" | "rejected")
+        : profile?.membership_status === "pending" ||
+            profile?.membership_status === "rejected" ||
+            profile?.membership_status === "approved"
+          ? profile.membership_status
+          : "approved";
+  const memberRoleRaw = member.exists ? String(member.get("role") ?? "") : "";
   return {
     ...(school.data() as School),
     id: school.id,
     membership,
-    memberRole: profile?.role ?? "institution",
+    memberRole: (profile?.role ||
+      (memberRoleRaw === "admin" ? "institution" : memberRoleRaw) ||
+      "institution") as AppRole,
   };
 }

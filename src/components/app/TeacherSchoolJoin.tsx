@@ -67,7 +67,7 @@ export function TeacherSchoolJoin() {
                       ? (result as { schoolName?: string | null }).schoolName
                       : null;
                   toast.success(
-                    `Request sent to ${schoolName ?? school.name}. You can still teach on Gold while you wait.`,
+                    `Connected with ${schoolName ?? school.name}. Refresh if your dashboard still asks you to apply.`,
                   );
                 },
                 onError: (error) => toast.error(authErrorMessage(error)),
