@@ -1,26 +1,12 @@
 import "@/lib/node-esm-globals";
-import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
+import { initializeApp, getApps, cert, applicationDefault, type App } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
+import { getMessaging } from "firebase-admin/messaging";
 import { FIRESTORE_DATABASE_ID } from "./config";
-
-/**
- * Load firebase-admin via createRequire so Node executes it as CJS.
- * ESM `import "firebase-admin/..."` gets Nitro-bundled and then bare
- * `__dirname` throws ReferenceError on Vercel.
- */
-const require = createRequire(import.meta.url);
-const adminApp = require("firebase-admin/app") as typeof import("firebase-admin/app");
-const adminAuthMod = require("firebase-admin/auth") as typeof import("firebase-admin/auth");
-const adminFirestore =
-  require("firebase-admin/firestore") as typeof import("firebase-admin/firestore");
-const adminStorageMod =
-  require("firebase-admin/storage") as typeof import("firebase-admin/storage");
-const adminMessagingMod =
-  require("firebase-admin/messaging") as typeof import("firebase-admin/messaging");
-
-const { initializeApp, getApps, cert, applicationDefault } = adminApp;
-type App = import("firebase-admin/app").App;
 
 const PROJECT_ID =
   process.env["VITE_FIREBASE_PROJECT_ID"] || process.env["GCLOUD_PROJECT"] || "memskool-4e193";
@@ -91,19 +77,19 @@ export function getAdminApp(): App {
 }
 
 export function adminAuth() {
-  return adminAuthMod.getAuth(getAdminApp());
+  return getAuth(getAdminApp());
 }
 
 export function adminDb() {
-  return adminFirestore.getFirestore(getAdminApp(), FIRESTORE_DATABASE_ID);
+  return getFirestore(getAdminApp(), FIRESTORE_DATABASE_ID);
 }
 
 export function adminStorage() {
-  return adminStorageMod.getStorage(getAdminApp());
+  return getStorage(getAdminApp());
 }
 
 export function adminMessaging() {
-  return adminMessagingMod.getMessaging(getAdminApp());
+  return getMessaging(getAdminApp());
 }
 
 export async function verifyIdToken(token: string) {
