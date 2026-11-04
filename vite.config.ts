@@ -5,6 +5,7 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { dirnameShimPlugin } from "./src/lib/vite-dirname-shim";
 
 /** CJS packages that break when Nitro bundles them into ESM (bare `__dirname`). */
 const SSR_EXTERNALS = [
@@ -30,9 +31,16 @@ const SSR_EXTERNALS = [
 
 export default defineConfig({
   // memskool.com deploys on Vercel — pin so Cloudflare's worker bundle is not used.
+  // Extra keys are forwarded to nitro/vite even though Lovable's TS surface is narrow.
   nitro: {
     preset: "vercel",
-  },
+    // Keep admin SDK out of the ESM server bundle (Node CJS keeps __dirname).
+    noExternals: false,
+    externals: {
+      external: SSR_EXTERNALS,
+    },
+  } as { preset: string },
+  plugins: [dirnameShimPlugin()],
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     server: { entry: "server" },
@@ -40,6 +48,12 @@ export default defineConfig({
   vite: {
     ssr: {
       external: SSR_EXTERNALS,
+    },
+    plugins: [dirnameShimPlugin()],
+    build: {
+      rollupOptions: {
+        external: SSR_EXTERNALS,
+      },
     },
   },
 });
