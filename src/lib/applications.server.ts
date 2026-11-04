@@ -58,9 +58,130 @@ async function loadApplicationsForSchool(schoolId: string): Promise<ApplicationR
   return rows.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
 }
 
+/** Write school_members + users + claims so approved applicants appear on the roll. */
+export async function admitStudentFromApplication(
+  application: Pick<
+    ApplicationRow,
+    "student_id" | "school_id" | "applicant_name" | "email" | "phone" | "created_at"
+  >,
+  now = new Date().toISOString(),
+): Promise<void> {
+  const studentId = application.student_id;
+  if (!studentId || !application.school_id) {
+    throw new Error("That application is missing student or school details.");
+  }
+
+  const existingUser = await adminGetById<{
+    full_name?: string;
+    email?: string | null;
+    avatar_url?: string | null;
+    phone?: string | null;
+    student_code?: string | null;
+    created_at?: string;
+  }>(COLLECTIONS.users, studentId);
+  const existingMember = await adminGetById<{ created_at?: string }>(
+    COLLECTIONS.schoolMembers,
+    studentId,
+  );
+
+  let authDisplay: string | null = null;
+  let authEmail: string | null = null;
+  let authPhoto: string | null = null;
+  try {
+    const authUser = await adminAuth().getUser(studentId);
+    authDisplay = authUser.displayName ?? null;
+    authEmail = authUser.email ?? null;
+    authPhoto = authUser.photoURL ?? null;
+  } catch {
+    // Auth lookup is best-effort; application fields still fill the profile.
+  }
+
+  const fullName =
+    existingUser?.full_name?.trim() ||
+    application.applicant_name?.trim() ||
+    authDisplay?.trim() ||
+    application.email?.split("@")[0] ||
+    "Student";
+
+  await adminSet(COLLECTIONS.schoolMembers, studentId, {
+    school_id: application.school_id,
+    user_id: studentId,
+    role: "student",
+    status: "approved",
+    student_code: existingUser?.student_code ?? null,
+    created_at: existingMember?.created_at || application.created_at || now,
+    updated_at: now,
+  });
+
+  await adminSet(COLLECTIONS.users, studentId, {
+    full_name: fullName,
+    email: existingUser?.email ?? application.email ?? authEmail ?? null,
+    avatar_url: existingUser?.avatar_url ?? authPhoto ?? null,
+    phone: existingUser?.phone ?? application.phone ?? null,
+    school_id: application.school_id,
+    student_code: existingUser?.student_code ?? null,
+    role: "student",
+    membership_status: "approved",
+    created_at: existingUser?.created_at || application.created_at || now,
+    updated_at: now,
+  });
+
+  const savedMember = await adminGetById<{ school_id?: string; status?: string; role?: string }>(
+    COLLECTIONS.schoolMembers,
+    studentId,
+  );
+  if (
+    !savedMember ||
+    savedMember.school_id !== application.school_id ||
+    savedMember.status !== "approved" ||
+    savedMember.role !== "student"
+  ) {
+    throw new Error("Student was approved but could not be added to the school roll.");
+  }
+
+  try {
+    await adminAuth().setCustomUserClaims(studentId, {
+      role: "student",
+      schoolId: application.school_id,
+      approved: true,
+    });
+  } catch (claimsError) {
+    console.error("[admitStudentFromApplication] claims", claimsError);
+  }
+}
+
+/** Backfill school_members for applications already marked approved. */
+export async function syncApprovedApplicantsToRoll(schoolId: string): Promise<number> {
+  const apps = await loadApplicationsForSchool(schoolId);
+  let healed = 0;
+  const now = new Date().toISOString();
+  for (const app of apps) {
+    if (app.status !== "approved" || !app.student_id) continue;
+    const member = await adminGetById<{ school_id?: string; status?: string; role?: string }>(
+      COLLECTIONS.schoolMembers,
+      app.student_id,
+    );
+    if (
+      member?.school_id === schoolId &&
+      member.status === "approved" &&
+      member.role === "student"
+    ) {
+      continue;
+    }
+    await admitStudentFromApplication(app, now);
+    healed += 1;
+  }
+  return healed;
+}
+
 export async function listSchoolApplicationsHandler(context: AuthedContext) {
   await assertCanManageSchool(context);
   const schoolId = await managedSchoolIdFor(context);
+  try {
+    await syncApprovedApplicantsToRoll(schoolId);
+  } catch (error) {
+    console.error("[applications] approved-roll sync failed:", error);
+  }
   const rows = await loadApplicationsForSchool(schoolId);
   const school = await adminGetById<{ name: string; category: string; city: string | null }>(
     COLLECTIONS.schools,
@@ -110,30 +231,7 @@ export async function reviewSchoolApplicationHandler(
   const schoolName = school?.name ?? "your school";
 
   if (data.status === "approved") {
-    const studentId = application.student_id;
-    await adminSet(COLLECTIONS.users, studentId, {
-      school_id: application.school_id,
-      membership_status: "approved",
-      updated_at: now,
-    });
-    await adminSet(COLLECTIONS.schoolMembers, studentId, {
-      school_id: application.school_id,
-      user_id: studentId,
-      role: "student",
-      status: "approved",
-      student_code: null,
-      created_at: now,
-      updated_at: now,
-    });
-    try {
-      await adminAuth().setCustomUserClaims(studentId, {
-        role: "student",
-        schoolId: application.school_id,
-        approved: true,
-      });
-    } catch (claimsError) {
-      console.error("[reviewSchoolApplication] claims", claimsError);
-    }
+    await admitStudentFromApplication(application, now);
   }
 
   try {

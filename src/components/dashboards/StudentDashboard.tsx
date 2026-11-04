@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { AdmissionsPanel, MeetingsPanel } from "@/components/app/SchoolLifePanels";
 import { AiInsightPanel } from "@/components/app/AiInsightPanel";
 import { RewardsWidget } from "@/components/app/RewardsWidget";
@@ -18,12 +19,27 @@ import { AssignmentWorkPanel } from "@/components/app/AssignmentWorkPanel";
 import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
+import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 
 export function StudentDashboard({ user }: { user: AuthUser }) {
   const classes = useMyEnrolledClasses(user.id);
   const slots = useUpcomingSlots(user.id);
   const assignments = useMyAssignments(user.id);
   const locker = useMyLocker(user.id);
+  const claimsRefreshed = useRef(false);
+
+  useEffect(() => {
+    if (claimsRefreshed.current) return;
+    claimsRefreshed.current = true;
+    void refreshAuthClaims()
+      .then(() => {
+        void classes.refetch();
+        void slots.refetch();
+        void assignments.refetch();
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot claims refresh
+  }, [user.id]);
 
   const pending = (assignments.data ?? []).filter(
     (a) => !(a.submissions ?? []).some((s) => s.student_id === user.id && s.status !== "pending"),

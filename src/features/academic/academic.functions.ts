@@ -2,7 +2,15 @@ import { z } from "zod";
 import { FieldValue } from "firebase-admin/firestore";
 import { createServerFn } from "@tanstack/react-start";
 import { requireFirebaseAuth, type AuthedContext } from "@/lib/firebase/require-auth";
-import { adminCreate, adminGetById, adminUpdate, adminWhere } from "@/lib/firebase/admin-repo";
+import {
+  adminCreate,
+  adminGetById,
+  adminSet,
+  adminUpdate,
+  adminWhere,
+} from "@/lib/firebase/admin-repo";
+import { adminAuth } from "@/lib/firebase/admin.server";
+import { toClientJson } from "@/lib/firebase/plain-data";
 import { COLLECTIONS } from "@/lib/firebase/repo";
 import { isSchoolManager } from "@/types/roles";
 import { managedSchoolIdFor } from "@/lib/firebase/school-context.server";
@@ -15,6 +23,91 @@ import {
   MissedWorkAssignSchema,
   MissedWorkProgressSchema,
 } from "./schemas";
+
+type ClassDoc = {
+  id: string;
+  name: string;
+  room?: string | null;
+  subject_id?: string | null;
+  teacher_id?: string | null;
+  school_id: string;
+  status?: string;
+};
+
+async function ensureMemberClaims(input: {
+  userId: string;
+  schoolId: string;
+  role: string;
+  approved?: boolean;
+}) {
+  const profile = await adminGetById<{ role?: string; school_id?: string | null }>(
+    COLLECTIONS.users,
+    input.userId,
+  );
+  if (!profile || profile.school_id !== input.schoolId) {
+    await adminSet(COLLECTIONS.users, input.userId, {
+      school_id: input.schoolId,
+      membership_status: "approved",
+      role: profile?.role ?? input.role,
+      updated_at: new Date().toISOString(),
+    });
+  }
+  const claimRole = (profile?.role ?? input.role) === "institution" ? "admin" : (profile?.role ?? input.role);
+  try {
+    await adminAuth().setCustomUserClaims(input.userId, {
+      role: claimRole,
+      schoolId: input.schoolId,
+      approved: input.approved !== false,
+    });
+  } catch (error) {
+    console.error("[academic] claims sync failed:", error);
+  }
+}
+
+async function notifyUser(input: {
+  userId: string;
+  schoolId: string;
+  title: string;
+  body: string;
+  link?: string;
+}) {
+  try {
+    const { createAndQueueNotification, dispatchNotifications } =
+      await import("@/lib/notifications.server");
+    await createAndQueueNotification({
+      userId: input.userId,
+      title: input.title,
+      body: input.body,
+      kind: "academic",
+      link: input.link ?? "/dashboard",
+      schoolId: input.schoolId,
+      createdAt: new Date().toISOString(),
+    });
+    void dispatchNotifications();
+  } catch (error) {
+    console.error("[academic] notify failed:", error);
+  }
+}
+
+async function classRowsForIds(classIds: string[]) {
+  const unique = [...new Set(classIds.filter(Boolean))];
+  const rows = await Promise.all(
+    unique.map(async (id) => {
+      const cls = await adminGetById<ClassDoc>(COLLECTIONS.classes, id);
+      if (!cls || cls.status === "archived") return null;
+      const subject = cls.subject_id
+        ? await adminGetById<{ name: string; code: string }>(COLLECTIONS.subjects, cls.subject_id)
+        : null;
+      return {
+        id: cls.id,
+        name: cls.name,
+        room: cls.room ?? null,
+        subject: subject ? { name: subject.name, code: subject.code } : null,
+      };
+    }),
+  );
+  return rows.filter((row): row is NonNullable<typeof row> => Boolean(row));
+}
 
 function schoolOf(context: AuthedContext): string {
   if (!context.schoolId) throw new Error("You are not attached to a school.");
@@ -56,6 +149,7 @@ export const enrollStudent = createServerFn({ method: "POST" })
     const schoolId = await requireManager(context);
     const cls = await adminGetById<{
       school_id: string;
+      name?: string;
       academic_year_id?: string | null;
       academic_period_id?: string | null;
       status?: string;
@@ -95,8 +189,14 @@ export const enrollStudent = createServerFn({ method: "POST" })
       data.class_id,
       [["student_id", "==", data.student_id]],
     );
-    if (existing.some((row) => row.status !== "ended")) {
-      throw new Error("That student is already in this class.");
+    const active = existing.find((row) => row.status !== "ended");
+    if (active) {
+      await ensureMemberClaims({
+        userId: data.student_id,
+        schoolId,
+        role: "student",
+      });
+      return toClientJson({ id: active.id });
     }
 
     const now = new Date().toISOString();
@@ -110,7 +210,19 @@ export const enrollStudent = createServerFn({ method: "POST" })
       started_at: now,
       ended_at: null,
     });
-    return { id };
+    await ensureMemberClaims({
+      userId: data.student_id,
+      schoolId,
+      role: "student",
+    });
+    await notifyUser({
+      userId: data.student_id,
+      schoolId,
+      title: "You were enrolled in a class",
+      body: `You are now in ${cls.name ?? "your class"}. Open your dashboard to join lessons and see work.`,
+      link: "/dashboard",
+    });
+    return toClientJson({ id });
   });
 
 export const endEnrollment = createServerFn({ method: "POST" })
@@ -135,7 +247,11 @@ export const assignClassTeacher = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => TeacherAssignSchema.parse(data))
   .handler(async ({ data, context }) => {
     const schoolId = await requireManager(context);
-    const cls = await adminGetById<{ school_id: string }>(COLLECTIONS.classes, data.class_id);
+    const cls = await adminGetById<{
+      school_id: string;
+      name?: string;
+      teacher_id?: string | null;
+    }>(COLLECTIONS.classes, data.class_id);
     if (!cls || cls.school_id !== schoolId) throw new Error("That class is not in your school.");
     const teacher = await adminGetById<{ school_id?: string | null; role?: string }>(
       COLLECTIONS.users,
@@ -161,8 +277,20 @@ export const assignClassTeacher = createServerFn({ method: "POST" })
       ["teacher_id", "==", data.teacher_id],
       ["subject_id", "==", data.subject_id],
     ]);
-    if (existing.some((row) => row.status !== "ended")) {
-      throw new Error("That teacher is already assigned to this class and subject.");
+    const active = existing.find((row) => row.status !== "ended");
+    if (active) {
+      await ensureMemberClaims({
+        userId: data.teacher_id,
+        schoolId,
+        role: "teacher",
+      });
+      if (!cls.teacher_id) {
+        await adminUpdate(COLLECTIONS.classes, data.class_id, {
+          teacher_id: data.teacher_id,
+          updated_at: new Date().toISOString(),
+        });
+      }
+      return toClientJson({ id: active.id });
     }
     const now = new Date().toISOString();
     const id = await adminCreate(COLLECTIONS.classTeacherAssignments, {
@@ -172,7 +300,95 @@ export const assignClassTeacher = createServerFn({ method: "POST" })
       started_at: now,
       ended_at: null,
     });
-    return { id };
+    await adminUpdate(COLLECTIONS.classes, data.class_id, {
+      teacher_id: data.teacher_id,
+      updated_at: now,
+    });
+    await ensureMemberClaims({
+      userId: data.teacher_id,
+      schoolId,
+      role: "teacher",
+    });
+    const subject = await adminGetById<{ name?: string }>(COLLECTIONS.subjects, data.subject_id);
+    await notifyUser({
+      userId: data.teacher_id,
+      schoolId,
+      title: "You were assigned to a class",
+      body: `You now teach ${subject?.name ?? "a subject"} in ${cls.name ?? "a class"}. Open your dashboard to start lessons.`,
+      link: "/dashboard",
+    });
+    return toClientJson({ id });
+  });
+
+/** Teacher: classes from ownership + active subject assignments. */
+export const listMyTeachingClasses = createServerFn({ method: "POST" })
+  .middleware([requireFirebaseAuth])
+  .handler(async ({ context }) => {
+    const userId = context.userId;
+    const owned = await adminWhere<ClassDoc>(COLLECTIONS.classes, "teacher_id", "==", userId);
+    const assigned = await adminWhere<{ class_id: string; status?: string }>(
+      COLLECTIONS.classTeacherAssignments,
+      "teacher_id",
+      "==",
+      userId,
+      [["status", "==", "active"]],
+    );
+    const classIds = [
+      ...owned.filter((row) => row.status !== "archived").map((row) => row.id),
+      ...assigned.map((row) => row.class_id),
+    ];
+    return toClientJson(await classRowsForIds(classIds));
+  });
+
+/** Student: active class enrolments. */
+export const listMyEnrolledClasses = createServerFn({ method: "POST" })
+  .middleware([requireFirebaseAuth])
+  .handler(async ({ context }) => {
+    const enrollments = await adminWhere<{ class_id: string; status?: string }>(
+      COLLECTIONS.classEnrollments,
+      "student_id",
+      "==",
+      context.userId,
+    );
+    const classIds = enrollments
+      .filter((row) => row.status !== "ended")
+      .map((row) => row.class_id);
+    return toClientJson(await classRowsForIds(classIds));
+  });
+
+/** School admin: roster for one class. */
+export const listClassRoster = createServerFn({ method: "POST" })
+  .middleware([requireFirebaseAuth])
+  .inputValidator((data: unknown) => z.object({ class_id: z.string().min(1) }).parse(data))
+  .handler(async ({ data, context }) => {
+    const schoolId = await requireManager(context);
+    const cls = await adminGetById<{ school_id: string }>(COLLECTIONS.classes, data.class_id);
+    if (!cls || cls.school_id !== schoolId) throw new Error("That class is not in your school.");
+    const rows = await adminWhere<{
+      student_id: string;
+      status?: string;
+      started_at?: string;
+      ended_at?: string | null;
+      class_id: string;
+      school_id: string;
+    }>(COLLECTIONS.classEnrollments, "class_id", "==", data.class_id);
+    const forClass = rows.filter((row) => row.school_id === schoolId);
+    return toClientJson(
+      await Promise.all(
+        forClass.map(async (row) => {
+          const student = await adminGetById<{ full_name: string; email: string | null }>(
+            COLLECTIONS.users,
+            row.student_id,
+          );
+          return {
+            ...row,
+            student: student
+              ? { full_name: student.full_name, email: student.email ?? null }
+              : null,
+          };
+        }),
+      ),
+    );
   });
 
 export const endClassTeacher = createServerFn({ method: "POST" })

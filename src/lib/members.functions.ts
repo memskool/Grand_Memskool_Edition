@@ -130,6 +130,12 @@ export const listSchoolMembers = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     await assertCanManageSchool(context);
     const schoolId = await managedSchoolIdFor(context);
+    try {
+      const { syncApprovedApplicantsToRoll } = await import("@/lib/applications.server");
+      await syncApprovedApplicantsToRoll(schoolId);
+    } catch (error) {
+      console.error("[members] approved-applicant sync failed:", error);
+    }
     const members = await loadMembersForSchool(schoolId);
     return toClientJson(
       await Promise.all(

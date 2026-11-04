@@ -630,7 +630,9 @@ export function EnrolmentPanel({ schoolId }: { schoolId: string | undefined }) {
                       {
                         onSuccess: () => {
                           setStudentId("");
-                          toast.success("Student enrolled");
+                          toast.success(
+                            "Student enrolled — they will see this class on their dashboard.",
+                          );
                         },
                         onError: (e) => toast.error(authErrorMessage(e)),
                       },
@@ -764,11 +766,15 @@ function TeacherAssignBlock({
           </SelectContent>
         </Select>
         <Button
+          disabled={!teacherId || !subjectId || assign.isPending}
           onClick={() =>
             assign.mutate(
               { class_id: classId, teacher_id: teacherId, subject_id: subjectId },
               {
-                onSuccess: () => toast.success("Teacher assigned"),
+                onSuccess: () => {
+                  setTeacherId("");
+                  toast.success("Teacher assigned — they will see this class on their dashboard.");
+                },
                 onError: (e) => toast.error(authErrorMessage(e)),
               },
             )

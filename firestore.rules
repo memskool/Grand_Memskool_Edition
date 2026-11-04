@@ -273,13 +273,16 @@ service cloud.firestore {
     }
 
     match /classes/{id} {
-      allow read: if tenantRead(resource.data.school_id);
+      allow read: if tenantRead(resource.data.school_id)
+        || (isAuthenticated() && resource.data.teacher_id == uid());
       allow create: if tenantWrite(request.resource.data.school_id);
       allow update: if tenantWrite(resource.data.school_id);
       allow delete: if isSchoolAdmin() && sameSchool(resource.data.school_id);
     }
     match /subjects/{id} {
-      allow read: if tenantRead(resource.data.school_id);
+      allow read: if tenantRead(resource.data.school_id)
+        || (isTeacher() && sameSchool(resource.data.school_id))
+        || (isAuthenticated() && tokenRole() == 'student' && sameSchool(resource.data.school_id));
       allow create: if isSchoolAdmin() && sameSchool(request.resource.data.school_id);
       allow update: if isSchoolAdmin() && sameSchool(resource.data.school_id);
       allow delete: if isSchoolAdmin() && sameSchool(resource.data.school_id)

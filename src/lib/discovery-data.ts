@@ -649,15 +649,37 @@ async function reviewApplicationOnClient(input: {
     throw new Error("Application was not saved. Try again.");
   }
   if (input.status === "approved") {
-    await setById(COLLECTIONS.schoolMembers, existing.student_id, {
-      school_id: existing.school_id,
-      user_id: existing.student_id,
-      role: "student",
-      status: "approved",
-      student_code: null,
-      created_at: now,
-      updated_at: now,
-    });
+    const app = await getById<{
+      applicant_name?: string;
+      email?: string | null;
+      phone?: string | null;
+      created_at?: string;
+    }>(COLLECTIONS.schoolApplications, input.id);
+    try {
+      await setById(COLLECTIONS.schoolMembers, existing.student_id, {
+        school_id: existing.school_id,
+        user_id: existing.student_id,
+        role: "student",
+        status: "approved",
+        student_code: null,
+        created_at: app?.created_at || now,
+        updated_at: now,
+      });
+    } catch (error) {
+      throw classifyFirebase(error);
+    }
+    const member = await getById<{ school_id?: string; status?: string; role?: string }>(
+      COLLECTIONS.schoolMembers,
+      existing.student_id,
+    );
+    if (
+      !member ||
+      member.school_id !== existing.school_id ||
+      member.status !== "approved" ||
+      member.role !== "student"
+    ) {
+      throw new Error("Application was approved but the student was not added to your school roll.");
+    }
     try {
       await patchById(COLLECTIONS.users, existing.student_id, {
         school_id: existing.school_id,
@@ -665,6 +687,7 @@ async function reviewApplicationOnClient(input: {
         updated_at: now,
       });
     } catch (error) {
+      // Profile may be missing; server admit/sync fills it with Admin SDK.
       console.error("[applications] student profile update failed:", error);
     }
   }

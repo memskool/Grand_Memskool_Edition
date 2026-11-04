@@ -9,6 +9,10 @@ import {
   limit,
 } from "@/lib/firebase/repo";
 import { userSchoolId } from "@/lib/firebase/hydrate";
+import {
+  listMyEnrolledClasses,
+  listMyTeachingClasses,
+} from "@/features/academic/academic.functions";
 
 export type ClassRow = {
   id: string;
@@ -29,15 +33,99 @@ type ClassDoc = {
 type SubjectDoc = { name: string; code: string };
 
 async function toClassRow(id: string, row: ClassDoc): Promise<ClassRow> {
-  const subject = row.subject_id
-    ? await getById<SubjectDoc>(COLLECTIONS.subjects, row.subject_id)
-    : null;
+  let subject: SubjectDoc | null = null;
+  if (row.subject_id) {
+    try {
+      subject = await getById<SubjectDoc>(COLLECTIONS.subjects, row.subject_id);
+    } catch (error) {
+      console.error("[class-row] subject read failed:", error);
+    }
+  }
   return {
     id,
     name: row.name,
-    room: row.room,
+    room: row.room ?? null,
     subject: subject ? { name: subject.name, code: subject.code } : null,
   };
+}
+
+function unwrapClassRows(raw: unknown): ClassRow[] {
+  if (Array.isArray(raw)) return raw as ClassRow[];
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    for (const key of ["data", "result", "payload", "value"]) {
+      const inner = unwrapClassRows(obj[key]);
+      if (inner.length) return inner;
+    }
+  }
+  return [];
+}
+
+async function clientEnrolledClasses(userId: string): Promise<ClassRow[]> {
+  let enrollments: Array<{ class_id: string; status?: string }> = [];
+  try {
+    enrollments = await findMany<{ class_id: string; status?: string }>(
+      COLLECTIONS.classEnrollments,
+      [where("student_id", "==", userId)],
+    );
+  } catch (error) {
+    console.error("[enrolled-classes] enrollment query failed:", error);
+    return [];
+  }
+  const active = enrollments.filter((e) => e.status !== "ended");
+  const classes = await Promise.all(
+    active.map(async (e) => {
+      try {
+        const cls = await getById<ClassDoc>(COLLECTIONS.classes, e.class_id);
+        return cls && cls.status !== "archived" ? toClassRow(cls.id, cls) : null;
+      } catch (error) {
+        console.error("[enrolled-classes] class read failed:", e.class_id, error);
+        return null;
+      }
+    }),
+  );
+  return classes.filter((c): c is ClassRow => Boolean(c));
+}
+
+async function clientTeachingClasses(userId: string): Promise<ClassRow[]> {
+  let owned: Array<ClassDoc & { id: string }> = [];
+  try {
+    owned = await findMany<ClassDoc>(COLLECTIONS.classes, [
+      where("teacher_id", "==", userId),
+    ]);
+  } catch (error) {
+    console.error("[teaching-classes] owned query failed:", error);
+  }
+
+  let assigned: Array<{ class_id: string; status?: string }> = [];
+  try {
+    assigned = await findMany<{ class_id: string; status?: string }>(
+      COLLECTIONS.classTeacherAssignments,
+      [where("teacher_id", "==", userId), where("status", "==", "active")],
+    );
+  } catch (error) {
+    // Do not wipe owned classes when the assignment composite query fails.
+    console.error("[teaching-classes] assignment query failed:", error);
+    try {
+      const all = await findMany<{ class_id: string; status?: string }>(
+        COLLECTIONS.classTeacherAssignments,
+        [where("teacher_id", "==", userId)],
+      );
+      assigned = all.filter((row) => row.status !== "ended");
+    } catch (fallbackError) {
+      console.error("[teaching-classes] assignment fallback failed:", fallbackError);
+    }
+  }
+
+  const extra = await Promise.all(
+    assigned.map((a) => getById<ClassDoc>(COLLECTIONS.classes, a.class_id).catch(() => null)),
+  );
+  const byId = new Map<string, ClassDoc & { id: string }>();
+  for (const row of owned) byId.set(row.id, row);
+  for (const row of extra) if (row) byId.set(row.id, row);
+  return Promise.all(
+    [...byId.values()].filter((r) => r.status !== "archived").map((r) => toClassRow(r.id, r)),
+  );
 }
 
 export function useMyEnrolledClasses(userId?: string) {
@@ -45,18 +133,18 @@ export function useMyEnrolledClasses(userId?: string) {
     queryKey: ["enrolled-classes", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const enrollments = await findMany<{ class_id: string; status?: string }>(
-        COLLECTIONS.classEnrollments,
-        [where("student_id", "==", userId!)],
-      );
-      const active = enrollments.filter((e) => e.status !== "ended");
-      const classes = await Promise.all(
-        active.map(async (e) => {
-          const cls = await getById<ClassDoc>(COLLECTIONS.classes, e.class_id);
-          return cls && cls.status !== "archived" ? toClassRow(cls.id, cls) : null;
-        }),
-      );
-      return classes.filter((c): c is ClassRow => Boolean(c));
+      try {
+        const rows = unwrapClassRows(await listMyEnrolledClasses());
+        if (rows.length) return rows;
+      } catch (error) {
+        console.error("[enrolled-classes] server list failed:", error);
+      }
+      try {
+        return await clientEnrolledClasses(userId!);
+      } catch (error) {
+        console.error("[enrolled-classes] client list failed:", error);
+        return [];
+      }
     },
   });
 }
@@ -183,22 +271,22 @@ export function useTeachingClasses(userId?: string) {
     queryKey: ["teaching-classes", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const owned = await findMany<ClassDoc>(COLLECTIONS.classes, [
-        where("teacher_id", "==", userId!),
-      ]);
-      const assigned = await findMany<{ class_id: string; status?: string }>(
-        COLLECTIONS.classTeacherAssignments,
-        [where("teacher_id", "==", userId!), where("status", "==", "active")],
-      );
-      const extra = await Promise.all(
-        assigned.map((a) => getById<ClassDoc>(COLLECTIONS.classes, a.class_id)),
-      );
-      const byId = new Map<string, ClassDoc & { id: string }>();
-      for (const row of owned) byId.set(row.id, row);
-      for (const row of extra) if (row) byId.set(row.id, row);
-      return Promise.all(
-        [...byId.values()].filter((r) => r.status !== "archived").map((r) => toClassRow(r.id, r)),
-      );
+      const byId = new Map<string, ClassRow>();
+      try {
+        for (const row of unwrapClassRows(await listMyTeachingClasses())) {
+          if (row.id) byId.set(row.id, row);
+        }
+      } catch (error) {
+        console.error("[teaching-classes] server list failed:", error);
+      }
+      try {
+        for (const row of await clientTeachingClasses(userId!)) {
+          if (row.id && !byId.has(row.id)) byId.set(row.id, row);
+        }
+      } catch (error) {
+        console.error("[teaching-classes] client list failed:", error);
+      }
+      return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
     },
   });
 }
@@ -209,25 +297,35 @@ export function useTeacherTimetable(userId?: string) {
     enabled: !!userId,
     queryFn: async () => {
       const today = new Date().getDay();
-      const teaching = await findMany<ClassDoc>(COLLECTIONS.classes, [
-        where("teacher_id", "==", userId!),
-      ]);
-      const assigned = await findMany<{ class_id: string }>(COLLECTIONS.classTeacherAssignments, [
-        where("teacher_id", "==", userId!),
-        where("status", "==", "active"),
-      ]);
-      const classIds = new Set([...teaching.map((c) => c.id), ...assigned.map((a) => a.class_id)]);
-      const slots = await findMany<{
+      const teachingRows = await clientTeachingClasses(userId!).catch(() => [] as ClassRow[]);
+      const classIds = new Set(teachingRows.map((row) => row.id));
+      let slots: Array<{
+        id: string;
         day_of_week: number;
         start_time: string;
         end_time: string;
         class_id: string;
-      }>(COLLECTIONS.timetableSlots, [where("day_of_week", "==", today), orderBy("start_time")]);
+      }> = [];
+      try {
+        slots = await findMany<{
+          day_of_week: number;
+          start_time: string;
+          end_time: string;
+          class_id: string;
+        }>(COLLECTIONS.timetableSlots, [where("day_of_week", "==", today), orderBy("start_time")]);
+      } catch (error) {
+        console.error("[teacher-timetable] slots query failed:", error);
+        return [];
+      }
       const mine = slots.filter((s) => classIds.has(s.class_id));
       return Promise.all(
         mine.map(async (s) => {
-          const cls = await getById<ClassDoc>(COLLECTIONS.classes, s.class_id);
-          return { ...s, class: cls ? await toClassRow(cls.id, cls) : null };
+          try {
+            const cls = await getById<ClassDoc>(COLLECTIONS.classes, s.class_id);
+            return { ...s, class: cls ? await toClassRow(cls.id, cls) : null };
+          } catch {
+            return { ...s, class: null };
+          }
         }),
       );
     },
@@ -239,39 +337,47 @@ export function usePendingGrading(userId?: string) {
     queryKey: ["pending-grading", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const teaching = await findMany<ClassDoc>(COLLECTIONS.classes, [
-        where("teacher_id", "==", userId!),
-      ]);
-      const assigned = await findMany<{ class_id: string }>(COLLECTIONS.classTeacherAssignments, [
-        where("teacher_id", "==", userId!),
-        where("status", "==", "active"),
-      ]);
-      const classIds = [
-        ...new Set([...teaching.map((c) => c.id), ...assigned.map((a) => a.class_id)]),
-      ];
+      const teachingRows = await clientTeachingClasses(userId!).catch(() => [] as ClassRow[]);
+      const classIds = teachingRows.map((row) => row.id);
       if (classIds.length === 0) return [];
-      const rows = await findMany<{
+      let rows: Array<{
+        id: string;
         status: string;
         submitted_at: string | null;
         student_id: string;
         assignment_id: string;
         grade: number | null;
         class_id?: string | null;
-      }>(COLLECTIONS.submissions, [
-        where("grade", "==", null),
-        orderBy("submitted_at", "asc"),
-        limit(40),
-      ]);
+      }> = [];
+      try {
+        rows = await findMany<{
+          status: string;
+          submitted_at: string | null;
+          student_id: string;
+          assignment_id: string;
+          grade: number | null;
+          class_id?: string | null;
+        }>(COLLECTIONS.submissions, [
+          where("grade", "==", null),
+          orderBy("submitted_at", "asc"),
+          limit(40),
+        ]);
+      } catch (error) {
+        console.error("[pending-grading] submissions query failed:", error);
+        return [];
+      }
       const mine = rows.filter((s) => !s.class_id || classIds.includes(s.class_id));
       return Promise.all(
         mine.slice(0, 20).map(async (s) => {
-          const student = await getById<{ full_name: string }>(COLLECTIONS.users, s.student_id);
+          const student = await getById<{ full_name: string }>(COLLECTIONS.users, s.student_id).catch(
+            () => null,
+          );
           const assignment = await getById<{ title: string; class_id: string | null }>(
             COLLECTIONS.assignments,
             s.assignment_id,
-          );
+          ).catch(() => null);
           const cls = assignment?.class_id
-            ? await getById<ClassDoc>(COLLECTIONS.classes, assignment.class_id)
+            ? await getById<ClassDoc>(COLLECTIONS.classes, assignment.class_id).catch(() => null)
             : null;
           return {
             ...s,

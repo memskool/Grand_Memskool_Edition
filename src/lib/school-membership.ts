@@ -418,6 +418,40 @@ export function useSchoolMembers(schoolId: string | undefined) {
       } catch (error) {
         console.error("[school-members] client list failed:", error);
       }
+      // Approved applications must still count as students even if membership write lagged.
+      try {
+        const apps = await findMany<{
+          student_id: string;
+          applicant_name?: string;
+          email?: string | null;
+          status: string;
+          created_at?: string;
+        }>(COLLECTIONS.schoolApplications, [where("school_id", "==", schoolId!)]);
+        for (const app of apps) {
+          if (app.status !== "approved" || !app.student_id || byId.has(app.student_id)) continue;
+          const user = await getById<{ full_name: string; email: string | null }>(
+            COLLECTIONS.users,
+            app.student_id,
+          ).catch(() => null);
+          byId.set(app.student_id, {
+            id: app.student_id,
+            role: "student",
+            status: "approved",
+            student_code: null,
+            created_at: app.created_at ?? "",
+            user_id: app.student_id,
+            user: user
+              ? { id: user.id, full_name: user.full_name, email: user.email }
+              : {
+                  id: app.student_id,
+                  full_name: app.applicant_name?.trim() || app.email || "Student",
+                  email: app.email ?? null,
+                },
+          });
+        }
+      } catch (error) {
+        console.error("[school-members] approved applications merge failed:", error);
+      }
       return [...byId.values()].sort((a, b) =>
         (b.created_at ?? "").localeCompare(a.created_at ?? ""),
       );

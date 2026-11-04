@@ -8,10 +8,12 @@ import { CalendarClock, ClipboardCheck, BookOpen, Clock, BellRing } from "lucide
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useEffect, useRef } from "react";
 import { useAccess } from "@/lib/access";
 import { useRemindSchool } from "@/lib/school-membership";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { TeacherSchoolJoin } from "@/components/app/TeacherSchoolJoin";
+import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 
 import { ClassCardGrid } from "@/components/dashboards/ClassCards";
 import { ScheduleRail } from "@/components/app/ScheduleRail";
@@ -28,6 +30,21 @@ export function TeacherDashboard({ user }: { user: AuthUser }) {
   const classes = useTeachingClasses(user.id);
   const today = useTeacherTimetable(user.id);
   const grading = usePendingGrading(user.id);
+  const claimsRefreshed = useRef(false);
+
+  useEffect(() => {
+    if (claimsRefreshed.current || pendingApproval || !hasSchool) return;
+    claimsRefreshed.current = true;
+    void refreshAuthClaims()
+      .then(() => {
+        void classes.refetch();
+        void today.refetch();
+        void grading.refetch();
+      })
+      .catch(() => undefined);
+    // Refresh once per dashboard mount so newly assigned classes appear.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot claims refresh
+  }, [user.id, pendingApproval, hasSchool]);
 
   if (!hasSchool) {
     return (

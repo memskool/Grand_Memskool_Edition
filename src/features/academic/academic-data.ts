@@ -34,6 +34,7 @@ import {
   recordLessonAttendance,
   assignMissedWork,
   updateMissedWorkStatus,
+  listClassRoster,
 } from "./academic.functions";
 import { listSchoolApplications } from "@/lib/applications.functions";
 
@@ -338,18 +339,33 @@ export function useClassRoster(classId: string | undefined) {
     queryKey: ["class-roster", classId],
     enabled: !!classId,
     queryFn: async () => {
-      const rows = await findMany<ClassEnrollment>(COLLECTIONS.classEnrollments, [
-        where("class_id", "==", classId!),
-      ]);
-      return Promise.all(
-        rows.map(async (row) => {
-          const student = await getById<{ full_name: string; email: string | null }>(
-            COLLECTIONS.users,
-            row.student_id,
-          );
-          return { ...row, student };
-        }),
-      );
+      try {
+        const rows = unwrapRows<
+          ClassEnrollment & {
+            student: { full_name: string; email: string | null } | null;
+          }
+        >(await listClassRoster({ data: { class_id: classId! } }));
+        if (rows.length) return rows;
+      } catch (error) {
+        console.error("[class-roster] server list failed:", error);
+      }
+      try {
+        const rows = await findMany<ClassEnrollment>(COLLECTIONS.classEnrollments, [
+          where("class_id", "==", classId!),
+        ]);
+        return Promise.all(
+          rows.map(async (row) => {
+            const student = await getById<{ full_name: string; email: string | null }>(
+              COLLECTIONS.users,
+              row.student_id,
+            );
+            return { ...row, student };
+          }),
+        );
+      } catch (error) {
+        console.error("[class-roster] client list failed:", error);
+        return [];
+      }
     },
   });
 }
@@ -495,6 +511,26 @@ export function useAddLessonMaterial(teacherId: string | undefined) {
   });
 }
 
+function invalidateClassPeople(qc: ReturnType<typeof useQueryClient>, vars: {
+  class_id: string;
+  student_id?: string;
+  teacher_id?: string;
+}) {
+  void qc.invalidateQueries({ queryKey: ["class-roster", vars.class_id] });
+  void qc.invalidateQueries({ queryKey: ["class-teachers", vars.class_id] });
+  void qc.invalidateQueries({ queryKey: ["enrolled-classes"] });
+  void qc.invalidateQueries({ queryKey: ["teaching-classes"] });
+  void qc.invalidateQueries({ queryKey: ["teacher-timetable"] });
+  void qc.invalidateQueries({ queryKey: ["upcoming-slots"] });
+  void qc.invalidateQueries({ queryKey: ["my-teacher-assignments"] });
+  if (vars.student_id) {
+    void qc.invalidateQueries({ queryKey: ["enrolled-classes", vars.student_id] });
+  }
+  if (vars.teacher_id) {
+    void qc.invalidateQueries({ queryKey: ["teaching-classes", vars.teacher_id] });
+  }
+}
+
 export function useEnrollStudent() {
   const qc = useQueryClient();
   return useMutation({
@@ -503,6 +539,8 @@ export function useEnrollStudent() {
         const raw = await enrollStudent({ data: input });
         const id = unwrapNestedId(raw);
         if (id) return { id };
+        // Server wrote successfully; avoid a second client write that duplicates rows.
+        return { id: "saved" };
       } catch (error) {
         console.error("[enrol] server enroll failed:", error);
       }
@@ -513,6 +551,12 @@ export function useEnrollStudent() {
       }>(COLLECTIONS.classes, input.class_id);
       if (!cls) throw new Error("That class was not found.");
       try {
+        const existing = await findMany<{ student_id: string; status?: string }>(
+          COLLECTIONS.classEnrollments,
+          [where("class_id", "==", input.class_id), where("student_id", "==", input.student_id)],
+        );
+        const active = existing.find((row) => row.status !== "ended");
+        if (active) return { id: active.id };
         const id = await createDoc(COLLECTIONS.classEnrollments, {
           school_id: cls.school_id,
           class_id: input.class_id,
@@ -528,7 +572,7 @@ export function useEnrollStudent() {
         throw classifyFirebase(error);
       }
     },
-    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["class-roster", vars.class_id] }),
+    onSuccess: (_d, vars) => invalidateClassPeople(qc, vars),
   });
 }
 
@@ -554,12 +598,24 @@ export function useAssignTeacher() {
         const raw = await assignClassTeacher({ data: input });
         const id = unwrapNestedId(raw);
         if (id) return { id };
+        return { id: "saved" };
       } catch (error) {
         console.error("[assign-teacher] server failed:", error);
       }
       const cls = await getById<{ school_id: string }>(COLLECTIONS.classes, input.class_id);
       if (!cls) throw new Error("That class was not found.");
       try {
+        const existing = await findMany<{
+          teacher_id: string;
+          subject_id: string;
+          status?: string;
+        }>(COLLECTIONS.classTeacherAssignments, [
+          where("class_id", "==", input.class_id),
+          where("teacher_id", "==", input.teacher_id),
+          where("subject_id", "==", input.subject_id),
+        ]);
+        const active = existing.find((row) => row.status !== "ended");
+        if (active) return { id: active.id };
         const id = await createDoc(COLLECTIONS.classTeacherAssignments, {
           school_id: cls.school_id,
           class_id: input.class_id,
@@ -569,12 +625,20 @@ export function useAssignTeacher() {
           started_at: nowIso(),
           ended_at: null,
         });
+        try {
+          await patchById(COLLECTIONS.classes, input.class_id, {
+            teacher_id: input.teacher_id,
+            updated_at: nowIso(),
+          });
+        } catch (error) {
+          console.error("[assign-teacher] class teacher_id update failed:", error);
+        }
         return { id };
       } catch (error) {
         throw classifyFirebase(error);
       }
     },
-    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["class-teachers", vars.class_id] }),
+    onSuccess: (_d, vars) => invalidateClassPeople(qc, vars),
   });
 }
 
@@ -697,17 +761,20 @@ type DirectoryPerson = {
 };
 
 function unwrapNestedId(raw: unknown): string | null {
-  if (!raw || typeof raw !== "object") return null;
-  const obj = raw as Record<string, unknown>;
-  if (typeof obj["id"] === "string" && obj["id"]) return obj["id"];
-  for (const key of ["data", "result", "payload", "value"]) {
-    const inner = obj[key];
-    if (inner && typeof inner === "object") {
-      const nested = inner as Record<string, unknown>;
-      if (typeof nested["id"] === "string" && nested["id"]) return nested["id"];
+  const seen = new Set<unknown>();
+  const walk = (value: unknown): string | null => {
+    if (!value || typeof value !== "object" || seen.has(value)) return null;
+    seen.add(value);
+    const obj = value as Record<string, unknown>;
+    const id = obj["id"];
+    if (typeof id === "string" && id) return id;
+    for (const inner of Object.values(obj)) {
+      const found = walk(inner);
+      if (found) return found;
     }
-  }
-  return null;
+    return null;
+  };
+  return walk(raw);
 }
 
 function unwrapRows<T>(raw: unknown): T[] {
