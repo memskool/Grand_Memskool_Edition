@@ -526,26 +526,47 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id))
         && get(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id)).data.is_active == true;
       allow delete: if false;
-      allow update: if isOwner(resource.data.user_id)
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly([
-            'hand_raised',
-            'mic_on',
-            'cam_on',
-            'connected_at',
-            'last_connected_at',
-            'left_at',
-            'last_joined_at',
-            'duration_ms',
-            'rejoin_count',
-            'is_host'
-          ]);
+      allow update: if (
+          isOwner(resource.data.user_id)
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'hand_raised',
+              'mic_on',
+              'cam_on',
+              'connected_at',
+              'last_connected_at',
+              'left_at',
+              'last_joined_at',
+              'duration_ms',
+              'rejoin_count',
+              'is_host'
+            ])
+        )
+        || (
+          sameSchool(resource.data.school_id)
+          && (isTeacher() || isSchoolAdmin() || profileRole() == 'teacher')
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['mic_on', 'cam_on', 'camera_allowed', 'warned_at', 'hand_raised'])
+        );
     }
     match /classroom_messages/{id} {
       allow read: if tenantRead(resource.data.school_id) && (
         isTeacher() || isSchoolAdmin() || isLiveParticipant(resource.data.session_id)
+        || profileRole() == 'teacher'
       );
-      allow create, update, delete: if false;
+      allow create: if isAuthenticated()
+        && isOwner(request.resource.data.sender_id)
+        && request.resource.data.session_id is string
+        && request.resource.data.school_id is string
+        && sameSchool(request.resource.data.school_id)
+        && stringMax(request.resource.data.body, 4000)
+        && exists(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id))
+        && get(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id)).data.is_active == true
+        && (
+          isLiveParticipant(request.resource.data.session_id)
+          || get(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id)).data.host_id == uid()
+        );
+      allow update, delete: if false;
     }
     match /live_session_events/{id} {
       allow read, write: if false;

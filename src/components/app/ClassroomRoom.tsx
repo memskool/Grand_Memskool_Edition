@@ -228,79 +228,90 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
           ? "Connection lost. Check your network, then leave and join again if this continues."
           : null;
 
+  const controlBtn =
+    "rounded-full border border-ink/15 bg-ink text-ink-foreground shadow-sm hover:bg-ink/90 hover:text-ink-foreground";
+  const controlBtnOn =
+    "rounded-full border border-leaf/30 bg-leaf text-leaf-foreground shadow-sm hover:bg-leaf/90";
+  const controlBtnSoft =
+    "rounded-full border border-border bg-card text-card-foreground shadow-sm hover:bg-secondary";
+
   return (
-    <div className="dark -mx-1 rounded-[24px] bg-background p-3 text-foreground sm:p-5">
-      <div className="flex flex-col gap-4 lg:h-[calc(100vh-9rem)] lg:flex-row">
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                Classes <span className="opacity-40">/</span> Live{" "}
-                <span className="opacity-40">/</span> {className}
-              </p>
-              <h1 className="font-display truncate text-xl font-bold sm:text-2xl">{className}</h1>
-              <p className="text-xs text-muted-foreground">
-                Live {elapsedLabel(session.started_at)} · {live.length} in the room
-                {session.lesson_id ? " · Lesson linked" : ""}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Badge className="bg-destructive/10 text-destructive">● Live</Badge>
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-full lg:hidden"
-                onClick={() => {
-                  setSideTab("chat");
-                  setChatOpen((v) => !v);
-                }}
-              >
-                <MessageSquare className="size-4" /> Chat
-              </Button>
-            </div>
+    <div className="flex min-h-[calc(100dvh-7.5rem)] flex-col gap-3 sm:gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            Live class <span className="opacity-40">/</span> {className}
+          </p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-2">
+            <h1 className="font-display truncate text-xl font-bold sm:text-2xl">{className}</h1>
+            <Badge className="bg-destructive text-destructive-foreground">● Live</Badge>
           </div>
+          <p className="text-xs text-muted-foreground">
+            {elapsedLabel(session.started_at)} · {live.length} in the room
+            {session.lesson_id ? " · Lesson linked" : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            className={cn(controlBtnSoft, "lg:hidden")}
+            onClick={() => {
+              setSideTab("chat");
+              setChatOpen((v) => !v);
+            }}
+          >
+            <MessageSquare className="size-4" /> Chat
+          </Button>
+          <Button
+            size="sm"
+            className={cn(controlBtnSoft, "lg:hidden")}
+            onClick={() => {
+              setSideTab("materials");
+              setChatOpen((v) => !v);
+            }}
+          >
+            <FileText className="size-4" /> Materials
+          </Button>
+        </div>
+      </header>
 
-          {connectionCopy ? (
-            <Alert>
-              <AlertTitle>
-                {media.status === "reconnecting"
-                  ? "Reconnecting"
-                  : media.status === "connecting"
-                    ? "Connecting"
-                    : "Connection lost"}
-              </AlertTitle>
-              <AlertDescription>{connectionCopy}</AlertDescription>
-            </Alert>
-          ) : null}
+      {connectionCopy ? (
+        <Alert>
+          <AlertTitle>
+            {media.status === "reconnecting"
+              ? "Reconnecting"
+              : media.status === "connecting"
+                ? "Connecting"
+                : "Connection lost"}
+          </AlertTitle>
+          <AlertDescription>{connectionCopy}</AlertDescription>
+        </Alert>
+      ) : null}
 
-          {media.error ? (
-            <Alert variant="destructive">
-              <AlertTitle>
-                {media.error.kind === "config"
-                  ? "Live video is not configured"
-                  : media.error.kind === "permission"
-                    ? "Permission needed"
-                    : media.error.kind === "unsupported"
-                      ? "Not supported here"
-                      : "Unable to join the classroom"}
-              </AlertTitle>
-              <AlertDescription className="flex items-center justify-between gap-3">
-                <span>{media.error.message}</span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={media.clearError}
-                  aria-label="Dismiss error"
-                >
-                  <X className="size-4" />
-                </Button>
-              </AlertDescription>
-            </Alert>
-          ) : null}
+      {media.error ? (
+        <Alert variant="destructive">
+          <AlertTitle>
+            {media.error.kind === "config"
+              ? "Live video is not configured"
+              : media.error.kind === "permission"
+                ? "Permission needed"
+                : media.error.kind === "unsupported"
+                  ? "Not supported here"
+                  : "Unable to join the classroom"}
+          </AlertTitle>
+          <AlertDescription className="flex items-center justify-between gap-3">
+            <span>{media.error.message}</span>
+            <Button size="sm" variant="ghost" onClick={media.clearError} aria-label="Dismiss error">
+              <X className="size-4" />
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
+      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_min(22rem,32%)] lg:gap-4">
+        <section className="flex min-w-0 flex-col gap-3">
           <div
-            className="relative aspect-video w-full overflow-hidden rounded-[20px] border border-border bg-black text-white"
+            className="relative min-h-[220px] w-full flex-1 overflow-hidden rounded-2xl border border-border bg-ink text-ink-foreground sm:min-h-[280px] lg:min-h-0 lg:max-h-[min(58vh,40rem)]"
             role="region"
             aria-label="Main classroom video"
           >
@@ -308,7 +319,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
               <span className="flex items-center gap-1.5 rounded-full bg-destructive px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-destructive-foreground">
                 <span className="size-1.5 rounded-full bg-current" /> Live
               </span>
-              <span className="flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-[11px] font-medium text-white backdrop-blur">
+              <span className="flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1 text-[11px] font-medium text-white backdrop-blur">
                 <Users className="size-3.5" /> {live.length}
               </span>
             </div>
@@ -351,10 +362,10 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
             !stageRemote?.videoTrack &&
             !stageRemote?.screenTrack ? (
               <div className="flex size-full flex-col items-center justify-center gap-3">
-                <span className="flex size-20 items-center justify-center rounded-full bg-background/15 font-display text-2xl">
+                <span className="flex size-20 items-center justify-center rounded-full bg-white/10 font-display text-2xl">
                   {initials(host?.profile?.full_name ?? className)}
                 </span>
-                <p className="text-sm opacity-80">
+                <p className="text-sm text-ink-muted">
                   {host
                     ? `${host.profile?.full_name ?? "Teacher"} is broadcasting`
                     : "Waiting for the teacher…"}
@@ -362,7 +373,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
                 {media.starting ? <Loader2 className="size-4 animate-spin opacity-70" /> : null}
               </div>
             ) : null}
-            <div className="absolute bottom-3 left-3 rounded-full bg-background/20 px-3 py-1 text-xs backdrop-blur">
+            <div className="absolute bottom-3 left-3 rounded-full bg-black/55 px-3 py-1 text-xs text-white backdrop-blur">
               {stageRemote?.screenTrack
                 ? "Shared screen"
                 : media.screenShareOn
@@ -379,136 +390,130 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
             <RemoteAudio key={r.identity} media={r} />
           ))}
 
-          <div className="surface-card flex flex-wrap items-center justify-center gap-2 p-3">
-            <Button
-              variant={media.micOn ? "default" : "outline"}
-              size="icon"
-              className="size-11 rounded-full"
-              onClick={handleMic}
-              aria-label={media.micOn ? "Mute microphone" : "Unmute microphone"}
-            >
-              {media.micOn ? <Mic className="size-5" /> : <MicOff className="size-5" />}
-            </Button>
-            <Button
-              variant={media.camOn ? "default" : "outline"}
-              size="icon"
-              className="size-11 rounded-full"
-              onClick={handleCam}
-              aria-label={media.camOn ? "Stop video" : "Start video"}
-            >
-              {media.camOn ? <VideoIcon className="size-5" /> : <VideoOff className="size-5" />}
-            </Button>
-            {isTeacher && media.canShareScreen ? (
+          <div className="surface-card flex flex-col gap-3 p-3 sm:p-4">
+            <div className="flex flex-wrap items-center justify-center gap-2">
               <Button
-                variant={media.screenShareOn ? "default" : "outline"}
-                className="rounded-full"
-                onClick={() => void media.toggleScreenShare()}
-                aria-label={media.screenShareOn ? "Stop sharing screen" : "Share screen"}
-                disabled={!media.screenShareSupported}
-                title={
-                  media.screenShareSupported
-                    ? "Share your screen"
-                    : "Screen sharing needs a desktop browser"
-                }
+                size="icon"
+                className={cn("size-11", media.micOn ? controlBtnOn : controlBtn)}
+                onClick={handleMic}
+                aria-label={media.micOn ? "Mute microphone" : "Unmute microphone"}
               >
-                <MonitorUp className="size-4" />
+                {media.micOn ? <Mic className="size-5" /> : <MicOff className="size-5" />}
+              </Button>
+              <Button
+                size="icon"
+                className={cn("size-11", media.camOn ? controlBtnOn : controlBtn)}
+                onClick={handleCam}
+                aria-label={media.camOn ? "Stop video" : "Start video"}
+              >
+                {media.camOn ? <VideoIcon className="size-5" /> : <VideoOff className="size-5" />}
+              </Button>
+              {isTeacher && media.canShareScreen ? (
+                <Button
+                  className={cn(media.screenShareOn ? controlBtnOn : controlBtn)}
+                  onClick={() => void media.toggleScreenShare()}
+                  aria-label={media.screenShareOn ? "Stop sharing screen" : "Share screen"}
+                  disabled={!media.screenShareSupported}
+                  title={
+                    media.screenShareSupported
+                      ? "Share your screen"
+                      : "Screen sharing needs a desktop browser"
+                  }
+                >
+                  <MonitorUp className="size-4" />
+                  <span className="hidden sm:inline">
+                    {media.screenShareOn ? "Stop share" : "Share screen"}
+                  </span>
+                </Button>
+              ) : null}
+              {!isTeacher ? (
+                <Button
+                  className={cn(me?.hand_raised ? controlBtnOn : controlBtn)}
+                  onClick={() => patch({ hand_raised: !me?.hand_raised })}
+                >
+                  <Hand className="size-4" /> {me?.hand_raised ? "Lower hand" : "Raise hand"}
+                </Button>
+              ) : null}
+              <Button
+                className={cn(media.pipActive ? controlBtnOn : controlBtnSoft)}
+                onClick={media.togglePictureInPicture}
+                title="Keep listening while you browse other tabs"
+              >
+                <PictureInPicture2 className="size-4" />
                 <span className="hidden sm:inline">
-                  {media.screenShareOn ? "Stop share" : "Share screen"}
+                  {media.pipActive ? "Exit mini player" : "Mini player"}
                 </span>
               </Button>
-            ) : null}
-            {!isTeacher ? (
-              <Button
-                variant={me?.hand_raised ? "default" : "outline"}
-                className="rounded-full"
-                onClick={() => patch({ hand_raised: !me?.hand_raised })}
-              >
-                <Hand className="size-4" /> {me?.hand_raised ? "Lower hand" : "Raise hand"}
+              <Button variant="destructive" className="rounded-full" onClick={handleLeave}>
+                <PhoneOff className="size-4" /> Leave
               </Button>
-            ) : null}
-            <Button
-              variant="outline"
-              className="rounded-full"
-              onClick={media.togglePictureInPicture}
-              title="Keep listening while you browse other tabs"
-            >
-              <PictureInPicture2 className="size-4" />
-              <span className="hidden sm:inline">
-                {media.pipActive ? "Exit mini player" : "Mini player"}
-              </span>
-            </Button>
-            <Button variant="destructive" className="rounded-full" onClick={handleLeave}>
-              <PhoneOff className="size-4" /> Leave
-            </Button>
+              {isTeacher ? (
+                <Button
+                  className={controlBtnSoft}
+                  onClick={handleEnd}
+                  disabled={endSession.isPending}
+                >
+                  End session
+                </Button>
+              ) : null}
+            </div>
+
             {isTeacher ? (
-              <Button
-                variant="outline"
-                className="rounded-full"
-                onClick={handleEnd}
-                disabled={endSession.isPending}
-              >
-                End session
-              </Button>
+              <div className="flex flex-wrap items-center justify-center gap-2 border-t border-border pt-3">
+                <span className="w-full text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground sm:mr-1 sm:w-auto sm:text-left">
+                  Teacher controls
+                </span>
+                <Button
+                  size="sm"
+                  className={controlBtn}
+                  onClick={() =>
+                    bulk.mutate(
+                      { sessionId: session.id, patch: { mic_on: false }, exceptUserId: userId },
+                      {
+                        onSuccess: () => toast.success("All learners muted"),
+                        onError: (e) => toast.error(authErrorMessage(e)),
+                      },
+                    )
+                  }
+                >
+                  <VolumeX className="size-4" /> Mute all
+                </Button>
+                <Button size="sm" className={controlBtn} onClick={randomStudent}>
+                  <Shuffle className="size-4" /> Random learner
+                </Button>
+                <Button
+                  size="sm"
+                  className={controlBtn}
+                  onClick={() =>
+                    bulk.mutate(
+                      {
+                        sessionId: session.id,
+                        patch: { warned_at: new Date().toISOString() },
+                        exceptUserId: userId,
+                      },
+                      {
+                        onSuccess: () => toast.success("Wake-up nudge sent"),
+                        onError: (e) => toast.error(authErrorMessage(e)),
+                      },
+                    )
+                  }
+                >
+                  <BellRing className="size-4" /> Nudge inactive
+                </Button>
+              </div>
             ) : null}
           </div>
 
-          {isTeacher ? (
-            <div className="surface-card flex flex-wrap items-center gap-2 p-3">
-              <span className="mr-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Teacher controls
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-full"
-                onClick={() =>
-                  bulk.mutate(
-                    { sessionId: session.id, patch: { mic_on: false }, exceptUserId: userId },
-                    {
-                      onSuccess: () => toast.success("All learners muted"),
-                      onError: (e) => toast.error(authErrorMessage(e)),
-                    },
-                  )
-                }
-              >
-                <VolumeX className="size-4" /> Mute all
-              </Button>
-              <Button size="sm" variant="outline" className="rounded-full" onClick={randomStudent}>
-                <Shuffle className="size-4" /> Random learner
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-full"
-                onClick={() =>
-                  bulk.mutate(
-                    {
-                      sessionId: session.id,
-                      patch: { warned_at: new Date().toISOString() },
-                      exceptUserId: userId,
-                    },
-                    {
-                      onSuccess: () => toast.success("Wake-up nudge sent"),
-                      onError: (e) => toast.error(authErrorMessage(e)),
-                    },
-                  )
-                }
-              >
-                <BellRing className="size-4" /> Nudge inactive
-              </Button>
-            </div>
-          ) : null}
-
           <div className="surface-card p-4">
-            <h2 className="mb-3 text-sm font-medium">Learners ({learners.length})</h2>
+            <h2 className="mb-3 text-sm font-semibold">Learners ({learners.length})</h2>
             {participants.isLoading ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <Skeleton key={i} className="aspect-video rounded-xl" />
                 ))}
               </div>
             ) : learners.length ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
                 {learners.map((p) => (
                   <ParticipantTile
                     key={p.id}
@@ -528,28 +533,30 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
                 ))}
               </div>
             ) : (
-              <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+              <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
                 No learners have joined yet.
               </p>
             )}
           </div>
-        </div>
+        </section>
 
-        <div
+        <aside
           className={cn(
-            "w-full shrink-0 flex-col gap-4 lg:flex lg:w-[22rem]",
+            "flex min-h-0 flex-col gap-3",
             chatOpen ? "flex" : "hidden lg:flex",
           )}
         >
-          <MaterialsPanel
-            materials={materials.data ?? []}
-            loading={materials.isLoading}
-            lessonId={session.lesson_id ?? null}
-          />
-          <aside
+          <div className={cn(sideTab === "materials" || !chatOpen ? "block" : "hidden lg:block")}>
+            <MaterialsPanel
+              materials={materials.data ?? []}
+              loading={materials.isLoading}
+              lessonId={session.lesson_id ?? null}
+            />
+          </div>
+          <div
             className={cn(
-              "flex min-h-0 flex-1 flex-col rounded-[20px] border border-border bg-card p-0",
-              sideTab === "chat" || chatOpen ? "flex" : "hidden lg:flex",
+              "flex min-h-[18rem] flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-card",
+              sideTab === "chat" || !chatOpen ? "flex" : "hidden lg:flex",
             )}
           >
             <header className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -564,7 +571,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
                 <X className="size-4" />
               </Button>
             </header>
-            <ScrollArea className="h-64 flex-1 px-4 py-3 lg:h-auto">
+            <ScrollArea className="min-h-0 flex-1 px-4 py-3">
               {chat.isLoading ? (
                 <div className="space-y-3">
                   {Array.from({ length: 3 }).map((_, i) => (
@@ -587,7 +594,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
                           className={cn(
                             "max-w-[85%] break-words rounded-3xl px-3.5 py-2 text-sm",
                             mine
-                              ? "rounded-br-md bg-primary text-primary-foreground"
+                              ? "rounded-br-md bg-ink text-ink-foreground"
                               : "rounded-bl-md bg-secondary text-secondary-foreground",
                           )}
                         >
@@ -614,15 +621,15 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
               <Button
                 type="submit"
                 size="icon"
-                className="size-10 shrink-0 rounded-full"
+                className={cn("size-10 shrink-0", controlBtn)}
                 disabled={!draft.trim() || send.isPending}
                 aria-label="Send message"
               >
                 <SendHorizonal className="size-4" />
               </Button>
             </form>
-          </aside>
-        </div>
+          </div>
+        </aside>
       </div>
     </div>
   );

@@ -514,6 +514,14 @@ export type ParticipantPatch = Partial<
   Pick<Participant, "hand_raised" | "mic_on" | "cam_on" | "camera_allowed" | "warned_at">
 >;
 
+async function schoolIdForSession(sessionId: string): Promise<string | null> {
+  const session = await getById<{ school_id?: string | null }>(
+    COLLECTIONS.classroomSessions,
+    sessionId,
+  );
+  return typeof session?.school_id === "string" && session.school_id ? session.school_id : null;
+}
+
 export function useUpdateParticipant() {
   const qc = useQueryClient();
   return useMutation({
@@ -523,12 +531,10 @@ export function useUpdateParticipant() {
       const selfOnly = keys.every((k) => selfKeys.has(k));
       try {
         if (selfOnly) {
-          const existing = await findOne<{ id: string; user_id: string }>(
-            COLLECTIONS.classroomParticipants,
-            [where("session_id", "==", input.sessionId), where("user_id", "==", input.userId)],
-          );
+          const id = participantDocId(input.sessionId, input.userId);
+          const existing = await getById(COLLECTIONS.classroomParticipants, id);
           if (!existing) return;
-          await patchById(COLLECTIONS.classroomParticipants, existing.id, input.patch);
+          await patchById(COLLECTIONS.classroomParticipants, id, input.patch);
           return;
         }
         const patch: {
@@ -542,13 +548,22 @@ export function useUpdateParticipant() {
           patch.camera_allowed = input.patch.camera_allowed;
         if (input.patch.cam_on !== undefined) patch.cam_on = input.patch.cam_on;
         if (input.patch.warned_at !== undefined) patch.warned_at = input.patch.warned_at;
-        await moderateLiveParticipant({
-          data: {
-            sessionId: input.sessionId,
-            targetUserId: input.userId,
+        try {
+          await moderateLiveParticipant({
+            data: {
+              sessionId: input.sessionId,
+              targetUserId: input.userId,
+              patch,
+            },
+          });
+        } catch (error) {
+          console.error("[live] server moderate failed, using client:", error);
+          await patchById(
+            COLLECTIONS.classroomParticipants,
+            participantDocId(input.sessionId, input.userId),
             patch,
-          },
-        });
+          );
+        }
       } catch (error) {
         throw classifyFirebase(error);
       }
@@ -566,18 +581,18 @@ export function useBulkParticipantUpdate() {
       patch: ParticipantPatch;
       exceptUserId?: string;
     }) => {
+      const patch: {
+        mic_on?: boolean;
+        camera_allowed?: boolean;
+        cam_on?: boolean;
+        warned_at?: string | null;
+      } = {};
+      if (input.patch.mic_on !== undefined) patch.mic_on = input.patch.mic_on;
+      if (input.patch.camera_allowed !== undefined)
+        patch.camera_allowed = input.patch.camera_allowed;
+      if (input.patch.cam_on !== undefined) patch.cam_on = input.patch.cam_on;
+      if (input.patch.warned_at !== undefined) patch.warned_at = input.patch.warned_at;
       try {
-        const patch: {
-          mic_on?: boolean;
-          camera_allowed?: boolean;
-          cam_on?: boolean;
-          warned_at?: string | null;
-        } = {};
-        if (input.patch.mic_on !== undefined) patch.mic_on = input.patch.mic_on;
-        if (input.patch.camera_allowed !== undefined)
-          patch.camera_allowed = input.patch.camera_allowed;
-        if (input.patch.cam_on !== undefined) patch.cam_on = input.patch.cam_on;
-        if (input.patch.warned_at !== undefined) patch.warned_at = input.patch.warned_at;
         await moderateLiveParticipant({
           data: {
             sessionId: input.sessionId,
@@ -585,9 +600,25 @@ export function useBulkParticipantUpdate() {
             patch,
           },
         });
+        return;
       } catch (error) {
-        throw classifyFirebase(error);
+        console.error("[live] server bulk moderate failed, using client:", error);
       }
+      const schoolId = await schoolIdForSession(input.sessionId);
+      if (!schoolId) throw new Error("That live session was not found.");
+      const rows = await findMany<{ id: string; user_id: string; left_at?: string | null }>(
+        COLLECTIONS.classroomParticipants,
+        [where("school_id", "==", schoolId), where("session_id", "==", input.sessionId)],
+      );
+      await Promise.all(
+        rows
+          .filter(
+            (row) =>
+              !row.left_at &&
+              row.user_id !== input.exceptUserId,
+          )
+          .map((row) => patchById(COLLECTIONS.classroomParticipants, row.id, patch)),
+      );
     },
     onSuccess: (_d, v) =>
       qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] }),
@@ -600,7 +631,10 @@ export function useClassroomChat(sessionId?: string) {
     queryKey: ["classroom-chat", sessionId],
     enabled: !!sessionId,
     queryFn: async (): Promise<ClassroomMessage[]> => {
+      const schoolId = await schoolIdForSession(sessionId!);
+      if (!schoolId) return [];
       const rows = await findMany<Omit<ClassroomMessage, "sender">>(COLLECTIONS.classroomMessages, [
+        where("school_id", "==", schoolId),
         where("session_id", "==", sessionId!),
         orderBy("created_at"),
       ]);
@@ -612,11 +646,16 @@ export function useClassroomChat(sessionId?: string) {
 
   useEffect(() => {
     if (!sessionId) return;
-    return subscribeMany(
-      COLLECTIONS.classroomMessages,
-      [where("session_id", "==", sessionId)],
-      () => qc.invalidateQueries({ queryKey: ["classroom-chat", sessionId] }),
-    );
+    let unsub: (() => void) | undefined;
+    void schoolIdForSession(sessionId).then((schoolId) => {
+      if (!schoolId) return;
+      unsub = subscribeMany(
+        COLLECTIONS.classroomMessages,
+        [where("school_id", "==", schoolId), where("session_id", "==", sessionId)],
+        () => qc.invalidateQueries({ queryKey: ["classroom-chat", sessionId] }),
+      );
+    });
+    return () => unsub?.();
   }, [sessionId, qc]);
 
   return query;
@@ -626,12 +665,21 @@ export function useSendClassroomMessage() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { sessionId: string; senderId: string; body: string }) => {
-      void input.senderId;
       try {
         await sendClassroomChat({ data: { sessionId: input.sessionId, body: input.body } });
+        return;
       } catch (error) {
-        throw classifyFirebase(error);
+        console.error("[live] server chat failed, using client:", error);
       }
+      const schoolId = await schoolIdForSession(input.sessionId);
+      if (!schoolId) throw new Error("That live session was not found.");
+      await createDoc(COLLECTIONS.classroomMessages, {
+        session_id: input.sessionId,
+        sender_id: input.senderId,
+        body: input.body,
+        school_id: schoolId,
+        created_at: nowIso(),
+      });
     },
     onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["classroom-chat", v.sessionId] }),
   });
