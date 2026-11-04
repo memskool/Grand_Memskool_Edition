@@ -6,24 +6,40 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+/** CJS packages that break when Nitro bundles them into ESM (bare `__dirname`). */
+const SSR_EXTERNALS = [
+  "firebase-admin",
+  "firebase-admin/app",
+  "firebase-admin/auth",
+  "firebase-admin/firestore",
+  "firebase-admin/storage",
+  "firebase-admin/messaging",
+  "@google-cloud/firestore",
+  "@google-cloud/storage",
+  "google-gax",
+  "google-auth-library",
+  "gcp-metadata",
+  "gtoken",
+  "@grpc/grpc-js",
+  "@grpc/proto-loader",
+  "protobufjs",
+  "node-forge",
+  "livekit-server-sdk",
+  "jose",
+];
+
 export default defineConfig({
+  // memskool.com deploys on Vercel — pin so Cloudflare's worker bundle is not used.
+  nitro: {
+    preset: "vercel",
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
     server: { entry: "server" },
   },
   vite: {
     ssr: {
-      external: [
-        "firebase-admin",
-        "firebase-admin/app",
-        "firebase-admin/auth",
-        "firebase-admin/firestore",
-        "firebase-admin/storage",
-        "firebase-admin/messaging",
-        "@google-cloud/firestore",
-        "@google-cloud/storage",
-      ],
+      external: SSR_EXTERNALS,
     },
   },
 });

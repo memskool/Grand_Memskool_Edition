@@ -1,3 +1,4 @@
+import "@/lib/node-esm-globals";
 import "@tanstack/react-start/server-only";
 import type { z } from "zod";
 import type { AuthedContext } from "@/lib/firebase/require-auth";
@@ -8,6 +9,7 @@ import {
   adminUpdate,
   adminWhere,
 } from "@/lib/firebase/admin-repo";
+import { toClientJson } from "@/lib/firebase/plain-data";
 import { COLLECTIONS } from "@/lib/firebase/repo";
 import {
   CorrectLiveAttendanceSchema,
@@ -125,7 +127,7 @@ export async function startLiveSessionHandler({
     [["is_active", "==", true]],
   );
   const existing = live[0];
-  if (existing) return asRecord({ ...existing, id: existing.id });
+  if (existing) return toClientJson(asRecord({ ...existing, id: existing.id }));
 
   let lessonTitle: string | null = null;
   if (data.lessonId) {
@@ -169,28 +171,56 @@ export async function startLiveSessionHandler({
     });
   }
 
-  await notifyClass({
-    classId: data.classId,
-    schoolId: cls.school_id,
-    title: "Your class is live",
-    body: `${data.title ?? lessonTitle ?? cls.name ?? "A class"} has started. Join from Virtual Classroom.`,
-    skipUserId: context.userId,
-    kind: "live_class",
-  });
+  try {
+    await upsertParticipantJoin({
+      session: {
+        id,
+        school_id: cls.school_id,
+        class_id: data.classId,
+        host_id: context.userId,
+        lesson_id: data.lessonId ?? null,
+        title: data.title ?? lessonTitle ?? cls.name ?? "Live class",
+        status: "live",
+        is_active: true,
+        provider_room: room,
+        started_at: now,
+      },
+      userId: context.userId,
+      isHost: true,
+    });
+  } catch (error) {
+    console.error("[live] host participant seed failed:", error);
+  }
 
-  return asRecord({
-    id,
-    school_id: cls.school_id,
-    class_id: data.classId,
-    host_id: context.userId,
-    lesson_id: data.lessonId ?? null,
-    title: data.title ?? lessonTitle ?? cls.name ?? "Live class",
-    status: "live",
-    is_active: true,
-    provider_room: room,
-    started_at: now,
-    ended_at: null,
-  });
+  try {
+    await notifyClass({
+      classId: data.classId,
+      schoolId: cls.school_id,
+      title: "Your class is live",
+      body: `${data.title ?? lessonTitle ?? cls.name ?? "A class"} has started. Join from Virtual Classroom.`,
+      skipUserId: context.userId,
+      kind: "live_class",
+    });
+  } catch (error) {
+    // Never block opening the room if notifications fail.
+    console.error("[live] start notify failed:", error);
+  }
+
+  return toClientJson(
+    asRecord({
+      id,
+      school_id: cls.school_id,
+      class_id: data.classId,
+      host_id: context.userId,
+      lesson_id: data.lessonId ?? null,
+      title: data.title ?? lessonTitle ?? cls.name ?? "Live class",
+      status: "live",
+      is_active: true,
+      provider_room: room,
+      started_at: now,
+      ended_at: null,
+    }),
+  );
 }
 
 export async function endLiveSessionHandler({

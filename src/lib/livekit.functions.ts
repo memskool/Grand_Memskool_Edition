@@ -1,3 +1,4 @@
+import "@/lib/node-esm-globals";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
@@ -5,6 +6,8 @@ import { COLLECTIONS } from "@/lib/firebase/repo";
 import { providerRoomName, type ClassroomToken } from "@/features/live-classroom/contracts";
 import { participantDocId } from "@/features/live-classroom/contracts";
 import type { SessionDoc } from "@/features/live-classroom/authz";
+import { toClientJson } from "@/lib/firebase/plain-data";
+import { mintLiveKitAccessToken } from "@/lib/livekit-token.server";
 
 export type { ClassroomToken };
 
@@ -42,34 +45,22 @@ export const issueClassroomToken = createServerFn({ method: "POST" })
 
     const profile = await adminGetById<{ full_name: string }>(COLLECTIONS.users, userId);
 
-    const { AccessToken, TrackSource } = await import("livekit-server-sdk");
-    const at = new AccessToken(apiKey, apiSecret, {
+    const token = await mintLiveKitAccessToken({
+      apiKey,
+      apiSecret,
       identity: userId,
       name: profile?.full_name || "Memskool user",
-      ttl: "2h",
-    });
-    at.addGrant({
       room: session.provider_room || providerRoomName(session.id),
-      roomJoin: true,
       canPublish,
-      canSubscribe: true,
-      canPublishData: true,
+      canShareScreen,
       roomAdmin: access.isHost,
-      canPublishSources: canShareScreen
-        ? [
-            TrackSource.CAMERA,
-            TrackSource.MICROPHONE,
-            TrackSource.SCREEN_SHARE,
-            TrackSource.SCREEN_SHARE_AUDIO,
-          ]
-        : [TrackSource.CAMERA, TrackSource.MICROPHONE],
     });
 
-    return {
-      token: await at.toJwt(),
+    return toClientJson({
+      token,
       serverUrl,
       identity: userId,
       canPublish,
       canShareScreen,
-    };
+    });
   });

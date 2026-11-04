@@ -26,6 +26,9 @@ export function authErrorMessage(error: unknown): string {
   if (direct.toLowerCase().includes("csrf")) {
     return "This page expired. Refresh and try again.";
   }
+  if (direct.includes("__dirname") || unwrapped.includes("__dirname")) {
+    return "Live class could not start on the server. Refresh and try again in a moment.";
+  }
   if (
     direct &&
     direct.length <= 180 &&

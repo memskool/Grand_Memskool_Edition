@@ -1,3 +1,4 @@
+import "@/lib/node-esm-globals";
 import { createServerFn } from "@tanstack/react-start";
 import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
 import {

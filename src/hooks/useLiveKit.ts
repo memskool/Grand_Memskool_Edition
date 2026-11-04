@@ -18,6 +18,39 @@ export type MediaError = {
 export type ConnectionStatus =
   "idle" | "connecting" | "connected" | "reconnecting" | "disconnected";
 
+function unwrapClassroomToken(raw: unknown): {
+  token: string;
+  serverUrl: string;
+  canShareScreen: boolean;
+  canPublish: boolean;
+  identity: string;
+} {
+  let current: unknown = raw;
+  for (let i = 0; i < 6; i++) {
+    if (!current || typeof current !== "object" || Array.isArray(current)) break;
+    const obj = current as Record<string, unknown>;
+    if (typeof obj["token"] === "string" && typeof obj["serverUrl"] === "string") {
+      return {
+        token: obj["token"],
+        serverUrl: obj["serverUrl"],
+        canShareScreen: obj["canShareScreen"] === true,
+        canPublish: obj["canPublish"] !== false,
+        identity: typeof obj["identity"] === "string" ? obj["identity"] : "",
+      };
+    }
+    let advanced = false;
+    for (const key of ["data", "result", "payload", "value"]) {
+      if (obj[key] && typeof obj[key] === "object") {
+        current = obj[key];
+        advanced = true;
+        break;
+      }
+    }
+    if (!advanced) break;
+  }
+  throw new Error("Could not get a live video token. Refresh and try again.");
+}
+
 function toMediaError(err: unknown): MediaError {
   const name = (err as { name?: string } | null)?.name ?? "";
   const message = err instanceof Error ? err.message : "Could not join the live class.";
@@ -87,7 +120,8 @@ export function useLiveKit(sessionId: string, enabled = true) {
       setConnecting(true);
       setStatus("connecting");
       try {
-        const granted = await getToken({ data: { sessionId } });
+        const raw = await getToken({ data: { sessionId } });
+        const granted = unwrapClassroomToken(raw);
         if (cancelled) return;
         setCanShareScreen(granted.canShareScreen);
         await room.connect(granted.serverUrl, granted.token);

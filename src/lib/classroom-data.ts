@@ -132,6 +132,24 @@ export function useRecentSession(classId?: string) {
   });
 }
 
+function unwrapSession(raw: unknown): ClassroomSession {
+  let current: unknown = raw;
+  for (let i = 0; i < 6; i++) {
+    if (!current || typeof current !== "object" || Array.isArray(current)) break;
+    const obj = current as Record<string, unknown>;
+    if (typeof obj["id"] === "string" && typeof obj["class_id"] === "string") {
+      return obj as unknown as ClassroomSession;
+    }
+    for (const key of ["data", "result", "payload", "value"]) {
+      if (obj[key] && typeof obj[key] === "object") {
+        current = obj[key];
+        break;
+      }
+    }
+  }
+  throw new Error("Live session started but the response was incomplete. Refresh and rejoin.");
+}
+
 export function useStartSession() {
   const qc = useQueryClient();
   return useMutation({
@@ -143,20 +161,22 @@ export function useStartSession() {
     }) => {
       void input.hostId;
       try {
-        return await startLiveSession({
+        const raw = await startLiveSession({
           data: {
             classId: input.classId,
             lessonId: input.lessonId ?? null,
             ...(typeof input.title === "string" ? { title: input.title } : {}),
           },
         });
+        return unwrapSession(raw);
       } catch (error) {
         throw classifyFirebase(error);
       }
     },
     onSuccess: (s) => {
-      qc.invalidateQueries({ queryKey: ["classroom-session", s.class_id] });
-      qc.invalidateQueries({ queryKey: ["live-sessions"] });
+      void qc.invalidateQueries({ queryKey: ["classroom-session", s.class_id] });
+      void qc.invalidateQueries({ queryKey: ["live-sessions"] });
+      void qc.invalidateQueries({ queryKey: ["classroom-participants", s.id] });
     },
   });
 }
