@@ -86,6 +86,11 @@ export type SessionAttendanceRow = {
   profile: { full_name: string; avatar_url: string | null } | null;
 };
 
+async function schoolIdForClass(classId: string): Promise<string | null> {
+  const cls = await getById<{ school_id?: string | null }>(COLLECTIONS.classes, classId);
+  return typeof cls?.school_id === "string" && cls.school_id ? cls.school_id : null;
+}
+
 export function useLiveSessions(classIds: string[]) {
   const qc = useQueryClient();
   const key = classIds.slice().sort().join(",");
@@ -95,7 +100,11 @@ export function useLiveSessions(classIds: string[]) {
     enabled: classIds.length > 0,
     refetchInterval: 20_000,
     queryFn: async (): Promise<ClassroomSession[]> => {
+      const schoolId = await schoolIdForClass(classIds[0]!);
+      if (!schoolId) return [];
+      // school_id must be in the query or Firestore rules reject the list.
       return findMany<ClassroomSession>(COLLECTIONS.classroomSessions, [
+        where("school_id", "==", schoolId),
         where("class_id", "in", classIds.slice(0, 30)),
         where("is_active", "==", true),
       ]);
@@ -104,11 +113,20 @@ export function useLiveSessions(classIds: string[]) {
 
   useEffect(() => {
     if (!classIds.length) return;
-    return subscribeMany(
-      COLLECTIONS.classroomSessions,
-      [where("class_id", "in", classIds.slice(0, 30)), where("is_active", "==", true)],
-      () => qc.invalidateQueries({ queryKey: ["live-sessions", key] }),
-    );
+    let unsub: (() => void) | undefined;
+    void schoolIdForClass(classIds[0]!).then((schoolId) => {
+      if (!schoolId) return;
+      unsub = subscribeMany(
+        COLLECTIONS.classroomSessions,
+        [
+          where("school_id", "==", schoolId),
+          where("class_id", "in", classIds.slice(0, 30)),
+          where("is_active", "==", true),
+        ],
+        () => qc.invalidateQueries({ queryKey: ["live-sessions", key] }),
+      );
+    });
+    return () => unsub?.();
   }, [key, classIds, qc]);
 
   return query;
@@ -119,7 +137,10 @@ export function useActiveSession(classId?: string) {
     queryKey: ["classroom-session", classId],
     enabled: !!classId,
     queryFn: async (): Promise<ClassroomSession | null> => {
+      const schoolId = await schoolIdForClass(classId!);
+      if (!schoolId) return null;
       return findOne<ClassroomSession>(COLLECTIONS.classroomSessions, [
+        where("school_id", "==", schoolId),
         where("class_id", "==", classId!),
         where("is_active", "==", true),
       ]);
@@ -132,7 +153,10 @@ export function useRecentSession(classId?: string) {
     queryKey: ["recent-classroom-session", classId],
     enabled: !!classId,
     queryFn: async (): Promise<ClassroomSession | null> => {
+      const schoolId = await schoolIdForClass(classId!);
+      if (!schoolId) return null;
       return findOne<ClassroomSession>(COLLECTIONS.classroomSessions, [
+        where("school_id", "==", schoolId),
         where("class_id", "==", classId!),
         orderBy("started_at", "desc"),
       ]);
@@ -217,11 +241,17 @@ async function startSessionOnClient(input: {
   if (!cls) throw new Error("That class was not found.");
   if (cls.status === "archived") throw new Error("That class is archived.");
 
-  const live = await findMany<ClassroomSession>(COLLECTIONS.classroomSessions, [
-    where("class_id", "==", input.classId),
-    where("is_active", "==", true),
-  ]);
-  const existing = live.find((row) => row.status === "live" || row.is_active);
+  let existing: ClassroomSession | undefined;
+  try {
+    const live = await findMany<ClassroomSession>(COLLECTIONS.classroomSessions, [
+      where("school_id", "==", cls.school_id),
+      where("class_id", "==", input.classId),
+      where("is_active", "==", true),
+    ]);
+    existing = live.find((row) => row.status === "live" || row.is_active);
+  } catch (error) {
+    console.error("[live] existing-session lookup failed:", error);
+  }
   if (existing) return existing;
 
   const now = nowIso();
@@ -372,7 +402,13 @@ export function useParticipants(sessionId?: string) {
     queryKey: ["classroom-participants", sessionId],
     enabled: !!sessionId,
     queryFn: async (): Promise<Participant[]> => {
+      const session = await getById<{ school_id?: string | null }>(
+        COLLECTIONS.classroomSessions,
+        sessionId!,
+      );
+      if (!session?.school_id) return [];
       const rows = await findMany<Omit<Participant, "profile">>(COLLECTIONS.classroomParticipants, [
+        where("school_id", "==", session.school_id),
         where("session_id", "==", sessionId!),
         orderBy("joined_at"),
       ]);
@@ -384,11 +420,21 @@ export function useParticipants(sessionId?: string) {
 
   useEffect(() => {
     if (!sessionId) return;
-    return subscribeMany(
-      COLLECTIONS.classroomParticipants,
-      [where("session_id", "==", sessionId)],
-      () => qc.invalidateQueries({ queryKey: ["classroom-participants", sessionId] }),
+    let unsub: (() => void) | undefined;
+    void getById<{ school_id?: string | null }>(COLLECTIONS.classroomSessions, sessionId).then(
+      (session) => {
+        if (!session?.school_id) return;
+        unsub = subscribeMany(
+          COLLECTIONS.classroomParticipants,
+          [
+            where("school_id", "==", session.school_id),
+            where("session_id", "==", sessionId),
+          ],
+          () => qc.invalidateQueries({ queryKey: ["classroom-participants", sessionId] }),
+        );
+      },
     );
+    return () => unsub?.();
   }, [sessionId, qc]);
 
   return query;

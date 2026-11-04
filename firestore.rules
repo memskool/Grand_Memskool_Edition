@@ -481,12 +481,16 @@ service cloud.firestore {
       // Teachers/admins start and end live rooms from the browser (avoids Admin SDK
       // `__dirname` crashes on the Vercel ESM server bundle).
       allow create: if isAuthenticated()
-        && (isTeacher() || isSchoolAdmin())
         && sameSchool(request.resource.data.school_id)
         && isOwner(request.resource.data.host_id)
         && request.resource.data.class_id is string
         && request.resource.data.status == 'live'
-        && request.resource.data.is_active == true;
+        && request.resource.data.is_active == true
+        && (
+          isTeacher()
+          || isSchoolAdmin()
+          || profileRole() == 'teacher'
+        );
       allow update: if isAuthenticated()
         && sameSchool(resource.data.school_id)
         && (
@@ -524,7 +528,18 @@ service cloud.firestore {
       allow delete: if false;
       allow update: if isOwner(resource.data.user_id)
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['hand_raised', 'mic_on', 'cam_on', 'connected_at', 'left_at', 'duration_ms']);
+          .hasOnly([
+            'hand_raised',
+            'mic_on',
+            'cam_on',
+            'connected_at',
+            'last_connected_at',
+            'left_at',
+            'last_joined_at',
+            'duration_ms',
+            'rejoin_count',
+            'is_host'
+          ]);
     }
     match /classroom_messages/{id} {
       allow read: if tenantRead(resource.data.school_id) && (
