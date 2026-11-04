@@ -52,7 +52,8 @@ async function ensureMemberClaims(input: {
       updated_at: new Date().toISOString(),
     });
   }
-  const claimRole = (profile?.role ?? input.role) === "institution" ? "admin" : (profile?.role ?? input.role);
+  const claimRole =
+    (profile?.role ?? input.role) === "institution" ? "admin" : (profile?.role ?? input.role);
   try {
     await adminAuth().setCustomUserClaims(input.userId, {
       role: claimRole,
@@ -350,9 +351,7 @@ export const listMyEnrolledClasses = createServerFn({ method: "POST" })
       "==",
       context.userId,
     );
-    const classIds = enrollments
-      .filter((row) => row.status !== "ended")
-      .map((row) => row.class_id);
+    const classIds = enrollments.filter((row) => row.status !== "ended").map((row) => row.class_id);
     return toClientJson(await classRowsForIds(classIds));
   });
 

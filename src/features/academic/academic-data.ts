@@ -511,11 +511,14 @@ export function useAddLessonMaterial(teacherId: string | undefined) {
   });
 }
 
-function invalidateClassPeople(qc: ReturnType<typeof useQueryClient>, vars: {
-  class_id: string;
-  student_id?: string;
-  teacher_id?: string;
-}) {
+function invalidateClassPeople(
+  qc: ReturnType<typeof useQueryClient>,
+  vars: {
+    class_id: string;
+    student_id?: string;
+    teacher_id?: string;
+  },
+) {
   void qc.invalidateQueries({ queryKey: ["class-roster", vars.class_id] });
   void qc.invalidateQueries({ queryKey: ["class-teachers", vars.class_id] });
   void qc.invalidateQueries({ queryKey: ["enrolled-classes"] });

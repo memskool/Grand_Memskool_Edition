@@ -44,9 +44,7 @@ export const requireFirebaseAuth = createMiddleware({ type: "function" }).server
 );
 
 async function resolveAuthedContext(decoded: DecodedIdToken): Promise<AuthedContext> {
-  let role = claimsRoleToAppRole(
-    typeof decoded["role"] === "string" ? decoded["role"] : undefined,
-  );
+  let role = claimsRoleToAppRole(typeof decoded["role"] === "string" ? decoded["role"] : undefined);
   let schoolId = typeof decoded["schoolId"] === "string" ? decoded["schoolId"] : null;
   let approved = decoded["approved"] === true || role !== "teacher";
 

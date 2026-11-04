@@ -90,9 +90,7 @@ async function clientEnrolledClasses(userId: string): Promise<ClassRow[]> {
 async function clientTeachingClasses(userId: string): Promise<ClassRow[]> {
   let owned: Array<ClassDoc & { id: string }> = [];
   try {
-    owned = await findMany<ClassDoc>(COLLECTIONS.classes, [
-      where("teacher_id", "==", userId),
-    ]);
+    owned = await findMany<ClassDoc>(COLLECTIONS.classes, [where("teacher_id", "==", userId)]);
   } catch (error) {
     console.error("[teaching-classes] owned query failed:", error);
   }
@@ -369,9 +367,10 @@ export function usePendingGrading(userId?: string) {
       const mine = rows.filter((s) => !s.class_id || classIds.includes(s.class_id));
       return Promise.all(
         mine.slice(0, 20).map(async (s) => {
-          const student = await getById<{ full_name: string }>(COLLECTIONS.users, s.student_id).catch(
-            () => null,
-          );
+          const student = await getById<{ full_name: string }>(
+            COLLECTIONS.users,
+            s.student_id,
+          ).catch(() => null);
           const assignment = await getById<{ title: string; class_id: string | null }>(
             COLLECTIONS.assignments,
             s.assignment_id,

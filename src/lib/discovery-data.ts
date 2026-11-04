@@ -678,7 +678,9 @@ async function reviewApplicationOnClient(input: {
       member.status !== "approved" ||
       member.role !== "student"
     ) {
-      throw new Error("Application was approved but the student was not added to your school roll.");
+      throw new Error(
+        "Application was approved but the student was not added to your school roll.",
+      );
     }
     try {
       await patchById(COLLECTIONS.users, existing.student_id, {

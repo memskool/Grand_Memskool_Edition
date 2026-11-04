@@ -479,7 +479,8 @@ async function healProfileFromMembership(
     student_code: (member.get("student_code") as string | null) ?? null,
     role,
     membership_status: membershipStatus,
-    created_at: typeof member.get("created_at") === "string" ? String(member.get("created_at")) : now,
+    created_at:
+      typeof member.get("created_at") === "string" ? String(member.get("created_at")) : now,
     updated_at: now,
   };
   await ensureClaimsMatchProfile(profile);
@@ -575,9 +576,7 @@ export async function loadManagedSchool(input: { userId: string; email: string |
     profile?.role === "admin" ||
     memberStatus === "owner"
       ? "owner"
-      : memberStatus === "pending" ||
-          memberStatus === "rejected" ||
-          memberStatus === "approved"
+      : memberStatus === "pending" || memberStatus === "rejected" || memberStatus === "approved"
         ? (memberStatus as "pending" | "approved" | "rejected")
         : profile?.membership_status === "pending" ||
             profile?.membership_status === "rejected" ||

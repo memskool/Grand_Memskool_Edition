@@ -54,7 +54,8 @@ export async function applyTeacherToSchool(input: {
       schoolId,
       status: existingMemberStatus === "approved" ? "approved" : "pending",
       now: input.now,
-      keepCreatedAt: typeof member.get("created_at") === "string" ? String(member.get("created_at")) : input.now,
+      keepCreatedAt:
+        typeof member.get("created_at") === "string" ? String(member.get("created_at")) : input.now,
     });
     return { schoolId, schoolName, alreadyLinked: true };
   }
@@ -75,21 +76,24 @@ export async function applyTeacherToSchool(input: {
     throw new Error("You are already linked to a school.");
   }
 
-  await input.db.collection("school_members").doc(input.userId).set(
-    {
-      school_id: schoolId,
-      user_id: input.userId,
-      role: "teacher",
-      status: "pending",
-      student_code: null,
-      created_at:
-        member.exists && typeof member.get("created_at") === "string"
-          ? member.get("created_at")
-          : input.now,
-      updated_at: input.now,
-    },
-    { merge: true },
-  );
+  await input.db
+    .collection("school_members")
+    .doc(input.userId)
+    .set(
+      {
+        school_id: schoolId,
+        user_id: input.userId,
+        role: "teacher",
+        status: "pending",
+        student_code: null,
+        created_at:
+          member.exists && typeof member.get("created_at") === "string"
+            ? member.get("created_at")
+            : input.now,
+        updated_at: input.now,
+      },
+      { merge: true },
+    );
 
   await ensureTeacherProfile({
     db: input.db,
@@ -134,7 +138,9 @@ async function ensureTeacherProfile(input: {
       : (authUser?.photoURL ?? null),
     phone: existing.exists ? ((existing.get("phone") as string | null) ?? null) : null,
     school_id: input.schoolId,
-    student_code: existing.exists ? ((existing.get("student_code") as string | null) ?? null) : null,
+    student_code: existing.exists
+      ? ((existing.get("student_code") as string | null) ?? null)
+      : null,
     role: "teacher",
     membership_status: input.status,
     created_at: input.keepCreatedAt,

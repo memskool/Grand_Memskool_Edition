@@ -159,8 +159,7 @@ export function useMySchool(userId: string | undefined) {
             student_code?: string | null;
           }>(COLLECTIONS.schoolMembers, userId!),
         ]);
-        const schoolId =
-          profile?.school_id || member?.school_id || (ownedDirect ? userId! : null);
+        const schoolId = profile?.school_id || member?.school_id || (ownedDirect ? userId! : null);
         if (schoolId) {
           const school =
             schoolId === userId && ownedDirect
