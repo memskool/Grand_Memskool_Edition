@@ -55,14 +55,14 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/schools/$(schoolId))
         && get(/databases/$(database)/documents/schools/$(schoolId)).data.owner_id == uid();
     }
+    // Phase 1: never grant manage rights from bare uid equality — school doc must exist.
     function managesSchool(schoolId) {
       return isAuthenticated()
         && schoolId is string
         && schoolId.size() > 0
         && (
-          schoolId == uid()
-          || ownsSchoolDoc(schoolId)
-          || (isSchoolAdmin() && sameSchool(schoolId))
+          ownsSchoolDoc(schoolId)
+          || (isSchoolAdmin() && sameSchool(schoolId) && exists(/databases/$(database)/documents/schools/$(schoolId)))
         );
     }
     function sameSchool(schoolId) {
@@ -120,14 +120,16 @@ service cloud.firestore {
     }
     match /school_directory/{code} {
       allow read: if true;
-      // Owner bootstrap (when Admin SDK is unavailable): one directory row per uid.
+      // Owner bootstrap only after schools/{uid} exists (stops code squatting).
       allow create: if isAuthenticated()
         && code != '__index'
         && request.resource.data.school_id == uid()
+        && ownsSchoolDoc(uid())
         && stringMax(request.resource.data.name, 160);
       allow update: if isAuthenticated()
         && resource.data.school_id == uid()
-        && request.resource.data.school_id == uid();
+        && request.resource.data.school_id == uid()
+        && ownsSchoolDoc(uid());
       allow delete: if false;
     }
 
@@ -149,6 +151,8 @@ service cloud.firestore {
               && (request.resource.data.school_id == null
                   || request.resource.data.school_id == userId))
         );
+      // Phase 1: owners may only edit profile fields — no self-promote to institution/admin.
+      // School registration / role elevation must go through Admin server RPCs.
       allow update: if isValidUser(request.resource.data) && (
           (
             isOwner(userId)
@@ -156,12 +160,6 @@ service cloud.firestore {
             && request.resource.data.school_id == resource.data.school_id
             && request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly(['full_name', 'phone', 'avatar_url', 'updated_at'])
-          )
-          || (
-            isOwner(userId)
-            && request.resource.data.role in ['institution', 'admin']
-            && request.resource.data.school_id == userId
-            && (resource.data.school_id == null || resource.data.school_id == userId)
           )
           || (
             managesSchool(request.resource.data.school_id)
@@ -452,15 +450,30 @@ service cloud.firestore {
     match /locker_items/{id} {
       allow read: if isOwner(resource.data.owner_id)
         || (resource.data.visibility == 'school' && tenantRead(resource.data.school_id));
+      // Phase 1: school-visible items must target the caller's real school.
       allow create: if isOwner(request.resource.data.owner_id)
         && request.resource.data.keys().hasAll(['owner_id', 'title', 'created_at'])
         && stringMax(request.resource.data.title, 200)
-        && request.resource.data.owner_id == uid();
+        && request.resource.data.owner_id == uid()
+        && (
+          !('visibility' in request.resource.data)
+          || request.resource.data.visibility == null
+          || request.resource.data.visibility == 'private'
+          || (
+            request.resource.data.visibility == 'school'
+            && request.resource.data.school_id is string
+            && sameSchool(request.resource.data.school_id)
+          )
+        );
       allow update: if isOwner(resource.data.owner_id)
         && request.resource.data.owner_id == resource.data.owner_id
         && request.resource.data.school_id == resource.data.school_id
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['title', 'visibility', 'folder_id', 'updated_at', 'storage_path']);
+          .hasOnly(['title', 'visibility', 'folder_id', 'updated_at', 'storage_path'])
+        && (
+          request.resource.data.visibility != 'school'
+          || sameSchool(request.resource.data.school_id)
+        );
       allow delete: if isOwner(resource.data.owner_id);
     }
     match /library_books/{id} {
@@ -681,14 +694,36 @@ service cloud.firestore {
       allow read: if isOwner(resource.data.student_id) || isOwner(resource.data.user_id)
         || isLinkedParent(resource.data.student_id)
         || managesSchool(resource.data.school_id);
-      allow create: if isOwner(request.resource.data.student_id) || isOwner(request.resource.data.user_id);
+      // Phase 1: applicants may only create pending apps — never self-approve.
+      allow create: if (isOwner(request.resource.data.student_id) || isOwner(request.resource.data.user_id))
+        && request.resource.data.school_id is string
+        && exists(/databases/$(database)/documents/schools/$(request.resource.data.school_id))
+        && request.resource.data.status == 'pending'
+        && request.resource.data.applicant_name is string
+        && stringMax(request.resource.data.applicant_name, 160)
+        && request.resource.data.keys().hasOnly([
+          'school_id', 'student_id', 'user_id', 'applicant_name', 'email', 'phone',
+          'class_level', 'intended_program', 'personal_statement', 'documents',
+          'status', 'review_notes', 'reviewed_at', 'reviewed_by', 'created_at'
+        ])
+        && request.resource.data.review_notes == null
+        && request.resource.data.reviewed_at == null
+        && (!('reviewed_by' in request.resource.data) || request.resource.data.reviewed_by == null);
       allow delete: if isOwner(resource.data.student_id) || isOwner(resource.data.user_id)
         || (isSchoolAdmin() && sameSchool(resource.data.school_id))
         || ownsSchoolDoc(resource.data.school_id);
+      // Status changes require a privileged reviewer stamp (reviewed_by == caller).
       allow update: if managesSchool(resource.data.school_id)
         && request.resource.data.school_id == resource.data.school_id
         && request.resource.data.student_id == resource.data.student_id
-        && request.resource.data.status in ['pending', 'under_review', 'approved', 'rejected'];
+        && request.resource.data.status in ['pending', 'under_review', 'approved', 'rejected']
+        && (
+          request.resource.data.status == resource.data.status
+          || (
+            request.resource.data.reviewed_by == uid()
+            && request.resource.data.reviewed_at is string
+          )
+        );
     }
     match /school_meetings/{id} {
       allow read: if tenantRead(resource.data.school_id);

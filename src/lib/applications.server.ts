@@ -29,6 +29,8 @@ type ApplicationRow = {
   status: string;
   review_notes: string | null;
   reviewed_at: string | null;
+  /** Privileged reviewer uid — required before sync may admit to roll (Phase 1). */
+  reviewed_by?: string | null;
   created_at: string;
 };
 
@@ -150,13 +152,29 @@ export async function admitStudentFromApplication(
   }
 }
 
-/** Backfill school_members for applications already marked approved. */
+/**
+ * Backfill school_members for applications already marked approved.
+ * Phase 1: only apps stamped with reviewed_by + reviewed_at (privileged review) may admit.
+ * Forged client-created status=approved rows without a reviewer are ignored.
+ */
 export async function syncApprovedApplicantsToRoll(schoolId: string): Promise<number> {
   const apps = await loadApplicationsForSchool(schoolId);
   let healed = 0;
   const now = new Date().toISOString();
   for (const app of apps) {
     if (app.status !== "approved" || !app.student_id) continue;
+    if (
+      typeof app.reviewed_by !== "string" ||
+      !app.reviewed_by ||
+      typeof app.reviewed_at !== "string" ||
+      !app.reviewed_at
+    ) {
+      console.warn(
+        "[applications] skip approve sync — missing privileged review stamp:",
+        app.id,
+      );
+      continue;
+    }
     const member = await adminGetById<{ school_id?: string; status?: string; role?: string }>(
       COLLECTIONS.schoolMembers,
       app.student_id,
@@ -221,6 +239,7 @@ export async function reviewSchoolApplicationHandler(
     status: data.status,
     review_notes: data.notes ?? null,
     reviewed_at: now,
+    reviewed_by: context.userId,
   });
   const saved = await adminGetById<ApplicationRow>(COLLECTIONS.schoolApplications, application.id);
   if (saved?.status !== data.status) {

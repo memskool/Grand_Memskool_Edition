@@ -627,6 +627,7 @@ async function reviewApplicationOnClient(input: {
   id: string;
   status: ApplicationStatus;
   notes?: string | null;
+  reviewerId: string;
 }) {
   const existing = await getById<{
     school_id: string;
@@ -635,64 +636,27 @@ async function reviewApplicationOnClient(input: {
   }>(COLLECTIONS.schoolApplications, input.id);
   if (!existing) throw new Error("That application was not found.");
   const now = new Date().toISOString();
+  // Phase 1: client may stamp a privileged review, but must NOT admit to roll or
+  // rewrite claims/profile. Server admit/sync (with reviewed_by) owns roll membership.
   try {
     await patchById(COLLECTIONS.schoolApplications, input.id, {
       status: input.status,
       review_notes: input.notes ?? null,
       reviewed_at: now,
+      reviewed_by: input.reviewerId,
     });
   } catch (error) {
     throw classifyFirebase(error);
   }
-  const saved = await getById<{ status?: string }>(COLLECTIONS.schoolApplications, input.id);
-  if (saved?.status !== input.status) {
+  const saved = await getById<{ status?: string; reviewed_by?: string | null }>(
+    COLLECTIONS.schoolApplications,
+    input.id,
+  );
+  if (saved?.status !== input.status || saved?.reviewed_by !== input.reviewerId) {
     throw new Error("Application was not saved. Try again.");
   }
-  if (input.status === "approved") {
-    const app = await getById<{
-      applicant_name?: string;
-      email?: string | null;
-      phone?: string | null;
-      created_at?: string;
-    }>(COLLECTIONS.schoolApplications, input.id);
-    try {
-      await setById(COLLECTIONS.schoolMembers, existing.student_id, {
-        school_id: existing.school_id,
-        user_id: existing.student_id,
-        role: "student",
-        status: "approved",
-        student_code: null,
-        created_at: app?.created_at || now,
-        updated_at: now,
-      });
-    } catch (error) {
-      throw classifyFirebase(error);
-    }
-    const member = await getById<{ school_id?: string; status?: string; role?: string }>(
-      COLLECTIONS.schoolMembers,
-      existing.student_id,
-    );
-    if (
-      !member ||
-      member.school_id !== existing.school_id ||
-      member.status !== "approved" ||
-      member.role !== "student"
-    ) {
-      throw new Error(
-        "Application was approved but the student was not added to your school roll.",
-      );
-    }
-    try {
-      await patchById(COLLECTIONS.users, existing.student_id, {
-        school_id: existing.school_id,
-        membership_status: "approved",
-        updated_at: now,
-      });
-    } catch (error) {
-      // Profile may be missing; server admit/sync fills it with Admin SDK.
-      console.error("[applications] student profile update failed:", error);
-    }
-  }
+  // Approved roll membership + claims are server-only (admit/sync). Invalidating
+  // application lists triggers listSchoolApplications → syncApprovedApplicantsToRoll.
   const school = await getById<{ name?: string }>(COLLECTIONS.schools, existing.school_id);
   const schoolName = school?.name ?? "your school";
   const statusCopy =
@@ -736,8 +700,23 @@ export function useUpdateApplicationStatus() {
         }),
       );
       if (!reviewed.ok || reviewed.status !== status) {
-        await reviewApplicationOnClient({ id, status, notes: notes ?? null });
+        const reviewerId = getFirebaseAuth().currentUser?.uid;
+        if (!reviewerId) throw new Error("You must be signed in to review applications.");
+        await reviewApplicationOnClient({
+          id,
+          status,
+          notes: notes ?? null,
+          reviewerId,
+        });
         reviewed = { ok: true, status };
+        // Server list sync admits approved apps that carry reviewed_by.
+        if (status === "approved") {
+          try {
+            await listSchoolApplications();
+          } catch (error) {
+            console.error("[applications] post-approve sync list failed:", error);
+          }
+        }
       }
       if (!reviewed.ok) throw new Error("Application was not saved. Try again.");
       return reviewed;
