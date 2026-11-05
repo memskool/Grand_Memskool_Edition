@@ -221,6 +221,20 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
 
   const handleLeave = () => {
     media.stop();
+    // Host Leave must end the room — otherwise students keep seeing a false LIVE badge.
+    if (isSessionHost) {
+      endSession.mutate(session, {
+        onSuccess: () => {
+          toast.success("Live session ended.");
+          onExit();
+        },
+        onError: (e) => {
+          toast.error(authErrorMessage(e));
+          leave.mutate({ sessionId: session.id, userId }, { onSettled: onExit });
+        },
+      });
+      return;
+    }
     leave.mutate({ sessionId: session.id, userId }, { onSettled: onExit });
   };
 

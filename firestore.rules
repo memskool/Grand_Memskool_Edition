@@ -513,9 +513,16 @@ service cloud.firestore {
       allow delete: if false;
     }
     match /classroom_participants/{id} {
+      // Same-school users may see who is in an active live room (needed so LIVE
+      // badges can confirm the host is still present).
       allow read: if tenantRead(resource.data.school_id) && (
         isTeacher() || isSchoolAdmin() || isOwner(resource.data.user_id)
         || isLiveParticipant(resource.data.session_id)
+        || profileRole() == 'teacher'
+        || (
+          exists(/databases/$(database)/documents/classroom_sessions/$(resource.data.session_id))
+          && get(/databases/$(database)/documents/classroom_sessions/$(resource.data.session_id)).data.is_active == true
+        )
       );
       allow create: if isAuthenticated()
         && isOwner(request.resource.data.user_id)

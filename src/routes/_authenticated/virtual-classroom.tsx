@@ -73,6 +73,7 @@ function VirtualClassroomPage() {
   const { suspension } = useSuspensionStatus(user?.id);
   const classIds = (source.data ?? []).map((c) => c.id);
   const liveSessions = useLiveSessions(classIds);
+  // Only fresh live sessions (status live + is_active + not stale leftovers).
   const liveIds = new Set((liveSessions.data ?? []).map((s) => s.class_id));
 
   const [openClass, setOpenClass] = useState<{ id: string; name: string } | null>(null);

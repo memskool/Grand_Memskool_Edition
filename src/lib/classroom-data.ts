@@ -48,6 +48,113 @@ export type ClassroomSession = {
   provider_room?: string;
 };
 
+/** Ghost LIVE badges: teachers leave without End, leaving is_active forever. */
+const LIVE_SESSION_MAX_MS = 4 * 60 * 60 * 1000;
+
+export function isFreshLiveSession(
+  session: Pick<ClassroomSession, "is_active" | "status" | "started_at">,
+  now = Date.now(),
+): boolean {
+  if (!session.is_active) return false;
+  const status = session.status ?? "live";
+  if (status !== "live") return false;
+  const started = Date.parse(session.started_at);
+  if (Number.isNaN(started)) return false;
+  return now - started <= LIVE_SESSION_MAX_MS;
+}
+
+async function closeOpenParticipantsClient(
+  session: Pick<ClassroomSession, "id" | "school_id">,
+  leftAt: string,
+) {
+  if (!session.school_id) return;
+  try {
+    const rows = await findMany<{ id: string; left_at?: string | null }>(
+      COLLECTIONS.classroomParticipants,
+      [where("school_id", "==", session.school_id), where("session_id", "==", session.id)],
+    );
+    await Promise.all(
+      rows
+        .filter((row) => !row.left_at)
+        .map((row) =>
+          patchById(COLLECTIONS.classroomParticipants, row.id, {
+            left_at: leftAt,
+            hand_raised: false,
+          }),
+        ),
+    );
+  } catch (error) {
+    console.error("[live] close participants failed:", error);
+  }
+}
+
+async function endSessionDocClient(session: Pick<ClassroomSession, "id" | "school_id">) {
+  const endedAt = nowIso();
+  await patchById(COLLECTIONS.classroomSessions, session.id, {
+    status: "ended",
+    is_active: false,
+    ended_at: endedAt,
+  });
+  await closeOpenParticipantsClient(session, endedAt);
+}
+
+/** true = host present, false = host gone, null = could not check (e.g. rules). */
+async function hostStillInRoom(session: ClassroomSession): Promise<boolean | null> {
+  try {
+    const host = await getById<{ left_at?: string | null }>(
+      COLLECTIONS.classroomParticipants,
+      participantDocId(session.id, session.host_id),
+    );
+    if (!host) return false;
+    return !host.left_at;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * LIVE means a fresh active session whose host is still in the room.
+ * Orphan is_active rows (Leave without End) must not light the badge.
+ */
+async function healStaleLiveSessions(rows: ClassroomSession[]): Promise<ClassroomSession[]> {
+  const now = Date.now();
+  const keep: ClassroomSession[] = [];
+  const close: ClassroomSession[] = [];
+
+  await Promise.all(
+    rows.map(async (row) => {
+      if ((row.status ?? "live") !== "live" || !row.is_active) {
+        close.push(row);
+        return;
+      }
+      if (!isFreshLiveSession(row, now)) {
+        close.push(row);
+        return;
+      }
+      const hostOk = await hostStillInRoom(row);
+      if (hostOk === false) {
+        close.push(row);
+        return;
+      }
+      // null = permission/read miss — keep if fresh so real LIVE still shows.
+      keep.push(row);
+    }),
+  );
+
+  if (close.length) {
+    void Promise.all(
+      close.map(async (row) => {
+        try {
+          await endSessionDocClient(row);
+        } catch (error) {
+          console.error("[live] stale session heal failed:", row.id, error);
+        }
+      }),
+    );
+  }
+  return keep;
+}
+
 export type Participant = {
   id: string;
   session_id: string;
@@ -103,11 +210,13 @@ export function useLiveSessions(classIds: string[]) {
       const schoolId = await schoolIdForClass(classIds[0]!);
       if (!schoolId) return [];
       // school_id must be in the query or Firestore rules reject the list.
-      return findMany<ClassroomSession>(COLLECTIONS.classroomSessions, [
+      const rows = await findMany<ClassroomSession>(COLLECTIONS.classroomSessions, [
         where("school_id", "==", schoolId),
         where("class_id", "in", classIds.slice(0, 30)),
         where("is_active", "==", true),
       ]);
+      // Drop (and heal) ghost sessions left active after Leave without End.
+      return healStaleLiveSessions(rows.filter((row) => (row.status ?? "live") === "live"));
     },
   });
 
@@ -139,11 +248,30 @@ export function useActiveSession(classId?: string) {
     queryFn: async (): Promise<ClassroomSession | null> => {
       const schoolId = await schoolIdForClass(classId!);
       if (!schoolId) return null;
-      return findOne<ClassroomSession>(COLLECTIONS.classroomSessions, [
+      const row = await findOne<ClassroomSession>(COLLECTIONS.classroomSessions, [
         where("school_id", "==", schoolId),
         where("class_id", "==", classId!),
         where("is_active", "==", true),
       ]);
+      if (!row) return null;
+      if (!isFreshLiveSession(row)) {
+        try {
+          await endSessionDocClient(row);
+        } catch (error) {
+          console.error("[live] active stale heal failed:", error);
+        }
+        return null;
+      }
+      const hostOk = await hostStillInRoom(row);
+      if (hostOk === false) {
+        try {
+          await endSessionDocClient(row);
+        } catch (error) {
+          console.error("[live] host-left session heal failed:", error);
+        }
+        return null;
+      }
+      return row;
     },
   });
 }
@@ -253,19 +381,29 @@ async function startSessionOnClient(input: {
     console.error("[live] existing-session lookup failed:", error);
   }
   if (existing) {
-    // Rejoin must re-seed the host so the room never shows "Waiting for the teacher"
-    // when the starter is already in the session.
-    try {
-      await seedHostParticipant({
-        sessionId: existing.id,
-        userId: input.hostId,
-        schoolId: cls.school_id,
-        isHost: existing.host_id === input.hostId,
-      });
-    } catch (error) {
-      console.error("[live] host re-seed on existing session failed:", error);
+    const hostOk = await hostStillInRoom(existing);
+    const reusable = isFreshLiveSession(existing) && hostOk !== false;
+    if (!reusable) {
+      try {
+        await endSessionDocClient(existing);
+      } catch (error) {
+        console.error("[live] stale existing session end failed:", error);
+      }
+    } else {
+      // Rejoin must re-seed the host so the room never shows "Waiting for the teacher"
+      // when the starter is already in the session.
+      try {
+        await seedHostParticipant({
+          sessionId: existing.id,
+          userId: input.hostId,
+          schoolId: cls.school_id,
+          isHost: existing.host_id === input.hostId,
+        });
+      } catch (error) {
+        console.error("[live] host re-seed on existing session failed:", error);
+      }
+      return existing;
     }
-    return existing;
   }
 
   const now = nowIso();
@@ -372,32 +510,8 @@ export function useEndSession() {
           console.error("[live] server end failed:", error);
         }
       }
-      const endedAt = nowIso();
       try {
-        await patchById(COLLECTIONS.classroomSessions, session.id, {
-          status: "ended",
-          is_active: false,
-          ended_at: endedAt,
-        });
-        if (session.school_id) {
-          const rows = await findMany<{ id: string; left_at?: string | null }>(
-            COLLECTIONS.classroomParticipants,
-            [
-              where("school_id", "==", session.school_id),
-              where("session_id", "==", session.id),
-            ],
-          );
-          await Promise.all(
-            rows
-              .filter((row) => !row.left_at)
-              .map((row) =>
-                patchById(COLLECTIONS.classroomParticipants, row.id, {
-                  left_at: endedAt,
-                  hand_raised: false,
-                }),
-              ),
-          );
-        }
+        await endSessionDocClient(session);
       } catch (clientError) {
         throw classifyFirebase(clientError);
       }
@@ -418,8 +532,21 @@ export function useCancelSession() {
     mutationFn: async (session: ClassroomSession) => {
       try {
         await cancelLiveSession({ data: { sessionId: session.id } });
+        return session;
       } catch (error) {
-        throw classifyFirebase(error);
+        console.error("[live] server cancel failed, using client:", error);
+      }
+      try {
+        const endedAt = nowIso();
+        await patchById(COLLECTIONS.classroomSessions, session.id, {
+          status: "cancelled",
+          is_active: false,
+          ended_at: endedAt,
+          cancelled_at: endedAt,
+        });
+        await closeOpenParticipantsClient(session, endedAt);
+      } catch (clientError) {
+        throw classifyFirebase(clientError);
       }
       return session;
     },
