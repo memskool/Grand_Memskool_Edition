@@ -147,13 +147,14 @@ async function ensureTeacherProfile(input: {
     updated_at: input.now,
   });
 
+  // Phase 2: pending join keeps schoolId out of claims so tenantRead/sameSchool stay locked.
   await adminAuth().setCustomUserClaims(input.userId, {
     role: "teacher",
-    schoolId: input.schoolId,
+    schoolId: input.status === "approved" ? input.schoolId : null,
     approved: input.status === "approved",
   });
   await rememberUserDirectory(input.email, input.userId, {
     role: "teacher",
-    schoolId: input.schoolId,
+    schoolId: input.status === "approved" ? input.schoolId : null,
   });
 }

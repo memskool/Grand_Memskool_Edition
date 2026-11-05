@@ -495,7 +495,7 @@ export function useSetMemberStatus(schoolId: string | undefined) {
         try {
           await patchById(COLLECTIONS.users, member.user_id, {
             school_id: status === "rejected" ? null : member.school_id,
-            membership_status: status === "rejected" ? "approved" : status,
+            membership_status: status,
             updated_at: now,
           });
         } catch (error) {

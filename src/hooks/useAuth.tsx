@@ -131,9 +131,18 @@ export function useRole(user: AuthUser | null) {
   const profile = useProfile(user);
   return useQuery({
     queryKey: ["role", id, profile.dataUpdatedAt],
-    enabled: !!id && profile.isFetched,
+    enabled: !!id,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<AppRole | null> => {
+      // Phase 2: Auth custom claims are the sole privilege source for routing.
+      const authUser = getFirebaseAuth().currentUser;
+      if (authUser) {
+        const token = await authUser.getIdTokenResult();
+        if (typeof token.claims["role"] === "string" && token.claims["role"]) {
+          return claimsRoleToAppRole(token.claims["role"]);
+        }
+      }
+      // Profile is display fallback only while claims catch up after signup.
       if (profile.data?.role) {
         return profile.data.role === "admin" ? "institution" : profile.data.role;
       }
@@ -141,15 +150,7 @@ export function useRole(user: AuthUser | null) {
       if (cached?.role) {
         return cached.role === "admin" ? "institution" : cached.role;
       }
-      let fromClaims: AppRole | null = null;
-      const authUser = getFirebaseAuth().currentUser;
-      if (authUser) {
-        const token = await authUser.getIdTokenResult();
-        if (typeof token.claims["role"] === "string" && token.claims["role"]) {
-          fromClaims = claimsRoleToAppRole(token.claims["role"]);
-        }
-      }
-      return fromClaims;
+      return null;
     },
   });
 }

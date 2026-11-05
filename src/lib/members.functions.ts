@@ -17,10 +17,10 @@ import { adminAuth } from "@/lib/firebase/admin.server";
 import { managedSchoolIdFor } from "@/lib/firebase/school-context.server";
 
 async function assertCanManageSchool(context: { userId: string; role: AppRole }): Promise<void> {
-  if (isSchoolManager(context.role)) return;
-  const profile = await adminGetById<{ role?: AppRole }>(COLLECTIONS.users, context.userId);
-  if (isSchoolManager(profile?.role)) return;
-  throw new Error("You do not have permission to perform this action.");
+  // Phase 2: claims-derived role only — never trust users/{uid}.role for privilege.
+  if (!isSchoolManager(context.role)) {
+    throw new Error("You do not have permission to perform this action.");
+  }
 }
 
 export const setSchoolMemberStatus = createServerFn({ method: "POST" })
@@ -53,9 +53,10 @@ export const setSchoolMemberStatus = createServerFn({ method: "POST" })
       throw new Error("Membership was not saved. Try again.");
     }
     const independentAgain = data.status === "rejected";
+    // Phase 2: rejection stays rejected on the profile (not silently "approved").
     await adminSet(COLLECTIONS.users, member.user_id, {
       school_id: independentAgain ? null : member.school_id,
-      membership_status: independentAgain ? "approved" : data.status,
+      membership_status: data.status,
       updated_at: now,
     });
 
@@ -68,7 +69,8 @@ export const setSchoolMemberStatus = createServerFn({ method: "POST" })
     try {
       await adminAuth().setCustomUserClaims(member.user_id, {
         role: claimRole,
-        schoolId: independentAgain ? null : member.school_id,
+        schoolId: independentAgain || data.status === "pending" ? null : member.school_id,
+        // Rejected teachers are independent again (approved for Gold); pending stays locked.
         approved: data.status !== "pending",
       });
     } catch (claimsError) {

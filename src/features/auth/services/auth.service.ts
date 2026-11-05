@@ -104,17 +104,12 @@ export async function signUpEmail(
     await cred.user.getIdToken(true);
     return { user: toAuthUser(cred.user), needsEmailConfirm: !cred.user.emailVerified };
   } catch (error) {
+    // Phase 2: never silent-sign-in on signup — that rewrote roles via completeSignup.
     if (firebaseAuthCode(error) === "auth/email-already-in-use") {
-      try {
-        const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
-        await cred.user.getIdToken(true);
-        return { user: toAuthUser(cred.user), needsEmailConfirm: !cred.user.emailVerified };
-      } catch {
-        throw new AppError(
-          "auth",
-          "An account with that email already exists. Try signing in instead.",
-        );
-      }
+      throw new AppError(
+        "auth",
+        "An account with that email already exists. Try signing in instead.",
+      );
     }
     throw classifyFirebase(error);
   }

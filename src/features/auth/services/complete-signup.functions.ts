@@ -146,6 +146,57 @@ async function completeSignupHandler(data: SignupInput, context: AuthedContext) 
     ? (existingProfile.get("role") as string | undefined)
     : undefined;
 
+  // Phase 2: signup is immutable once a real role is provisioned — never rewrite
+  // role / school / membership from a second signup attempt.
+  const provisionedRoles = new Set([
+    "student",
+    "teacher",
+    "parent",
+    "admin",
+    "institution",
+    "superadmin",
+  ]);
+  if (existingProfile.exists && existingRole && provisionedRoles.has(existingRole)) {
+    const mappedRole: AppRole =
+      existingRole === "admin" ? "institution" : (existingRole as AppRole);
+    const membershipRaw = String(existingProfile.get("membership_status") ?? "approved");
+    const membership =
+      membershipRaw === "owner" || membershipRaw === "pending" || membershipRaw === "approved"
+        ? membershipRaw
+        : membershipRaw === "rejected"
+          ? "approved"
+          : "approved";
+    const claimRole = mappedRole === "institution" ? "admin" : mappedRole;
+    const pending = membershipRaw === "pending";
+    const rejected = membershipRaw === "rejected";
+    try {
+      const authUser = await adminAuth().getUser(uid);
+      const claims = authUser.customClaims ?? {};
+      if (!claims["role"]) {
+        await adminAuth().setCustomUserClaims(uid, {
+          role: claimRole,
+          schoolId: pending || rejected ? null : existingSchoolId,
+          approved: !pending,
+        });
+      }
+    } catch (claimsError) {
+      console.error("[completeSignup] claims refresh for provisioned user:", claimsError);
+    }
+    const name = data.full_name?.trim();
+    if (name && name !== String(existingProfile.get("full_name") ?? "").trim()) {
+      await adminSet(
+        COLLECTIONS.users,
+        uid,
+        plainFirestoreData({ full_name: name, updated_at: now }),
+      );
+    }
+    return toClientJson({
+      schoolId: existingSchoolId,
+      role: mappedRole,
+      membership: membership === "owner" || membership === "pending" ? membership : "approved",
+    });
+  }
+
   if (data.role === "institution") {
     const ownedDoc = await db.collection("schools").doc(uid).get();
     if (ownedDoc.exists) {

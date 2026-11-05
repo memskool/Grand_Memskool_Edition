@@ -46,10 +46,14 @@ export const requireFirebaseAuth = createMiddleware({ type: "function" }).server
 async function resolveAuthedContext(decoded: DecodedIdToken): Promise<AuthedContext> {
   let role = claimsRoleToAppRole(typeof decoded["role"] === "string" ? decoded["role"] : undefined);
   let schoolId = typeof decoded["schoolId"] === "string" ? decoded["schoolId"] : null;
-  let approved = decoded["approved"] === true || role !== "teacher";
+  // Phase 2: teachers need an explicit approved claim; other roles default approved.
+  let approved =
+    decoded["approved"] === true ||
+    (typeof decoded["role"] === "string" && decoded["role"] !== "teacher");
 
-  // Claims can lag behind Firestore after Google signup or join/approve.
-  if (!decoded["role"] || (!schoolId && role === "teacher")) {
+  // Heal only when the role claim is missing (claims lag right after signup).
+  // Never promote privilege from users/{uid}.role when claims already set a role.
+  if (!decoded["role"]) {
     try {
       const { adminGetById } = await import("./admin-repo");
       const { COLLECTIONS } = await import("./collections");
@@ -59,26 +63,47 @@ async function resolveAuthedContext(decoded: DecodedIdToken): Promise<AuthedCont
         membership_status?: string | null;
       }>(COLLECTIONS.users, decoded.uid);
       if (profile?.role) role = claimsRoleToAppRole(profile.role);
-      if (typeof profile?.school_id === "string" && profile.school_id) {
-        schoolId = profile.school_id;
-      }
-      if (profile?.membership_status === "pending") approved = false;
-      if (profile?.membership_status === "approved" || profile?.membership_status === "owner") {
+      const membership = profile?.membership_status ?? null;
+      if (membership === "pending") {
+        approved = false;
+        schoolId = null;
+      } else if (membership === "rejected") {
         approved = true;
-      }
-      if (!schoolId) {
-        const member = await adminGetById<{
-          school_id?: string;
-          role?: string;
-          status?: string;
-        }>(COLLECTIONS.schoolMembers, decoded.uid);
-        if (member?.role) role = claimsRoleToAppRole(member.role);
-        if (typeof member?.school_id === "string" && member.school_id) schoolId = member.school_id;
-        if (member?.status === "pending") approved = false;
-        if (member?.status === "approved" || member?.status === "owner") approved = true;
+        schoolId = null;
+      } else if (membership === "approved" || membership === "owner") {
+        approved = true;
+        if (typeof profile?.school_id === "string" && profile.school_id) {
+          schoolId = profile.school_id;
+        }
       }
     } catch (error) {
-      console.error("[auth] profile/member role resolve failed:", error);
+      console.error("[auth] profile role resolve failed:", error);
+    }
+  } else if (role === "teacher" && decoded["approved"] !== true) {
+    // Claims may lag after admin approval — heal schoolId only for approved members.
+    try {
+      const { adminGetById } = await import("./admin-repo");
+      const { COLLECTIONS } = await import("./collections");
+      const profile = await adminGetById<{
+        school_id?: string | null;
+        membership_status?: string | null;
+      }>(COLLECTIONS.users, decoded.uid);
+      const membership = profile?.membership_status ?? null;
+      if (membership === "pending" || membership === "rejected") {
+        approved = membership !== "rejected" ? false : true;
+        schoolId = null;
+      } else if (membership === "approved" || membership === "owner") {
+        approved = true;
+        if (typeof profile?.school_id === "string" && profile.school_id) {
+          schoolId = profile.school_id;
+        }
+      } else {
+        // No membership row: keep claim schoolId null and unapproved for teachers.
+        approved = false;
+        if (!schoolId) schoolId = null;
+      }
+    } catch (error) {
+      console.error("[auth] teacher approval heal failed:", error);
     }
   }
 
@@ -117,7 +142,9 @@ export const optionalFirebaseAuth = createMiddleware({ type: "function" }).serve
         typeof decoded["role"] === "string" ? decoded["role"] : undefined,
       );
       const schoolId = typeof decoded["schoolId"] === "string" ? decoded["schoolId"] : null;
-      const approved = decoded["approved"] === true || role !== "teacher";
+      const approved =
+        decoded["approved"] === true ||
+        (typeof decoded["role"] === "string" && decoded["role"] !== "teacher");
       const signedIn: OptionalAuthedContext = {
         userId: decoded.uid,
         email: decoded.email ?? null,

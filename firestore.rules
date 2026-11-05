@@ -29,23 +29,16 @@ service cloud.firestore {
     function tokenSchool() {
       return request.auth.token.schoolId;
     }
+    // Phase 2: privilege comes only from Auth custom claims — never users/{uid}.role.
     function isApproved() {
       return request.auth.token.approved == true
-        || tokenRole() in ['student', 'parent', 'admin', 'superadmin'];
+        || tokenRole() in ['student', 'parent', 'admin', 'institution', 'superadmin'];
     }
     function isSuperAdmin() {
       return isAuthenticated() && tokenRole() == 'superadmin';
     }
-    function profileRole() {
-      return exists(/databases/$(database)/documents/users/$(uid()))
-        ? get(/databases/$(database)/documents/users/$(uid())).data.role
-        : null;
-    }
     function isSchoolAdmin() {
-      return isAuthenticated() && (
-        tokenRole() in ['admin', 'institution', 'superadmin']
-        || profileRole() in ['admin', 'institution', 'superadmin']
-      );
+      return isAuthenticated() && tokenRole() in ['admin', 'institution', 'superadmin'];
     }
     function isTeacher() {
       return isAuthenticated() && tokenRole() == 'teacher' && isApproved();
@@ -243,8 +236,16 @@ service cloud.firestore {
       allow update, delete: if isSchoolAdmin() && sameSchool(resource.data.school_id);
     }
 
+    // Phase 2: pending teachers (approved != true) cannot read tenant academic data
+    // even if a stale schoolId claim remains on the token.
     function tenantRead(schoolId) {
-      return isAuthenticated() && (sameSchool(schoolId) || isSuperAdmin());
+      return isAuthenticated() && (
+        isSuperAdmin()
+        || (
+          sameSchool(schoolId)
+          && (tokenRole() != 'teacher' || request.auth.token.approved == true)
+        )
+      );
     }
     function tenantWrite(schoolId) {
       return isSchoolAdmin() && sameSchool(schoolId) || isTeacher() && sameSchool(schoolId);
@@ -499,11 +500,7 @@ service cloud.firestore {
         && request.resource.data.class_id is string
         && request.resource.data.status == 'live'
         && request.resource.data.is_active == true
-        && (
-          isTeacher()
-          || isSchoolAdmin()
-          || profileRole() == 'teacher'
-        );
+        && (isTeacher() || isSchoolAdmin());
       allow update: if isAuthenticated()
         && sameSchool(resource.data.school_id)
         && (
@@ -531,7 +528,6 @@ service cloud.firestore {
       allow read: if tenantRead(resource.data.school_id) && (
         isTeacher() || isSchoolAdmin() || isOwner(resource.data.user_id)
         || isLiveParticipant(resource.data.session_id)
-        || profileRole() == 'teacher'
         || (
           exists(/databases/$(database)/documents/classroom_sessions/$(resource.data.session_id))
           && get(/databases/$(database)/documents/classroom_sessions/$(resource.data.session_id)).data.is_active == true
@@ -564,7 +560,7 @@ service cloud.firestore {
         )
         || (
           sameSchool(resource.data.school_id)
-          && (isTeacher() || isSchoolAdmin() || profileRole() == 'teacher')
+          && (isTeacher() || isSchoolAdmin())
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['mic_on', 'cam_on', 'camera_allowed', 'warned_at', 'hand_raised'])
         );
@@ -572,7 +568,6 @@ service cloud.firestore {
     match /classroom_messages/{id} {
       allow read: if tenantRead(resource.data.school_id) && (
         isTeacher() || isSchoolAdmin() || isLiveParticipant(resource.data.session_id)
-        || profileRole() == 'teacher'
       );
       allow create: if isAuthenticated()
         && isOwner(request.resource.data.sender_id)

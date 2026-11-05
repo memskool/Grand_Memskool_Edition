@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 import { useSession, useProfile, useRole } from "@/hooks/useAuth";
 import { PageHeader, ListSkeleton } from "@/components/app/primitives";
+import { isSchoolManager } from "@/types/roles";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -32,9 +33,6 @@ const TeacherDashboard = lazy(() =>
 );
 const ParentDashboard = lazy(() =>
   import("@/components/dashboards/ParentDashboard").then((m) => ({ default: m.ParentDashboard })),
-);
-const AdminDashboard = lazy(() =>
-  import("@/components/dashboards/AdminDashboard").then((m) => ({ default: m.AdminDashboard })),
 );
 const InstitutionDashboard = lazy(() =>
   import("@/components/dashboards/InstitutionDashboard").then((m) => ({
@@ -78,12 +76,10 @@ function DashboardPage() {
           <TeacherDashboard user={user} />
         ) : role === "parent" ? (
           <ParentDashboard user={user} />
-        ) : role === "institution" ? (
-          <InstitutionDashboard user={user} />
-        ) : role === "admin" ? (
-          <AdminDashboard />
         ) : role === "superadmin" ? (
           <SuperadminDashboard />
+        ) : isSchoolManager(role ?? undefined) ? (
+          <InstitutionDashboard user={user} />
         ) : (
           <StudentDashboard user={user} />
         )}

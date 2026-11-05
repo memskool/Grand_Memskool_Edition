@@ -237,8 +237,11 @@ async function reattachOrphanProfile(
   });
 }
 
-/** Take ownership of a school whose contact email matches the signed-in user. */
-async function claimSchoolByContactEmail(
+/**
+ * Explicit ownership reclaim by contact email.
+ * Phase 2: not called from session profile load — keep for dedicated reclaim flows only.
+ */
+export async function claimSchoolByContactEmail(
   db: Firestore,
   currentUid: string,
   email: string,
@@ -301,13 +304,20 @@ async function ensureClaimsMatchProfile(profile: UserProfile): Promise<void> {
     const user = await adminAuth().getUser(profile.id);
     const claims = user.customClaims ?? {};
     const wantRole = profile.role === "institution" ? "admin" : profile.role;
+    const pending = profile.membership_status === "pending";
+    const rejected = profile.membership_status === "rejected";
+    const wantSchool = pending || rejected ? null : profile.school_id;
+    const wantApproved = !pending;
     const haveRole = typeof claims["role"] === "string" ? claims["role"] : null;
     const haveSchool = typeof claims["schoolId"] === "string" ? claims["schoolId"] : null;
-    if (haveRole === wantRole && haveSchool === profile.school_id) return;
+    const haveApproved = claims["approved"] === true;
+    if (haveRole === wantRole && haveSchool === wantSchool && haveApproved === wantApproved) {
+      return;
+    }
     await adminAuth().setCustomUserClaims(profile.id, {
       role: wantRole,
-      schoolId: profile.school_id,
-      approved: profile.membership_status !== "pending",
+      schoolId: wantSchool,
+      approved: wantApproved,
     });
   } catch (error) {
     console.error("[session] failed to sync claims:", error);
@@ -420,13 +430,8 @@ export async function resolveSessionAccount(input: {
     }
   }
 
-  const claimed = await claimSchoolByContactEmail(
-    db,
-    input.userId,
-    input.email,
-    profile?.school_id,
-  );
-  if (claimed) return claimed;
+  // Phase 2: do not auto-claim a school by contact email on every profile read.
+  // Ownership reclaim stays behind explicit register/claim flows, not session load.
   if (profile) await ensureClaimsMatchProfile(profile);
   return profile;
 }
