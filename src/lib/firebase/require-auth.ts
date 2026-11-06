@@ -1,9 +1,16 @@
-import "@/lib/node-esm-globals";
 import { createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
-import type { DecodedIdToken } from "firebase-admin/auth";
 import type { AppRole } from "@/types/roles";
 import { claimsRoleToAppRole } from "@/types/roles";
+
+/** Minimal token shape — avoid importing firebase-admin types into client-reachable modules. */
+export type AuthedToken = {
+  uid: string;
+  email?: string | null;
+  role?: unknown;
+  schoolId?: unknown;
+  approved?: unknown;
+};
 
 export type AuthedContext = {
   userId: string;
@@ -11,7 +18,7 @@ export type AuthedContext = {
   role: AppRole;
   schoolId: string | null;
   approved: boolean;
-  token: DecodedIdToken;
+  token: AuthedToken;
 };
 
 export type OptionalAuthedContext = {
@@ -20,7 +27,7 @@ export type OptionalAuthedContext = {
   role: AppRole | null;
   schoolId: string | null;
   approved: boolean;
-  token: DecodedIdToken | null;
+  token: AuthedToken | null;
 };
 
 export const requireFirebaseAuth = createMiddleware({ type: "function" }).server(
@@ -34,7 +41,7 @@ export const requireFirebaseAuth = createMiddleware({ type: "function" }).server
     if (!token) throw new Error("Unauthorized: No token provided");
 
     const { verifyIdToken } = await import("./admin.server");
-    const decoded = await verifyIdToken(token);
+    const decoded = (await verifyIdToken(token)) as AuthedToken;
     const resolved = await resolveAuthedContext(decoded);
 
     return next({
@@ -43,17 +50,16 @@ export const requireFirebaseAuth = createMiddleware({ type: "function" }).server
   },
 );
 
-async function resolveAuthedContext(decoded: DecodedIdToken): Promise<AuthedContext> {
-  let role = claimsRoleToAppRole(typeof decoded["role"] === "string" ? decoded["role"] : undefined);
-  let schoolId = typeof decoded["schoolId"] === "string" ? decoded["schoolId"] : null;
+async function resolveAuthedContext(decoded: AuthedToken): Promise<AuthedContext> {
+  let role = claimsRoleToAppRole(typeof decoded.role === "string" ? decoded.role : undefined);
+  let schoolId = typeof decoded.schoolId === "string" ? decoded.schoolId : null;
   // Phase 2: teachers need an explicit approved claim; other roles default approved.
   let approved =
-    decoded["approved"] === true ||
-    (typeof decoded["role"] === "string" && decoded["role"] !== "teacher");
+    decoded.approved === true || (typeof decoded.role === "string" && decoded.role !== "teacher");
 
   // Heal only when the role claim is missing (claims lag right after signup).
   // Never promote privilege from users/{uid}.role when claims already set a role.
-  if (!decoded["role"]) {
+  if (!decoded.role) {
     try {
       const { adminGetById } = await import("./admin-repo");
       const { COLLECTIONS } = await import("./collections");
@@ -79,7 +85,7 @@ async function resolveAuthedContext(decoded: DecodedIdToken): Promise<AuthedCont
     } catch (error) {
       console.error("[auth] profile role resolve failed:", error);
     }
-  } else if (role === "teacher" && decoded["approved"] !== true) {
+  } else if (role === "teacher" && decoded.approved !== true) {
     // Claims may lag after admin approval — heal schoolId only for approved members.
     try {
       const { adminGetById } = await import("./admin-repo");
@@ -109,7 +115,7 @@ async function resolveAuthedContext(decoded: DecodedIdToken): Promise<AuthedCont
 
   return {
     userId: decoded.uid,
-    email: decoded.email ?? null,
+    email: typeof decoded.email === "string" ? decoded.email : null,
     role,
     schoolId,
     approved,
@@ -137,17 +143,15 @@ export const optionalFirebaseAuth = createMiddleware({ type: "function" }).serve
     if (!token) return next({ context: empty });
     try {
       const { verifyIdToken } = await import("./admin.server");
-      const decoded = await verifyIdToken(token);
-      const role = claimsRoleToAppRole(
-        typeof decoded["role"] === "string" ? decoded["role"] : undefined,
-      );
-      const schoolId = typeof decoded["schoolId"] === "string" ? decoded["schoolId"] : null;
+      const decoded = (await verifyIdToken(token)) as AuthedToken;
+      const role = claimsRoleToAppRole(typeof decoded.role === "string" ? decoded.role : undefined);
+      const schoolId = typeof decoded.schoolId === "string" ? decoded.schoolId : null;
       const approved =
-        decoded["approved"] === true ||
-        (typeof decoded["role"] === "string" && decoded["role"] !== "teacher");
+        decoded.approved === true ||
+        (typeof decoded.role === "string" && decoded.role !== "teacher");
       const signedIn: OptionalAuthedContext = {
         userId: decoded.uid,
-        email: decoded.email ?? null,
+        email: typeof decoded.email === "string" ? decoded.email : null,
         role,
         schoolId,
         approved,

@@ -1,17 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
-import {
-  adoptManagedSchool,
-  loadManagedSchool,
-  resolveSessionAccount,
-} from "@/features/auth/services/session-account.server";
 
 /** Authoritative account profile for gates — Admin SDK + email reclaim if Auth UID changed. */
 export const loadMyAccount = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
   .handler(async ({ context }) => {
     try {
+      const { resolveSessionAccount } = await import("./session-account.server");
       return await resolveSessionAccount({
         userId: context.userId,
         email: context.email,
@@ -27,6 +23,7 @@ export const loadMyManagedSchool = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
   .handler(async ({ context }) => {
     try {
+      const { loadManagedSchool } = await import("./session-account.server");
       return await loadManagedSchool({
         userId: context.userId,
         email: context.email,
@@ -43,6 +40,7 @@ export const openManagedSchool = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ schoolId: z.string().min(1) }).parse(data))
   .handler(async ({ data, context }) => {
     try {
+      const { adoptManagedSchool } = await import("./session-account.server");
       return await adoptManagedSchool({
         userId: context.userId,
         email: context.email,

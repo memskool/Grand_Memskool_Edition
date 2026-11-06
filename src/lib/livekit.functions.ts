@@ -4,9 +4,6 @@ import { z } from "zod";
 import { COLLECTIONS } from "@/lib/firebase/collections";
 import { providerRoomName, type ClassroomToken } from "@/features/live-classroom/contracts";
 import { toClientJson } from "@/lib/firebase/plain-data";
-import { mintLiveKitAccessToken } from "@/lib/livekit-token.server";
-import { verifyFirebaseIdTokenWithJose } from "@/lib/firebase/verify-id-token-jose.server";
-import { getFirestoreDocAsUser } from "@/lib/firebase/firestore-user-rest.server";
 
 export type { ClassroomToken };
 
@@ -24,6 +21,7 @@ type SessionFields = {
  * LiveKit token mint — no firebase-admin.
  * Auth: Firebase ID token verified with jose JWKS.
  * Session load: Firestore REST as the user (rules enforce access).
+ * Phase 3: server helpers are dynamic-imported so client chunks stay Admin-free.
  */
 export const issueClassroomToken = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ sessionId: z.string().min(1) }).parse(data))
@@ -35,6 +33,12 @@ export const issueClassroomToken = createServerFn({ method: "POST" })
     }
     const idToken = header.slice("Bearer ".length).trim();
     if (!idToken) throw new Error("Unauthorized: No token provided");
+
+    const { verifyFirebaseIdTokenWithJose } = await import(
+      "@/lib/firebase/verify-id-token-jose.server"
+    );
+    const { getFirestoreDocAsUser } = await import("@/lib/firebase/firestore-user-rest.server");
+    const { mintLiveKitAccessToken } = await import("@/lib/livekit-token.server");
 
     const auth = await verifyFirebaseIdTokenWithJose(idToken);
     if (auth.role === "teacher" && !auth.approved) {

@@ -1,3 +1,4 @@
+import "@tanstack/react-start/server-only";
 import "@/lib/node-esm-globals";
 import { readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";

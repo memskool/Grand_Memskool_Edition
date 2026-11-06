@@ -315,6 +315,34 @@ function looksLikeDirnameCrash(error: unknown): boolean {
   return message.includes("__dirname") || message.toLowerCase().includes("es module scope");
 }
 
+/** Phase 3: client writes only when the server path itself is broken — never for authz denials. */
+function isInfrastructureFailure(error: unknown): boolean {
+  if (looksLikeDirnameCrash(error)) return true;
+  const message = (error instanceof Error ? error.message : String(error ?? "")).toLowerCase();
+  if (
+    message.includes("fetch failed") ||
+    message.includes("network") ||
+    message.includes("econnreset") ||
+    message.includes("etimedout") ||
+    message.includes("503") ||
+    message.includes("502") ||
+    message.includes("504") ||
+    message.includes("function timeout")
+  ) {
+    return true;
+  }
+  if (
+    message.includes("permission") ||
+    message.includes("unauthorized") ||
+    message.includes("forbidden") ||
+    message.includes("not allowed") ||
+    message.includes("not approved")
+  ) {
+    return false;
+  }
+  return false;
+}
+
 async function seedHostParticipant(input: {
   sessionId: string;
   userId: string;
@@ -468,12 +496,7 @@ export function useStartSession() {
       title?: string;
       lessonId?: string | null;
     }) => {
-      // Prefer the browser write path — Admin SDK on the server still trips `__dirname`.
-      try {
-        return await startSessionOnClient(input);
-      } catch (clientError) {
-        console.error("[live] client start failed, trying server:", clientError);
-      }
+      // Phase 3: server-required for live start; client only on infrastructure failure.
       try {
         const raw = await startLiveSession({
           data: {
@@ -484,10 +507,9 @@ export function useStartSession() {
         });
         return unwrapSession(raw);
       } catch (error) {
-        if (looksLikeDirnameCrash(error)) {
-          return startSessionOnClient(input);
-        }
-        throw classifyFirebase(error);
+        if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
+        console.error("[live] server start infrastructure failure, client fallback:", error);
+        return startSessionOnClient(input);
       }
     },
     onSuccess: (s) => {
@@ -506,9 +528,8 @@ export function useEndSession() {
         await endLiveSession({ data: { sessionId: session.id } });
         return session;
       } catch (error) {
-        if (!looksLikeDirnameCrash(error)) {
-          console.error("[live] server end failed:", error);
-        }
+        if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
+        console.error("[live] server end infrastructure failure, client fallback:", error);
       }
       try {
         await endSessionDocClient(session);
@@ -534,7 +555,8 @@ export function useCancelSession() {
         await cancelLiveSession({ data: { sessionId: session.id } });
         return session;
       } catch (error) {
-        console.error("[live] server cancel failed, using client:", error);
+        if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
+        console.error("[live] server cancel infrastructure failure, client fallback:", error);
       }
       try {
         const endedAt = nowIso();
@@ -613,10 +635,13 @@ export function useJoinRoom() {
       if (!session?.school_id) throw new Error("That live session was not found.");
       if (session.is_active === false) throw new Error("This session has ended.");
 
-      // Prefer client seed — Admin join still trips ESM `__dirname` on Vercel.
-      // Host flag must follow session.host_id, not generic staff role.
-      const isHost = session.host_id === input.userId;
+      // Phase 3: server-required join; host flag follows session.host_id on the server.
       try {
+        return await joinLiveSession({ data: { sessionId: input.sessionId } });
+      } catch (error) {
+        if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
+        console.error("[live] server join infrastructure failure, client fallback:", error);
+        const isHost = session.host_id === input.userId;
         await seedHostParticipant({
           sessionId: input.sessionId,
           userId: input.userId,
@@ -624,13 +649,6 @@ export function useJoinRoom() {
           isHost,
         });
         return { id: participantDocId(input.sessionId, input.userId) };
-      } catch (clientError) {
-        console.error("[live] client join failed, trying server:", clientError);
-      }
-      try {
-        return await joinLiveSession({ data: { sessionId: input.sessionId } });
-      } catch (error) {
-        throw classifyFirebase(error);
       }
     },
     onSuccess: (_d, v) => {
@@ -648,7 +666,8 @@ export function useLeaveRoom() {
         await leaveLiveSession({ data: { sessionId: input.sessionId } });
         return;
       } catch (error) {
-        console.error("[live] server leave failed, using client:", error);
+        if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
+        console.error("[live] server leave infrastructure failure, client fallback:", error);
       }
       const id = participantDocId(input.sessionId, input.userId);
       try {
@@ -677,7 +696,11 @@ export function useReportPresence() {
         await reportLivePresence({ data: { sessionId } });
         return;
       } catch (error) {
-        console.error("[live] server presence failed, using client:", error);
+        if (!isInfrastructureFailure(error)) {
+          console.error("[live] server presence failed:", error);
+          return;
+        }
+        console.error("[live] server presence infrastructure failure, client fallback:", error);
       }
       if (!userId) return;
       const id = participantDocId(sessionId, userId);

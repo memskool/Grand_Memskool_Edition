@@ -1,3 +1,4 @@
+import "@tanstack/react-start/server-only";
 import type { DocumentData, Query, WhereFilterOp } from "firebase-admin/firestore";
 import { adminDb } from "./admin.server";
 import { plainFirestoreData } from "./plain-data";
