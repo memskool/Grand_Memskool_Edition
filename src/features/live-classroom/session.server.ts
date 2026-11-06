@@ -33,7 +33,7 @@ import {
   markParticipantLeft,
   upsertParticipantJoin,
 } from "./participation";
-import { finalizeLiveAttendance } from "./attendance";
+import { finalizeLiveAttendance, listLiveAbsenteeStudentIds } from "./attendance";
 
 function asRecord(session: SessionDoc & { id: string }): LiveSessionRecord {
   const status =
@@ -324,39 +324,30 @@ export async function endLiveSessionHandler({
     });
   }
 
-  const enrollments = await adminWhere<{ student_id: string; status?: string }>(
-    COLLECTIONS.classEnrollments,
-    "class_id",
-    "==",
-    session.class_id,
-  );
-  const participants = await adminWhere<{ user_id: string; connected_at?: string | null }>(
-    COLLECTIONS.classroomParticipants,
-    "session_id",
-    "==",
-    session.id,
-  );
-  const present = new Set(participants.filter((row) => row.connected_at).map((row) => row.user_id));
-  const absentees = enrollments
-    .filter((row) => row.status !== "ended" && !present.has(row.student_id))
-    .map((row) => row.student_id)
-    .slice(0, 80);
-  const { createAndQueueNotification, dispatchNotifications } =
-    await import("@/lib/notifications.server");
-  await Promise.all(
-    absentees.map((userId) =>
-      createAndQueueNotification({
-        userId,
-        title: "You missed a live class",
-        body: "Open Missed Work to see follow-up tasks your teacher assigns for this lesson.",
-        kind: "live_class",
-        link: "/missed-work",
-        schoolId: session.school_id,
-        createdAt: now,
-      }),
-    ),
-  );
-  void dispatchNotifications();
+  if (session.school_id && session.kind !== "gold") {
+    const absentees = await listLiveAbsenteeStudentIds(session);
+    const { createAndQueueNotification, dispatchNotifications } =
+      await import("@/lib/notifications.server");
+    // Phase 6: notify in pages — do not silently drop after 80.
+    const NOTIFY_PAGE = 80;
+    for (let i = 0; i < absentees.length; i += NOTIFY_PAGE) {
+      const page = absentees.slice(i, i + NOTIFY_PAGE);
+      await Promise.all(
+        page.map((userId) =>
+          createAndQueueNotification({
+            userId,
+            title: "You missed a live class",
+            body: "Open Missed Work to see follow-up tasks your teacher assigns for this lesson.",
+            kind: "live_class",
+            link: "/missed-work",
+            schoolId: session.school_id,
+            createdAt: now,
+          }),
+        ),
+      );
+    }
+    void dispatchNotifications();
+  }
 
   return { ok: true as const, alreadyEnded: false, attendance };
 }
@@ -371,11 +362,14 @@ export async function cancelLiveSessionHandler({
   if (session.status === "cancelled") return { ok: true as const };
   const now = new Date().toISOString();
   await closeOpenParticipants(session.id);
+  // Phase 6: cancel still finalizes provisional attendance so review rows exist.
+  const attendance = await finalizeLiveAttendance({ session, recordedBy: context.userId });
   await adminUpdate(COLLECTIONS.classroomSessions, session.id, {
     status: "cancelled",
     is_active: false,
     ended_at: now,
     cancelled_at: now,
+    attendance_finalized_at: now,
   });
   if (session.lesson_id && session.kind !== "gold") {
     await adminUpdate(COLLECTIONS.lessons, session.lesson_id, {
@@ -385,7 +379,7 @@ export async function cancelLiveSessionHandler({
     });
   }
   if (!session.school_id || session.kind === "gold") {
-    return { ok: true as const };
+    return { ok: true as const, attendance };
   }
   await notifyClass({
     classId: session.class_id,
@@ -395,7 +389,22 @@ export async function cancelLiveSessionHandler({
     skipUserId: context.userId,
     kind: "live_class",
   });
-  return { ok: true as const };
+  return { ok: true as const, attendance };
+}
+
+/** Privileged finalize for client end/cancel infrastructure fallback. */
+export async function finalizeLiveAttendanceHandler({
+  data,
+  context,
+}: Args<z.infer<typeof SessionIdSchema>>) {
+  const session = await loadSession(data.sessionId);
+  await assertCanManageSession(context.role, context.schoolId, context.userId, session);
+  const attendance = await finalizeLiveAttendance({ session, recordedBy: context.userId });
+  const now = new Date().toISOString();
+  await adminUpdate(COLLECTIONS.classroomSessions, session.id, {
+    attendance_finalized_at: now,
+  });
+  return { ok: true as const, attendance };
 }
 
 export async function joinLiveSessionHandler({

@@ -577,6 +577,7 @@ service cloud.firestore {
           )
         );
       allow delete: if false;
+      // Phase 6: connected_at / last_connected_at are server/webhook only — not client-forgeable.
       allow update: if (
           isOwner(resource.data.user_id)
           && request.resource.data.diff(resource.data).affectedKeys()
@@ -584,14 +585,14 @@ service cloud.firestore {
               'hand_raised',
               'mic_on',
               'cam_on',
-              'connected_at',
-              'last_connected_at',
               'left_at',
               'last_joined_at',
               'duration_ms',
               'rejoin_count'
             ])
           && request.resource.data.is_host == resource.data.is_host
+          && request.resource.data.connected_at == resource.data.connected_at
+          && request.resource.data.last_connected_at == resource.data.last_connected_at
         )
         || (
           sameSchool(resource.data.school_id)

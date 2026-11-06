@@ -20,6 +20,7 @@ import {
   cancelLiveSession,
   correctLiveAttendance,
   endLiveSession,
+  finalizeSessionAttendance,
   joinLiveSession,
   leaveLiveSession,
   moderateLiveParticipant,
@@ -573,6 +574,12 @@ export function useEndSession() {
       } catch (clientError) {
         throw classifyFirebase(clientError);
       }
+      // Phase 6: never silently skip attendance finalize on infrastructure fallback.
+      try {
+        await finalizeSessionAttendance({ data: { sessionId: session.id } });
+      } catch (finalizeError) {
+        console.error("[live] attendance finalize after client end failed:", finalizeError);
+      }
       return session;
     },
     onSuccess: (s) => {
@@ -606,6 +613,11 @@ export function useCancelSession() {
         await closeOpenParticipantsClient(session, endedAt);
       } catch (clientError) {
         throw classifyFirebase(clientError);
+      }
+      try {
+        await finalizeSessionAttendance({ data: { sessionId: session.id } });
+      } catch (finalizeError) {
+        console.error("[live] attendance finalize after client cancel failed:", finalizeError);
       }
       return session;
     },
@@ -736,20 +748,15 @@ export function useReportPresence() {
         }
         console.error("[live] server presence infrastructure failure, client fallback:", error);
       }
+      // Phase 6: connected_at is server/webhook only — do not forge presence from the client.
       if (!userId) return;
       const id = participantDocId(sessionId, userId);
-      const now = nowIso();
       try {
-        const existing = await getById<{ connected_at?: string | null; rejoin_count?: number }>(
-          COLLECTIONS.classroomParticipants,
-          id,
-        );
+        const existing = await getById(COLLECTIONS.classroomParticipants, id);
         if (!existing) return;
         await patchById(COLLECTIONS.classroomParticipants, id, {
-          connected_at: existing.connected_at ?? now,
-          last_connected_at: now,
           left_at: null,
-          rejoin_count: (existing.rejoin_count ?? 0) + (existing.connected_at ? 1 : 0),
+          last_joined_at: nowIso(),
         });
       } catch (clientError) {
         console.error("[live] client presence patch failed:", clientError);

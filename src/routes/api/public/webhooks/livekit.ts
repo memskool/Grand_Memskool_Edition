@@ -3,7 +3,9 @@ import { sessionIdFromRoom } from "@/features/live-classroom/contracts";
 
 /**
  * LiveKit webhooks. Authenticated by the provider JWT (`Authorization` header),
- * never trusted from the payload alone. Duplicate event ids are ignored.
+ * never trusted from the payload alone.
+ * Phase 6: apply presence first, then record the idempotency key so a failed
+ * presence write is retried instead of being skipped as a duplicate.
  */
 export const Route = createFileRoute("/api/public/webhooks/livekit")({
   server: {
@@ -33,14 +35,6 @@ export const Route = createFileRoute("/api/public/webhooks/livekit")({
           const existing = await adminGetById(COLLECTIONS.liveSessionEvents, eventId);
           if (existing) return Response.json({ received: true, duplicate: true });
 
-          await adminSet(COLLECTIONS.liveSessionEvents, eventId, {
-            provider: "livekit",
-            event_id: eventId,
-            event_type: event.event,
-            room: event.room?.name ?? null,
-            created_at: new Date().toISOString(),
-          });
-
           const sessionId = sessionIdFromRoom(event.room?.name);
           const identity = event.participant?.identity;
 
@@ -55,14 +49,19 @@ export const Route = createFileRoute("/api/public/webhooks/livekit")({
               event.event === "participant_connection_aborted"
             ) {
               await markParticipantLeft(sessionId, identity);
-              // Phase 5: when the host disconnects from LiveKit, end the Firestore session
-              // so Virtual Classroom does not keep a false LIVE badge.
+              // Host disconnect ends the session and finalizes attendance (Phase 5+6).
               try {
                 const session = await adminGetById<{
+                  id?: string;
                   host_id?: string;
                   is_active?: boolean;
                   status?: string;
                   lesson_id?: string | null;
+                  school_id?: string | null;
+                  class_id?: string;
+                  kind?: string | null;
+                  started_at?: string;
+                  gold_class_id?: string | null;
                 }>(COLLECTIONS.classroomSessions, sessionId);
                 if (
                   session &&
@@ -72,10 +71,34 @@ export const Route = createFileRoute("/api/public/webhooks/livekit")({
                 ) {
                   const now = new Date().toISOString();
                   await closeOpenParticipants(sessionId);
+                  const { finalizeLiveAttendance } =
+                    await import("@/features/live-classroom/attendance");
+                  await finalizeLiveAttendance({
+                    session: {
+                      id: sessionId,
+                      school_id: session.school_id ?? null,
+                      class_id: session.class_id ?? "",
+                      host_id: session.host_id,
+                      lesson_id: session.lesson_id ?? null,
+                      ...(session.status !== undefined ? { status: session.status } : {}),
+                      ...(session.is_active !== undefined
+                        ? { is_active: session.is_active }
+                        : {}),
+                      ...(session.started_at !== undefined
+                        ? { started_at: session.started_at }
+                        : {}),
+                      ...(session.kind != null ? { kind: session.kind } : {}),
+                      ...(session.gold_class_id != null
+                        ? { gold_class_id: session.gold_class_id }
+                        : {}),
+                    },
+                    recordedBy: identity,
+                  });
                   await adminUpdate(COLLECTIONS.classroomSessions, sessionId, {
                     status: "ended",
                     is_active: false,
                     ended_at: now,
+                    attendance_finalized_at: now,
                   });
                   if (session.lesson_id) {
                     await adminUpdate(COLLECTIONS.lessons, session.lesson_id, {
@@ -89,6 +112,15 @@ export const Route = createFileRoute("/api/public/webhooks/livekit")({
               }
             }
           }
+
+          // Record idempotency only after presence side-effects succeed.
+          await adminSet(COLLECTIONS.liveSessionEvents, eventId, {
+            provider: "livekit",
+            event_id: eventId,
+            event_type: event.event,
+            room: event.room?.name ?? null,
+            created_at: new Date().toISOString(),
+          });
 
           return Response.json({ received: true });
         } catch (error) {

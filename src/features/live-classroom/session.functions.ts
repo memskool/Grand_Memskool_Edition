@@ -80,3 +80,12 @@ export const correctLiveAttendance = createServerFn({ method: "POST" })
     const { correctLiveAttendanceHandler } = await import("./session.server");
     return correctLiveAttendanceHandler(opts);
   });
+
+/** Phase 6: client end/cancel fallback must still finalize attendance. */
+export const finalizeSessionAttendance = createServerFn({ method: "POST" })
+  .middleware([requireFirebaseAuth])
+  .inputValidator((data: unknown) => SessionIdSchema.parse(data))
+  .handler(async (opts) => {
+    const { finalizeLiveAttendanceHandler } = await import("./session.server");
+    return finalizeLiveAttendanceHandler(opts);
+  });

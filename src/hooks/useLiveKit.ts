@@ -78,8 +78,9 @@ function screenShareSupported() {
 }
 
 /**
- * Real-time A/V powered by LiveKit. The access token is minted server-side, so
- * publish rights and room membership are enforced outside the browser.
+ * Real-time A/V powered by LiveKit.
+ * Phase 6: token mint enforces enrollment/Gold/suspension + publish/screen-share
+ * policy server-side — the browser cannot escalate room rights.
  */
 export function useLiveKit(sessionId: string, enabled = true) {
   const getToken = useServerFn(issueClassroomToken);
@@ -236,6 +237,14 @@ export function useLiveKit(sessionId: string, enabled = true) {
   const toggleScreenShare = useCallback(async () => {
     const room = roomRef.current;
     if (!room) return false;
+    // Token canPublishSources already blocks non-hosts; mirror that in UI.
+    if (!canShareScreen) {
+      setError({
+        kind: "permission",
+        message: "Only the host can share their screen in this class.",
+      });
+      return false;
+    }
     if (!screenShareSupported()) {
       setError({
         kind: "unsupported",
@@ -252,7 +261,7 @@ export function useLiveKit(sessionId: string, enabled = true) {
       setError(toMediaError(err));
       return screenShareOn;
     }
-  }, [screenShareOn]);
+  }, [screenShareOn, canShareScreen]);
 
   const forceMute = useCallback(() => {
     void roomRef.current?.localParticipant.setMicrophoneEnabled(false);
