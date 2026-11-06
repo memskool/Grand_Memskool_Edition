@@ -282,4 +282,3 @@ export async function completeSignupHandler(data: SignupInput, context: AuthedCo
 
   return toClientJson({ schoolId, role: storedRole, membership });
 }
-

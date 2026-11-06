@@ -609,10 +609,7 @@ export function useParticipants(sessionId?: string) {
         if (!session?.school_id) return;
         unsub = subscribeMany(
           COLLECTIONS.classroomParticipants,
-          [
-            where("school_id", "==", session.school_id),
-            where("session_id", "==", sessionId),
-          ],
+          [where("school_id", "==", session.school_id), where("session_id", "==", sessionId)],
           () => qc.invalidateQueries({ queryKey: ["classroom-participants", sessionId] }),
         );
       },
@@ -826,11 +823,7 @@ export function useBulkParticipantUpdate() {
       );
       await Promise.all(
         rows
-          .filter(
-            (row) =>
-              !row.left_at &&
-              row.user_id !== input.exceptUserId,
-          )
+          .filter((row) => !row.left_at && row.user_id !== input.exceptUserId)
           .map((row) => patchById(COLLECTIONS.classroomParticipants, row.id, patch)),
       );
     },

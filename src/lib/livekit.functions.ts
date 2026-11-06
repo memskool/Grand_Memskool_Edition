@@ -34,9 +34,8 @@ export const issueClassroomToken = createServerFn({ method: "POST" })
     const idToken = header.slice("Bearer ".length).trim();
     if (!idToken) throw new Error("Unauthorized: No token provided");
 
-    const { verifyFirebaseIdTokenWithJose } = await import(
-      "@/lib/firebase/verify-id-token-jose.server"
-    );
+    const { verifyFirebaseIdTokenWithJose } =
+      await import("@/lib/firebase/verify-id-token-jose.server");
     const { getFirestoreDocAsUser } = await import("@/lib/firebase/firestore-user-rest.server");
     const { mintLiveKitAccessToken } = await import("@/lib/livekit-token.server");
 

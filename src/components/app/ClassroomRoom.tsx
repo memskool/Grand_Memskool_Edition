@@ -158,8 +158,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
     [participants.data],
   );
   const me = live.find((p) => p.user_id === userId);
-  const host =
-    live.find((p) => p.is_host || p.user_id === session.host_id) ?? null;
+  const host = live.find((p) => p.is_host || p.user_id === session.host_id) ?? null;
   const learners = live.filter((p) => !p.is_host && p.user_id !== session.host_id);
   // Count the host even before their participant row finishes loading.
   const peopleCount = Math.max(
@@ -503,7 +502,10 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
               </Button>
               {canModerate ? (
                 <Button
-                  className={cn(controlBtn, "bg-destructive text-destructive-foreground hover:bg-destructive/90")}
+                  className={cn(
+                    controlBtn,
+                    "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+                  )}
                   onClick={handleEnd}
                   disabled={endSession.isPending}
                 >
@@ -596,12 +598,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
           </div>
         </section>
 
-        <aside
-          className={cn(
-            "flex min-h-0 flex-col gap-3",
-            chatOpen ? "flex" : "hidden lg:flex",
-          )}
-        >
+        <aside className={cn("flex min-h-0 flex-col gap-3", chatOpen ? "flex" : "hidden lg:flex")}>
           <div className={cn(sideTab === "materials" || !chatOpen ? "block" : "hidden lg:block")}>
             <MaterialsPanel
               materials={materials.data ?? []}

@@ -169,10 +169,7 @@ export async function syncApprovedApplicantsToRoll(schoolId: string): Promise<nu
       typeof app.reviewed_at !== "string" ||
       !app.reviewed_at
     ) {
-      console.warn(
-        "[applications] skip approve sync — missing privileged review stamp:",
-        app.id,
-      );
+      console.warn("[applications] skip approve sync — missing privileged review stamp:", app.id);
       continue;
     }
     const member = await adminGetById<{ school_id?: string; status?: string; role?: string }>(
