@@ -81,9 +81,7 @@ export const Route = createFileRoute("/api/public/webhooks/livekit")({
                       host_id: session.host_id,
                       lesson_id: session.lesson_id ?? null,
                       ...(session.status !== undefined ? { status: session.status } : {}),
-                      ...(session.is_active !== undefined
-                        ? { is_active: session.is_active }
-                        : {}),
+                      ...(session.is_active !== undefined ? { is_active: session.is_active } : {}),
                       ...(session.started_at !== undefined
                         ? { started_at: session.started_at }
                         : {}),
