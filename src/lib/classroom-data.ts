@@ -16,6 +16,8 @@ import {
 import { attachNamedUser } from "@/lib/firebase/hydrate";
 import { classifyFirebase } from "@/lib/errors/app-error";
 import { PRODUCT_EVENTS, trackProductEvent } from "@/lib/analytics";
+import { isInfrastructureFailure } from "@/lib/infra-failure";
+import { isFreshLiveSession } from "@/lib/live-session-fresh";
 import {
   cancelLiveSession,
   correctLiveAttendance,
@@ -49,20 +51,7 @@ export type ClassroomSession = {
   provider_room?: string;
 };
 
-/** Ghost LIVE badges: teachers leave without End, leaving is_active forever. */
-const LIVE_SESSION_MAX_MS = 4 * 60 * 60 * 1000;
-
-export function isFreshLiveSession(
-  session: Pick<ClassroomSession, "is_active" | "status" | "started_at">,
-  now = Date.now(),
-): boolean {
-  if (!session.is_active) return false;
-  const status = session.status ?? "live";
-  if (status !== "live") return false;
-  const started = Date.parse(session.started_at);
-  if (Number.isNaN(started)) return false;
-  return now - started <= LIVE_SESSION_MAX_MS;
-}
+export { isFreshLiveSession } from "@/lib/live-session-fresh";
 
 /**
  * Phase 5 shared LIVE predicate: fresh + host participant still in the room.
@@ -326,37 +315,9 @@ function unwrapSession(raw: unknown): ClassroomSession {
   throw new Error("Live session started but the response was incomplete. Refresh and rejoin.");
 }
 
-function looksLikeDirnameCrash(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  return message.includes("__dirname") || message.toLowerCase().includes("es module scope");
-}
-
-/** Phase 3: client writes only when the server path itself is broken — never for authz denials. */
-function isInfrastructureFailure(error: unknown): boolean {
-  if (looksLikeDirnameCrash(error)) return true;
-  const message = (error instanceof Error ? error.message : String(error ?? "")).toLowerCase();
-  if (
-    message.includes("fetch failed") ||
-    message.includes("network") ||
-    message.includes("econnreset") ||
-    message.includes("etimedout") ||
-    message.includes("503") ||
-    message.includes("502") ||
-    message.includes("504") ||
-    message.includes("function timeout")
-  ) {
-    return true;
-  }
-  if (
-    message.includes("permission") ||
-    message.includes("unauthorized") ||
-    message.includes("forbidden") ||
-    message.includes("not allowed") ||
-    message.includes("not approved")
-  ) {
-    return false;
-  }
-  return false;
+/** @deprecated Phase 10 — remove when Analytics client_fallback ≈ 0 for 14 days. See docs/qa/CLIENT_FALLBACK_MONITORING.md */
+async function noteClientFallback(surface: string): Promise<void> {
+  await trackProductEvent(PRODUCT_EVENTS.clientFallback, { role: surface, outcome: "failure" });
 }
 
 async function seedHostParticipant(input: {
@@ -547,6 +508,7 @@ export function useStartSession() {
       } catch (error) {
         if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
         console.error("[live] server start infrastructure failure, client fallback:", error);
+        void noteClientFallback("live_start");
         return startSessionOnClient(input);
       }
     },
@@ -568,6 +530,7 @@ export function useEndSession() {
       } catch (error) {
         if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
         console.error("[live] server end infrastructure failure, client fallback:", error);
+        void noteClientFallback("live_end");
       }
       try {
         await endSessionDocClient(session);
@@ -601,6 +564,7 @@ export function useCancelSession() {
       } catch (error) {
         if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
         console.error("[live] server cancel infrastructure failure, client fallback:", error);
+        void noteClientFallback("live_cancel");
       }
       try {
         const endedAt = nowIso();
@@ -687,6 +651,7 @@ export function useJoinRoom() {
       } catch (error) {
         if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
         console.error("[live] server join infrastructure failure, client fallback:", error);
+        void noteClientFallback("live_join");
         const isHost = session.host_id === input.userId;
         await seedHostParticipant({
           sessionId: input.sessionId,
@@ -714,6 +679,7 @@ export function useLeaveRoom() {
       } catch (error) {
         if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
         console.error("[live] server leave infrastructure failure, client fallback:", error);
+        void noteClientFallback("live_leave");
       }
       const id = participantDocId(input.sessionId, input.userId);
       try {
@@ -747,6 +713,7 @@ export function useReportPresence() {
           return;
         }
         console.error("[live] server presence infrastructure failure, client fallback:", error);
+        void noteClientFallback("live_presence");
       }
       // Phase 6: connected_at is server/webhook only — do not forge presence from the client.
       if (!userId) return;

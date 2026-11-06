@@ -1,6 +1,14 @@
-# Product decisions (Phases 1–9)
+# Product decisions (Phases 1–10)
 
 Recorded so UI, rules, and docs stay aligned.
+
+## Phase 10 readiness
+
+| Decision | Choice | Notes |
+| --- | --- | --- |
+| Verification gate | Manual matrix + unit predicates | `docs/qa/phase10-matrix.md` |
+| Dual-path client writes | Deprecated; infra-only | Remove after `client_fallback` ≈ 0 for 14 days |
+| E2E / emulator suite | Deferred | Not blocking Phase 10 ship |
 
 ## Identity & access
 

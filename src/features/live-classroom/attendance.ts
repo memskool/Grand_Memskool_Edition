@@ -1,44 +1,23 @@
 import { adminGetById, adminSet, adminWhere } from "@/lib/firebase/admin-repo";
 import { COLLECTIONS } from "@/lib/firebase/repo";
-import type { AttendanceStatus } from "@/types/academic";
 import type { SessionDoc } from "./authz";
+import {
+  liveAttendanceDocId,
+  markFromParticipation,
+  participationDurationMs,
+  type ParticipationSnapshot,
+} from "./attendance-policy";
 
-type ParticipantRow = {
+export { liveAttendanceDocId, markFromParticipation } from "./attendance-policy";
+
+type ParticipantRow = ParticipationSnapshot & {
   user_id: string;
   is_host?: boolean;
-  connected_at?: string | null;
-  duration_ms?: number;
-  left_at?: string | null;
-  last_connected_at?: string | null;
 };
 
 type SchoolPolicy = {
   live_attendance_min_seconds?: number | null;
 };
-
-/** Deterministic id so a later live on the same lesson cannot clobber this session. */
-export function liveAttendanceDocId(sessionId: string, studentId: string): string {
-  return `live_${sessionId}_${studentId}`;
-}
-
-function durationOf(row: ParticipantRow, endedAt: string): number {
-  let ms = row.duration_ms ?? 0;
-  if (!row.left_at && (row.last_connected_at || row.connected_at)) {
-    const start = Date.parse(row.last_connected_at ?? row.connected_at ?? "");
-    const end = Date.parse(endedAt);
-    if (!Number.isNaN(start) && !Number.isNaN(end) && end > start) ms += end - start;
-  }
-  return ms;
-}
-
-export function markFromParticipation(
-  row: ParticipantRow | undefined,
-  minSeconds: number,
-): AttendanceStatus {
-  if (!row?.connected_at) return "absent";
-  if (durationOf(row, new Date().toISOString()) < minSeconds * 1000) return "absent";
-  return "present";
-}
 
 const ENROLLMENT_PAGE = 200;
 
@@ -84,9 +63,9 @@ export async function finalizeLiveAttendance(input: {
     await Promise.all(
       page.map(async (studentId) => {
         const part = byUser.get(studentId);
-        const status = markFromParticipation(part, minSeconds);
+        const status = markFromParticipation(part, minSeconds, endedAt);
         if (status === "absent") absent += 1;
-        const durationMs = part ? durationOf(part, endedAt) : 0;
+        const durationMs = part ? participationDurationMs(part, endedAt) : 0;
         const id = liveAttendanceDocId(session.id, studentId);
         const existing = await adminGetById<{ provisional?: boolean; session_id?: string }>(
           COLLECTIONS.attendance,

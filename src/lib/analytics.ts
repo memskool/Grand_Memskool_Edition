@@ -6,6 +6,8 @@ export const PRODUCT_EVENTS = {
   workspaceOpen: "workspace_open",
   assessmentSubmitted: "assessment_submitted",
   classroomJoin: "classroom_join",
+  /** Phase 10: count residual dual-path client writes. role = surface name. */
+  clientFallback: "client_fallback",
 } as const;
 
 type ProductEvent = (typeof PRODUCT_EVENTS)[keyof typeof PRODUCT_EVENTS];

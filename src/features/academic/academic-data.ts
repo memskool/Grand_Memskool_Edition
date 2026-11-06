@@ -11,6 +11,8 @@ import {
 } from "@/lib/firebase/repo";
 import { userSchoolId } from "@/lib/firebase/hydrate";
 import { classifyFirebase } from "@/lib/errors/app-error";
+import { PRODUCT_EVENTS, trackProductEvent } from "@/lib/analytics";
+import { isInfrastructureFailure } from "@/lib/infra-failure";
 import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 import { classEnrollmentId, classTeacherAssignmentId } from "@/features/academic/ids";
 import type {
@@ -536,19 +538,9 @@ function invalidateClassPeople(
   }
 }
 
-function isInfrastructureFailure(error: unknown): boolean {
-  const message = (error instanceof Error ? error.message : String(error ?? "")).toLowerCase();
-  if (message.includes("__dirname") || message.includes("es module scope")) return true;
-  return (
-    message.includes("fetch failed") ||
-    message.includes("network") ||
-    message.includes("econnreset") ||
-    message.includes("etimedout") ||
-    message.includes("503") ||
-    message.includes("502") ||
-    message.includes("504") ||
-    message.includes("function timeout")
-  );
+/** @deprecated Phase 10 — remove when Analytics client_fallback ≈ 0 for 14 days. */
+async function noteClientFallback(surface: string): Promise<void> {
+  await trackProductEvent(PRODUCT_EVENTS.clientFallback, { role: surface, outcome: "failure" });
 }
 
 export function useEnrollStudent() {
@@ -564,6 +556,7 @@ export function useEnrollStudent() {
       } catch (error) {
         if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
         console.error("[enrol] server infrastructure failure, client fallback:", error);
+        void noteClientFallback("enrol_student");
       }
       // Phase 7: client fallback still requires on-roll + deterministic id (no silent skip).
       const [cls, member] = await Promise.all([
@@ -640,6 +633,7 @@ export function useAssignTeacher() {
       } catch (error) {
         if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
         console.error("[assign-teacher] server infrastructure failure, client fallback:", error);
+        void noteClientFallback("assign_teacher");
       }
       const [cls, member] = await Promise.all([
         getById<{ school_id: string }>(COLLECTIONS.classes, input.class_id),
