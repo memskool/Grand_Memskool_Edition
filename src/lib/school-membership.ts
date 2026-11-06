@@ -166,6 +166,7 @@ export function useMySchool(userId: string | undefined) {
               ? ownedDirect
               : await getById<School>(COLLECTIONS.schools, schoolId);
           if (school) {
+            // Phase 7: never invent "approved" when status is unknown — that unlocked tools early.
             const membership: MemberStatus | "owner" =
               profile?.membership_status === "owner" ||
               profile?.role === "institution" ||
@@ -181,7 +182,7 @@ export function useMySchool(userId: string | undefined) {
                       profile?.membership_status === "rejected" ||
                       profile?.membership_status === "approved"
                     ? profile.membership_status
-                    : "approved";
+                    : "pending";
             const row = {
               ...school,
               membership,

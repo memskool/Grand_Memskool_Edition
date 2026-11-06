@@ -745,8 +745,10 @@ function AdmissionsSection({ schoolId }: { schoolId?: string | undefined }) {
       setDraftNotes("");
       toast.success(
         status === "approved"
-          ? "Application approved — student enrolled and notified."
-          : "Application updated — applicant notified.",
+          ? "Application approved — student added to the school roll. Enrol them into a class next."
+          : status === "rejected"
+            ? "Application declined — applicant notified."
+            : "Application updated — applicant notified.",
       );
     } catch (err) {
       toast.error(authErrorMessage(err));
@@ -897,16 +899,16 @@ function AdmissionsSection({ schoolId }: { schoolId?: string | undefined }) {
       </Panel>
 
       <Panel
-        title="Enrolled students"
-        description="Students who have been approved into this school"
+        title="School roll"
+        description="Students approved onto the school (class enrolment is a separate step under Classes)"
       >
         {members.isLoading ? (
           <ListSkeleton rows={2} />
         ) : enrolledStudents.length === 0 ? (
           <EmptyState
             icon={Users}
-            title="No enrolled students yet"
-            hint="Approve a Dream School application or a join request and the student appears here."
+            title="No students on the roll yet"
+            hint="Approve a Dream School application or a join request, then enrol them into a class under Classes."
           />
         ) : (
           <ul className="space-y-2">

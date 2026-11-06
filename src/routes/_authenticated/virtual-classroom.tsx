@@ -1,6 +1,7 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 import { Video, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useSession, useRole } from "@/hooks/useAuth";
@@ -38,8 +39,16 @@ const ClassroomRoom = lazy(() =>
   import("@/components/app/ClassroomRoom").then((m) => ({ default: m.ClassroomRoom })),
 );
 
+const virtualClassroomSearchSchema = z.object({
+  class: z.string().min(1).optional(),
+});
+
 export const Route = createFileRoute("/_authenticated/virtual-classroom")({
   ssr: false,
+  validateSearch: (search) => {
+    const parsed = virtualClassroomSearchSchema.safeParse(search);
+    return parsed.success ? parsed.data : {};
+  },
   head: () => ({
     meta: [
       { title: "Virtual Classroom — Memskool" },
@@ -63,6 +72,7 @@ export const Route = createFileRoute("/_authenticated/virtual-classroom")({
 function VirtualClassroomPage() {
   const { user } = useSession();
   const { data: role } = useRole(user ?? null);
+  const { class: deepLinkClassId } = Route.useSearch();
   const { data: capabilities } = usePlatformCapabilities();
   const liveReady = capabilities?.liveVideo !== false;
   const isTeacher = role === "teacher" || role === "admin" || role === "institution";
@@ -77,6 +87,13 @@ function VirtualClassroomPage() {
   const liveIds = new Set((liveSessions.data ?? []).map((s) => s.class_id));
 
   const [openClass, setOpenClass] = useState<{ id: string; name: string } | null>(null);
+
+  // Phase 7: ClassCards deep-link opens the matching class when the list is ready.
+  useEffect(() => {
+    if (!deepLinkClassId || openClass || source.isLoading) return;
+    const match = (source.data ?? []).find((c) => c.id === deepLinkClassId);
+    if (match) setOpenClass({ id: match.id, name: match.name });
+  }, [deepLinkClassId, openClass, source.data, source.isLoading]);
 
   if (suspension && !isTeacher) {
     return (

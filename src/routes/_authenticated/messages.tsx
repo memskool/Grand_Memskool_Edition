@@ -105,7 +105,7 @@ function MessagesPage() {
           userId ? (
             <NewConversationDialog
               userId={userId}
-              isStaff={role === "teacher" || role === "admin"}
+              isStaff={role === "teacher" || role === "admin" || role === "institution"}
             />
           ) : undefined
         }

@@ -727,8 +727,10 @@ export function useUpdateApplicationStatus() {
       qc.invalidateQueries({ queryKey: ["school-members"] });
       qc.invalidateQueries({ queryKey: ["school-students"] });
       qc.invalidateQueries({ queryKey: ["school-teachers"] });
+      qc.invalidateQueries({ queryKey: ["school-roster"] });
       qc.invalidateQueries({ queryKey: ["my-school"] });
       qc.invalidateQueries({ queryKey: ["profile"] });
+      void refreshAuthClaims().catch(() => undefined);
     },
   });
 }

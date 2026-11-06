@@ -362,7 +362,13 @@ export function usePendingGrading(userId?: string) {
         orderBy("submitted_at", "asc"),
         limit(40),
       ]);
-      const mine = rows.filter((s) => !s.class_id || classIds.includes(s.class_id));
+      // Phase 7: only real submissions waiting for a mark (not draft/pending autosaves).
+      const mine = rows.filter(
+        (s) =>
+          s.status !== "pending" &&
+          s.status !== "draft" &&
+          (!s.class_id || classIds.includes(s.class_id)),
+      );
       return Promise.all(
         mine.slice(0, 20).map(async (s) => {
           const student = await getById<{ full_name: string }>(

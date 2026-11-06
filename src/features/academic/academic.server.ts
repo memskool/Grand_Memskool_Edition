@@ -13,6 +13,7 @@ import { toClientJson } from "@/lib/firebase/plain-data";
 import { COLLECTIONS } from "@/lib/firebase/repo";
 import { isSchoolManager } from "@/types/roles";
 import { managedSchoolIdFor } from "@/lib/firebase/school-context.server";
+import { classEnrollmentId, classTeacherAssignmentId } from "./ids";
 
 // Handlers receive already-validated payloads from thin createServerFn facades.
 type Ctx = { context: AuthedContext };
@@ -158,21 +159,12 @@ export async function enrollStudentHandler({
     data.student_id,
   );
   const onRoll =
-    student?.school_id === schoolId ||
     (member?.school_id === schoolId &&
       member.status === "approved" &&
-      (member.role === "student" || member.role === "teacher"));
+      (member.role === "student" || member.role === "teacher")) ||
+    student?.school_id === schoolId;
   if (!onRoll) {
-    const apps = await adminWhere<{ student_id: string; school_id: string; status?: string }>(
-      COLLECTIONS.schoolApplications,
-      "school_id",
-      "==",
-      schoolId,
-    ).catch(() => []);
-    const admitted = apps.some(
-      (row) => row.student_id === data.student_id && row.status === "approved",
-    );
-    if (!admitted) throw new Error("That student is not in your school.");
+    throw new Error("That student is not on your school roll. Approve their application first.");
   }
 
   const existing = await adminWhere<{ student_id: string; class_id: string; status?: string }>(
@@ -193,7 +185,8 @@ export async function enrollStudentHandler({
   }
 
   const now = new Date().toISOString();
-  const id = await adminCreate(COLLECTIONS.classEnrollments, {
+  const id = classEnrollmentId(data.class_id, data.student_id);
+  await adminSet(COLLECTIONS.classEnrollments, id, {
     school_id: schoolId,
     class_id: data.class_id,
     student_id: data.student_id,
@@ -283,7 +276,8 @@ export async function assignClassTeacherHandler({
     return toClientJson({ id: active.id });
   }
   const now = new Date().toISOString();
-  const id = await adminCreate(COLLECTIONS.classTeacherAssignments, {
+  const id = classTeacherAssignmentId(data.class_id, data.teacher_id, data.subject_id);
+  await adminSet(COLLECTIONS.classTeacherAssignments, id, {
     school_id: schoolId,
     ...data,
     status: "active",
@@ -310,11 +304,12 @@ export async function assignClassTeacherHandler({
   return toClientJson({ id });
 }
 
-/** Teacher: classes from ownership + active subject assignments. */
+/** Teacher: classes from ownership + active subject assignments (tenant-scoped). */
 export async function listMyTeachingClassesHandler({ context }: Ctx) {
   const userId = context.userId;
+  const schoolId = context.schoolId;
   const owned = await adminWhere<ClassDoc>(COLLECTIONS.classes, "teacher_id", "==", userId);
-  const assigned = await adminWhere<{ class_id: string; status?: string }>(
+  const assigned = await adminWhere<{ class_id: string; status?: string; school_id?: string }>(
     COLLECTIONS.classTeacherAssignments,
     "teacher_id",
     "==",
@@ -322,21 +317,25 @@ export async function listMyTeachingClassesHandler({ context }: Ctx) {
     [["status", "==", "active"]],
   );
   const classIds = [
-    ...owned.filter((row) => row.status !== "archived").map((row) => row.id),
-    ...assigned.map((row) => row.class_id),
+    ...owned
+      .filter((row) => row.status !== "archived" && (!schoolId || row.school_id === schoolId))
+      .map((row) => row.id),
+    ...assigned.filter((row) => !schoolId || row.school_id === schoolId).map((row) => row.class_id),
   ];
   return toClientJson(await classRowsForIds(classIds));
 }
 
-/** Student: active class enrolments. */
+/** Student: active class enrolments (tenant-scoped). */
 export async function listMyEnrolledClassesHandler({ context }: Ctx) {
-  const enrollments = await adminWhere<{ class_id: string; status?: string }>(
-    COLLECTIONS.classEnrollments,
-    "student_id",
-    "==",
-    context.userId,
-  );
-  const classIds = enrollments.filter((row) => row.status !== "ended").map((row) => row.class_id);
+  const schoolId = context.schoolId;
+  const enrollments = await adminWhere<{
+    class_id: string;
+    status?: string;
+    school_id?: string;
+  }>(COLLECTIONS.classEnrollments, "student_id", "==", context.userId);
+  const classIds = enrollments
+    .filter((row) => row.status !== "ended" && (!schoolId || row.school_id === schoolId))
+    .map((row) => row.class_id);
   return toClientJson(await classRowsForIds(classIds));
 }
 

@@ -15,6 +15,7 @@ import {
   useMyAssignments,
   useMyLocker,
 } from "@/lib/school-data";
+import { useMySchool } from "@/lib/school-membership";
 import { AssignmentWorkPanel } from "@/components/app/AssignmentWorkPanel";
 import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
 import { Button } from "@/components/ui/button";
@@ -22,11 +23,16 @@ import { formatDate } from "@/lib/format";
 import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 
 export function StudentDashboard({ user }: { user: AuthUser }) {
+  const school = useMySchool(user.id);
   const classes = useMyEnrolledClasses(user.id);
   const slots = useUpcomingSlots(user.id);
   const assignments = useMyAssignments(user.id);
   const locker = useMyLocker(user.id);
   const claimsRefreshed = useRef(false);
+  const onRoll = school.data?.membership === "approved" || school.data?.membership === "owner";
+  const classesEmptyHint = onRoll
+    ? `You are on the ${school.data?.name ?? "school"} roll, but not enrolled in a class yet. Ask your school admin to enrol you.`
+    : "You are not admitted to a school class yet. Explore Dream School, open your locker, or ask the AI Tutor — join a school when you have one.";
 
   useEffect(() => {
     if (claimsRefreshed.current) return;
@@ -78,13 +84,15 @@ export function StudentDashboard({ user }: { user: AuthUser }) {
             <ClassCardGrid
               classes={classes.data ?? []}
               loading={classes.isLoading}
-              emptyHint="You are not in a school class yet. Explore Dream School, open your locker, or ask the AI Tutor — join a school later when you have one."
+              emptyHint={classesEmptyHint}
             />
             {!classes.isLoading && !classes.data?.length ? (
               <div className="mt-4 flex flex-wrap gap-2">
-                <Button asChild className="rounded-full" variant="outline" size="sm">
-                  <Link to="/dream-school">Explore Dream School</Link>
-                </Button>
+                {onRoll ? null : (
+                  <Button asChild className="rounded-full" variant="outline" size="sm">
+                    <Link to="/dream-school">Explore Dream School</Link>
+                  </Button>
+                )}
                 <Button asChild className="rounded-full" variant="outline" size="sm">
                   <Link to="/locker">Open locker</Link>
                 </Button>

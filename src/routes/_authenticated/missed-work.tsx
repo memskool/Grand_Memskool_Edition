@@ -53,7 +53,7 @@ function MissedWorkPage() {
   const { user } = useSession();
   const { data: role } = useRole(user);
   // Review + release is a teacher/admin decision; students can only view and open.
-  const canReview = role === "teacher" || role === "admin";
+  const canReview = role === "teacher" || role === "admin" || role === "institution";
   const missed = useMissedWork(user?.id);
   const assignments = useMyAssignments(user?.id);
   const markReviewed = useMarkReviewed();

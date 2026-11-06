@@ -18,6 +18,7 @@ export function ClassCard({
     <Link
       preload="intent"
       to="/virtual-classroom"
+      search={{ class: klass.id }}
       className={cn(
         "group relative flex min-h-[148px] flex-col justify-between overflow-hidden rounded-xl bg-ink p-5 text-ink-foreground transition-transform duration-200 ease-out hover:-translate-y-0.5",
         className,

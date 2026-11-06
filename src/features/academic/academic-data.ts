@@ -5,12 +5,14 @@ import {
   findMany,
   getById,
   patchById,
+  setById,
   where,
   orderBy,
 } from "@/lib/firebase/repo";
 import { userSchoolId } from "@/lib/firebase/hydrate";
 import { classifyFirebase } from "@/lib/errors/app-error";
 import { refreshAuthClaims } from "@/features/auth/services/auth.service";
+import { classEnrollmentId, classTeacherAssignmentId } from "@/features/academic/ids";
 import type {
   AcademicYear,
   AcademicPeriod,
@@ -534,6 +536,21 @@ function invalidateClassPeople(
   }
 }
 
+function isInfrastructureFailure(error: unknown): boolean {
+  const message = (error instanceof Error ? error.message : String(error ?? "")).toLowerCase();
+  if (message.includes("__dirname") || message.includes("es module scope")) return true;
+  return (
+    message.includes("fetch failed") ||
+    message.includes("network") ||
+    message.includes("econnreset") ||
+    message.includes("etimedout") ||
+    message.includes("503") ||
+    message.includes("502") ||
+    message.includes("504") ||
+    message.includes("function timeout")
+  );
+}
+
 export function useEnrollStudent() {
   const qc = useQueryClient();
   return useMutation({
@@ -545,14 +562,31 @@ export function useEnrollStudent() {
         // Server wrote successfully; avoid a second client write that duplicates rows.
         return { id: "saved" };
       } catch (error) {
-        console.error("[enrol] server enroll failed:", error);
+        if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
+        console.error("[enrol] server infrastructure failure, client fallback:", error);
       }
-      const cls = await getById<{
-        school_id: string;
-        academic_year_id?: string | null;
-        academic_period_id?: string | null;
-      }>(COLLECTIONS.classes, input.class_id);
+      // Phase 7: client fallback still requires on-roll + deterministic id (no silent skip).
+      const [cls, member] = await Promise.all([
+        getById<{
+          school_id: string;
+          academic_year_id?: string | null;
+          academic_period_id?: string | null;
+        }>(COLLECTIONS.classes, input.class_id),
+        getById<{ school_id?: string; status?: string; role?: string }>(
+          COLLECTIONS.schoolMembers,
+          input.student_id,
+        ),
+      ]);
       if (!cls) throw new Error("That class was not found.");
+      const onRoll =
+        member?.school_id === cls.school_id &&
+        member.status === "approved" &&
+        (member.role === "student" || member.role === "teacher");
+      if (!onRoll) {
+        throw new Error(
+          "That student is not on your school roll. Approve their application first.",
+        );
+      }
       try {
         const existing = await findMany<{ student_id: string; status?: string }>(
           COLLECTIONS.classEnrollments,
@@ -560,7 +594,8 @@ export function useEnrollStudent() {
         );
         const active = existing.find((row) => row.status !== "ended");
         if (active) return { id: active.id };
-        const id = await createDoc(COLLECTIONS.classEnrollments, {
+        const id = classEnrollmentId(input.class_id, input.student_id);
+        await setById(COLLECTIONS.classEnrollments, id, {
           school_id: cls.school_id,
           class_id: input.class_id,
           student_id: input.student_id,
@@ -603,10 +638,22 @@ export function useAssignTeacher() {
         if (id) return { id };
         return { id: "saved" };
       } catch (error) {
-        console.error("[assign-teacher] server failed:", error);
+        if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
+        console.error("[assign-teacher] server infrastructure failure, client fallback:", error);
       }
-      const cls = await getById<{ school_id: string }>(COLLECTIONS.classes, input.class_id);
+      const [cls, member] = await Promise.all([
+        getById<{ school_id: string }>(COLLECTIONS.classes, input.class_id),
+        getById<{ school_id?: string; status?: string; role?: string }>(
+          COLLECTIONS.schoolMembers,
+          input.teacher_id,
+        ),
+      ]);
       if (!cls) throw new Error("That class was not found.");
+      const onStaff =
+        member?.school_id === cls.school_id &&
+        member.status === "approved" &&
+        (member.role === "teacher" || member.role === "admin" || member.role === "institution");
+      if (!onStaff) throw new Error("That teacher is not in your school.");
       try {
         const existing = await findMany<{
           teacher_id: string;
@@ -619,7 +666,8 @@ export function useAssignTeacher() {
         ]);
         const active = existing.find((row) => row.status !== "ended");
         if (active) return { id: active.id };
-        const id = await createDoc(COLLECTIONS.classTeacherAssignments, {
+        const id = classTeacherAssignmentId(input.class_id, input.teacher_id, input.subject_id);
+        await setById(COLLECTIONS.classTeacherAssignments, id, {
           school_id: cls.school_id,
           class_id: input.class_id,
           subject_id: input.subject_id,

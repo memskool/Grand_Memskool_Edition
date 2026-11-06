@@ -267,7 +267,15 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
                     size="sm"
                     className="rounded-full"
                     disabled={setStatus.isPending}
-                    onClick={() => setStatus.mutate({ id: m.id, status: "approved" })}
+                    onClick={() =>
+                      setStatus.mutate(
+                        { id: m.id, status: "approved" },
+                        {
+                          onSuccess: () => toast.success("Member approved"),
+                          onError: (err) => toast.error(authErrorMessage(err)),
+                        },
+                      )
+                    }
                   >
                     Approve
                   </Button>
@@ -276,7 +284,15 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
                     variant="outline"
                     className="rounded-full"
                     disabled={setStatus.isPending}
-                    onClick={() => setStatus.mutate({ id: m.id, status: "rejected" })}
+                    onClick={() =>
+                      setStatus.mutate(
+                        { id: m.id, status: "rejected" },
+                        {
+                          onSuccess: () => toast.success("Request declined"),
+                          onError: (err) => toast.error(authErrorMessage(err)),
+                        },
+                      )
+                    }
                   >
                     Decline
                   </Button>
