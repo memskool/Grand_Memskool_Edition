@@ -343,14 +343,9 @@ export function canAccessRoute(
     return allowed.includes("/gold") || allowed.includes("/gold-admin");
   }
   if (path.startsWith("/home-admin")) return allowed.includes("/home-admin");
+  // Phase 9: Home studio follows role nav only — no student address-bar escape hatch.
   if (path.startsWith("/home-studio")) {
-    return (
-      allowed.includes("/home-studio") ||
-      role === "teacher" ||
-      role === "student" ||
-      role === "institution" ||
-      role === "admin"
-    );
+    return allowed.includes("/home-studio");
   }
   if (path === "/home" || path.startsWith("/home/")) return true;
   if (

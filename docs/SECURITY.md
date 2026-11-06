@@ -1,35 +1,47 @@
 # Security
 
-## Rules
+Truth as of Phases 1–9. Prefer this file over older audit reports when they disagree.
 
-- `firestore.rules` default-deny. Tenant reads/writes require matching `request.auth.token.schoolId`.
-- `school_directory/{CODE}` is **public read**, write denied. Only non-sensitive lookup fields belong there.
-- `assessment_answer_keys` is **Admin-only** (client read/write false). Students never read keys.
-- Assessment create/update/delete, attempt writes, bank writes, summaries, revision plans, integrity events, and private scores are Admin SDK only.
-- Students may read published (non-draft) assessments in their school; drafts are staff-only.
-- Messaging: membership via `member_ids`; not world-readable.
-- `orders` and `reward_events` are not client-created.
-- `notifications` and `notification_deliveries` are not client-created. Scores on submissions cannot be patched by students.
-- `audit_logs`, `payment_events`, and `live_session_events` are Admin-only.
-- `classroom_sessions` and `classroom_messages` are not client-created. Participant self-updates are limited to `hand_raised`, `mic_on`, `cam_on`.
-- `storage.rules` scopes locker paths under `users/{uid}/…` and school files under `schools/{schoolId}/…`.
+## Authority
 
-These rules are a **reviewed prototype**. Deploy only after a pass against the auditor checklist.
+- **Custom claims** (`role`, `schoolId`, `approved`) are the sole privilege source for rules and server handlers.
+- Admin SDK mutations run only on the server (`createServerFn` + `requireFirebaseAuth`, or privileged webhooks).
+- Browser dual-write paths exist only for **infrastructure** failures (e.g. Admin ESM/`__dirname` outages), never to bypass authz.
+
+## Firestore rules (high level)
+
+- Default deny. Tenant access uses `sameSchool` / `tenantRead` against **token** `schoolId`.
+- `school_directory/{CODE}` is public read, write denied (non-sensitive lookup only).
+- Live: `classroom_sessions` client create is host+staff fallback only; updates host/admin allowlisted; `is_host` is not self-escalatable; `connected_at` is **not** client-writable.
+- Gold session metadata is host/tutor readable (not world-readable).
+- Messaging: conversation membership required; member add needs self-accept or same-school peer; message updates allowlist `body`/`edited_at`.
+- Notifications: create for self, or school admin to a same-school recipient; deliveries Admin-only.
+- Assessment answer keys, payment events, live session events, audit logs: Admin-only.
+
+## Storage rules
+
+- Locker / school paths scoped to owner or `schoolId` claim.
+- `home/{userId}/…` — creator (or superadmin) only; published playback uses **Admin signed URLs**.
+- `gold/{tutorId}/…` — tutor (or superadmin) only; not world-readable.
+- Enable Firebase Storage in the console before deploying `storage.rules` (project must have Storage set up).
 
 ## Auth
 
-- Roles live in **custom claims**, assigned by Admin SDK after signup.
+- Roles assigned via Admin SDK after signup / approve / enrol / assign.
 - `superadmin` cannot be chosen at signup.
-- Session tokens are attached as `Authorization: Bearer` for server functions (`src/lib/firebase/auth-attacher.ts`).
+- Sensitive RPCs verify ID tokens with **`checkRevoked: true`** (`src/lib/firebase/admin.server.ts`).
+- Session tokens ride as `Authorization: Bearer` for server functions.
 
 ## App Check
 
-Gated on `VITE_FIREBASE_APPCHECK_SITE_KEY`. Unset = not initialized. Do not enforce App Check in the console until the site key and debug tokens are ready.
+Gated on `VITE_FIREBASE_APPCHECK_SITE_KEY`. Unset = not initialized. Do not enforce in the console until keys are ready.
 
 ## Secrets
 
-Service accounts, Flutterwave, LiveKit, Resend, and Africa’s Talking stay on the server. Open Firestore rules must not remain in production.
+Service accounts, Flutterwave, LiveKit, Resend, Africa’s Talking, notification dispatch secret stay on the server.
 
-## Billing
+## Related
 
-Spark blocks Functions deploy. Until Blaze is on, treat trigger-based FCM/email fan-out as **not live**; `flushNotifications` still drains deliveries if something wrote them via Admin SDK.
+- [AUTHORIZATION.md](./AUTHORIZATION.md)
+- [LIVE_CLASSROOM_SECURITY.md](./LIVE_CLASSROOM_SECURITY.md)
+- [PRODUCT_DECISIONS.md](./PRODUCT_DECISIONS.md)

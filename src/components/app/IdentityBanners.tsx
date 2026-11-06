@@ -54,7 +54,8 @@ export function IdentityBanners() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="flex items-start gap-2">
               <Mail className="mt-0.5 size-4 shrink-0" />
-              Confirm your email so we can recover your account if you forget the password.
+              Confirm your email so we can recover your account if you forget the password. You can
+              keep using Memskool meanwhile.
             </p>
             <Button
               type="button"

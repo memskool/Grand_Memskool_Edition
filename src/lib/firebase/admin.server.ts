@@ -93,6 +93,7 @@ export function adminMessaging() {
   return getMessaging(getAdminApp());
 }
 
+/** Phase 9: sensitive RPCs reject revoked sessions (checkRevoked). */
 export async function verifyIdToken(token: string) {
-  return adminAuth().verifyIdToken(token);
+  return adminAuth().verifyIdToken(token, true);
 }

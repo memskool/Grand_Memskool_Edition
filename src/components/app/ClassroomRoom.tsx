@@ -289,12 +289,13 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
           ? "Connection lost. Check your network, then leave and join again if this continues."
           : null;
 
+  // Phase 9: dock controls stay high-contrast on light theme (ink fill, not washed secondary).
   const controlBtn =
-    "rounded-full border border-ink/15 bg-ink text-ink-foreground shadow-sm hover:bg-ink/90 hover:text-ink-foreground";
+    "rounded-full border border-ink/20 bg-ink text-ink-foreground shadow-sm hover:bg-ink/90 hover:text-ink-foreground";
   const controlBtnOn =
-    "rounded-full border border-leaf/30 bg-leaf text-leaf-foreground shadow-sm hover:bg-leaf/90";
+    "rounded-full border border-leaf/40 bg-leaf text-leaf-foreground shadow-sm hover:bg-leaf/90";
   const controlBtnSoft =
-    "rounded-full border border-border bg-card text-card-foreground shadow-sm hover:bg-secondary";
+    "rounded-full border border-ink/20 bg-background text-foreground shadow-sm hover:bg-secondary";
 
   return (
     <div className="flex min-h-[calc(100dvh-7.5rem)] flex-col gap-3 sm:gap-4">

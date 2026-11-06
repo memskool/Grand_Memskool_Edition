@@ -17,10 +17,11 @@ export type MemskoolClaims = {
   approved: boolean;
 };
 
+/** School-operator + platform roles (claims may store institution as `admin`). */
 export const PRIVILEGED_ROLES: readonly AppRole[] = ["admin", "institution", "superadmin"];
 
 export function isSchoolManager(role: AppRole | undefined): boolean {
-  return role === "admin" || role === "institution" || role === "superadmin";
+  return role != null && (PRIVILEGED_ROLES as readonly AppRole[]).includes(role);
 }
 
 export function claimsRoleToAppRole(role: string | undefined): AppRole {

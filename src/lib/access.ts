@@ -4,16 +4,19 @@ import { useSuspensionStatus } from "@/lib/discipline-data";
 import type { AppRole } from "@/hooks/useAuth";
 import { accountState, isProfileComplete, type AccountState } from "@/features/auth/account-state";
 import { isSchoolManager } from "@/types/roles";
+import { PENDING_ALLOWED, PENDING_SCHOOL_LOCK } from "@/lib/nav";
 
-export const PENDING_ALLOWED = ["/dashboard", "/gold", "/home-studio", "/messages", "/settings"];
+/** Re-export so callers share one pending policy with `nav.ts` / `RouteGuard`. */
+export { PENDING_ALLOWED, PENDING_SCHOOL_LOCK };
 
 /**
  * Access model for the whole app.
  *
  * - Role decides which workspace you get (see `src/lib/nav.ts`).
  * - Teachers can work independently (Gold / Home) until they apply to a school.
- * - School live class, timetable and marking stay locked only while a join
- *   request is pending.
+ * - School live class, timetable and marking stay locked while a join request is pending
+ *   (`PENDING_SCHOOL_LOCK` — same list as sidebar filtering).
+ * - Email verification is banner-only (not an access gate). See `docs/PRODUCT_DECISIONS.md`.
  */
 export function useAccess() {
   const { user, loading } = useSession();

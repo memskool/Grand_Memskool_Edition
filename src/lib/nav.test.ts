@@ -49,7 +49,9 @@ assert(canAccessRoute("institution", "/assessments"), "school can still open ass
 assert(!canAccessRoute("parent", "/gold"), "parent blocked from Gold");
 assert(!canAccessRoute("teacher", "/locker"), "teacher blocked from locker");
 assert(canAccessRoute("student", "/ai-tutor"), "student can open AI tutor");
+assert(!canAccessRoute("student", "/home-studio"), "student blocked from Home studio");
 assert(canAccessRoute("teacher", "/gold", true), "pending teacher can still open Gold");
+assert(canAccessRoute("teacher", "/home-studio", true), "pending teacher keeps Home studio");
 assert(
   !canAccessRoute("teacher", "/virtual-classroom", true),
   "pending teacher cannot host school live class",

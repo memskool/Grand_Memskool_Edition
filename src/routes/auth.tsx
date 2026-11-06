@@ -75,17 +75,17 @@ export const Route = createFileRoute("/auth")({
   validateSearch: parseAuthSearch,
   head: () => ({
     meta: [
-      { title: "Sign in to Memskool — eSchool platform" },
+      { title: "Sign in to Memskool" },
       {
         name: "description",
         content:
-          "Sign in or create your Memskool account as a student, teacher, parent or admin to access classes, assignments and your locker.",
+          "Sign in or create a Memskool account as a student, teacher, parent, or school to join live classes, assignments, and school tools.",
       },
       { property: "og:title", content: "Sign in to Memskool" },
       {
         property: "og:description",
         content:
-          "Access the Memskool digital education ecosystem for students, teachers and parents.",
+          "Students, teachers, parents, and schools use Memskool for live class, assignments, and school operations.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

@@ -24,8 +24,9 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
 // file opts out, so re-add it explicitly to keep server functions protected
 // from cross-site requests.
 const csrfMiddleware = createCsrfMiddleware({
-  // Server functions authenticate with a Firebase Bearer token, not cookies.
-  // CSRF origin checks were rejecting memskool.com RPCs and returning HTML 500s.
+  // Product decision (Phase 9): RPCs use Firebase Bearer tokens, not cookie sessions.
+  // Origin CSRF checks rejected legitimate memskool.com → API calls (HTML 500s).
+  // Keep the middleware registered; filter disables the origin gate. See docs/PRODUCT_DECISIONS.md.
   filter: () => false,
 });
 
