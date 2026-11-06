@@ -161,17 +161,18 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
   const host = live.find((p) => p.is_host || p.user_id === session.host_id) ?? null;
   const learners = live.filter((p) => !p.is_host && p.user_id !== session.host_id);
   // Count the host even before their participant row finishes loading.
-  const peopleCount = Math.max(
-    live.length,
-    isSessionHost && !live.some((p) => p.user_id === userId) ? live.length + 1 : live.length,
-  );
+  const peopleCount =
+    isSessionHost && !live.some((p) => p.user_id === session.host_id)
+      ? live.length + 1
+      : live.length;
   const screenRemote = Object.values(media.remotes).find((r) => r.screenTrack) ?? null;
   const stageRemote =
     screenRemote ??
     (host && host.user_id !== userId ? (media.remotes[host.user_id] ?? null) : null);
 
   const stageEmptyCopy = (() => {
-    if (isSessionHost || (isTeacher && me?.is_host)) {
+    // Phase 5: the session host never sees "Waiting for the teacher".
+    if (userId === session.host_id || isSessionHost || (isTeacher && me?.is_host)) {
       return media.starting
         ? "Connecting your classroom…"
         : media.connected
@@ -221,7 +222,8 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
   const handleLeave = () => {
     media.stop();
     // Host Leave must end the room — otherwise students keep seeing a false LIVE badge.
-    if (isSessionHost) {
+    // Prefer endSession; leaveLiveSession also ends for hosts server-side as a safety net.
+    if (userId === session.host_id || isSessionHost) {
       endSession.mutate(session, {
         onSuccess: () => {
           toast.success("Live session ended.");
@@ -229,7 +231,12 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
         },
         onError: (e) => {
           toast.error(authErrorMessage(e));
-          leave.mutate({ sessionId: session.id, userId }, { onSettled: onExit });
+          leave.mutate(
+            { sessionId: session.id, userId },
+            {
+              onSettled: onExit,
+            },
+          );
         },
       });
       return;

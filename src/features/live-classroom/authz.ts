@@ -95,9 +95,9 @@ export async function assertCanManageSession(
   }
   const school = requireSchool(schoolId);
   if (session.school_id !== school) throw new Error("You are not allowed to manage this class.");
+  // Phase 5: only the session host or a school manager may end/cancel.
   if (session.host_id === userId) return;
   if (isSchoolManager(role)) return;
-  if (role === "teacher" && (await isAssignedTeacher(session.class_id, userId))) return;
   throw new Error("You are not allowed to manage this class.");
 }
 

@@ -105,12 +105,77 @@ async function notifyClass(input: {
 
 type Args<T> = { data: T; context: AuthedContext };
 
+const LIVE_MAX_MS = 4 * 60 * 60 * 1000;
+
+function isFreshStartedAt(startedAt: string | undefined, now = Date.now()): boolean {
+  if (!startedAt) return false;
+  const started = Date.parse(startedAt);
+  if (Number.isNaN(started)) return false;
+  return now - started <= LIVE_MAX_MS;
+}
+
+/** End orphan is_active rows; keep at most one truly live session (host still present). */
+async function reconcileActiveSessionsForClass(
+  classId: string,
+): Promise<(SessionDoc & { id: string }) | null> {
+  const live = await adminWhere<SessionDoc>(
+    COLLECTIONS.classroomSessions,
+    "class_id",
+    "==",
+    classId,
+    [["is_active", "==", true]],
+  );
+  const keepers: Array<SessionDoc & { id: string }> = [];
+  const nowIso = new Date().toISOString();
+  for (const row of live) {
+    const host = await adminGetById<{ left_at?: string | null }>(
+      COLLECTIONS.classroomParticipants,
+      participantDocId(row.id, row.host_id),
+    );
+    const hostPresent = Boolean(host && !host.left_at);
+    const fresh = isFreshStartedAt(row.started_at);
+    if (fresh && hostPresent && (row.status ?? "live") === "live") {
+      keepers.push(row);
+      continue;
+    }
+    try {
+      await closeOpenParticipants(row.id);
+      await adminUpdate(COLLECTIONS.classroomSessions, row.id, {
+        status: "ended",
+        is_active: false,
+        ended_at: nowIso,
+      });
+    } catch (error) {
+      console.error("[live] reconcile end failed:", row.id, error);
+    }
+  }
+  if (keepers.length === 0) return null;
+  keepers.sort((a, b) => String(a.started_at ?? "").localeCompare(String(b.started_at ?? "")));
+  const [primary, ...dupes] = keepers;
+  for (const dup of dupes) {
+    try {
+      await closeOpenParticipants(dup.id);
+      await adminUpdate(COLLECTIONS.classroomSessions, dup.id, {
+        status: "ended",
+        is_active: false,
+        ended_at: nowIso,
+      });
+    } catch (error) {
+      console.error("[live] duplicate session end failed:", dup.id, error);
+    }
+  }
+  return primary ?? null;
+}
+
 export async function startLiveSessionHandler({
   data,
   context,
 }: Args<z.infer<typeof StartLiveSessionSchema>>): Promise<LiveSessionRecord> {
   if (context.role === "teacher" && !context.approved) {
     throw new Error("Your school has not approved your teacher account yet.");
+  }
+  if (await adminIsSuspended(context.userId)) {
+    throw new Error("Your account is suspended and cannot start live classes.");
   }
   const cls = await assertCanHostClass(
     context.role,
@@ -119,15 +184,20 @@ export async function startLiveSessionHandler({
     data.classId,
   );
 
-  const live = await adminWhere<SessionDoc>(
-    COLLECTIONS.classroomSessions,
-    "class_id",
-    "==",
-    data.classId,
-    [["is_active", "==", true]],
-  );
-  const existing = live[0];
-  if (existing) return toClientJson(asRecord({ ...existing, id: existing.id }));
+  // Phase 5: one live room per class — heal orphans, reuse only if host is present.
+  const existing = await reconcileActiveSessionsForClass(data.classId);
+  if (existing) {
+    try {
+      await upsertParticipantJoin({
+        session: existing,
+        userId: context.userId,
+        isHost: existing.host_id === context.userId,
+      });
+    } catch (error) {
+      console.error("[live] rejoin host seed failed:", error);
+    }
+    return toClientJson(asRecord({ ...existing, id: existing.id }));
+  }
 
   let lessonTitle: string | null = null;
   if (data.lessonId) {
@@ -204,6 +274,12 @@ export async function startLiveSessionHandler({
   } catch (error) {
     // Never block opening the room if notifications fail.
     console.error("[live] start notify failed:", error);
+  }
+
+  // Race: another start may have landed between reconcile and create — keep one winner.
+  const primary = await reconcileActiveSessionsForClass(data.classId);
+  if (primary && primary.id !== id) {
+    return toClientJson(asRecord({ ...primary, id: primary.id }));
   }
 
   return toClientJson(
@@ -347,6 +423,11 @@ export async function leaveLiveSessionHandler({
   data,
   context,
 }: Args<z.infer<typeof SessionIdSchema>>) {
+  const session = await loadSession(data.sessionId);
+  // Phase 5: host Leave ends the room so students never keep a false LIVE badge.
+  if (session.host_id === context.userId && session.is_active !== false) {
+    return endLiveSessionHandler({ data, context });
+  }
   await markParticipantLeft(data.sessionId, context.userId);
   return { ok: true as const };
 }

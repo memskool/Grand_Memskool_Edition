@@ -25,7 +25,7 @@ export const Route = createFileRoute("/api/public/webhooks/livekit")({
           const receiver = new WebhookReceiver(apiKey, apiSecret);
           const event = await receiver.receive(raw, auth);
 
-          const { adminGetById, adminSet } = await import("@/lib/firebase/admin-repo");
+          const { adminGetById, adminSet, adminUpdate } = await import("@/lib/firebase/admin-repo");
           const { COLLECTIONS } = await import("@/lib/firebase/repo");
 
           const eventId =
@@ -45,7 +45,7 @@ export const Route = createFileRoute("/api/public/webhooks/livekit")({
           const identity = event.participant?.identity;
 
           if (sessionId && identity) {
-            const { markParticipantConnected, markParticipantLeft } =
+            const { markParticipantConnected, markParticipantLeft, closeOpenParticipants } =
               await import("@/features/live-classroom/participation");
             if (event.event === "participant_joined") {
               await markParticipantConnected(sessionId, identity);
@@ -55,6 +55,38 @@ export const Route = createFileRoute("/api/public/webhooks/livekit")({
               event.event === "participant_connection_aborted"
             ) {
               await markParticipantLeft(sessionId, identity);
+              // Phase 5: when the host disconnects from LiveKit, end the Firestore session
+              // so Virtual Classroom does not keep a false LIVE badge.
+              try {
+                const session = await adminGetById<{
+                  host_id?: string;
+                  is_active?: boolean;
+                  status?: string;
+                  lesson_id?: string | null;
+                }>(COLLECTIONS.classroomSessions, sessionId);
+                if (
+                  session &&
+                  session.host_id === identity &&
+                  session.is_active !== false &&
+                  (session.status ?? "live") === "live"
+                ) {
+                  const now = new Date().toISOString();
+                  await closeOpenParticipants(sessionId);
+                  await adminUpdate(COLLECTIONS.classroomSessions, sessionId, {
+                    status: "ended",
+                    is_active: false,
+                    ended_at: now,
+                  });
+                  if (session.lesson_id) {
+                    await adminUpdate(COLLECTIONS.lessons, session.lesson_id, {
+                      status: "completed",
+                      updated_at: now,
+                    });
+                  }
+                }
+              } catch (hostEndError) {
+                console.error("[livekit webhook] host-leave end failed:", hostEndError);
+              }
             }
           }
 

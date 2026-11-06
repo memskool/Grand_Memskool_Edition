@@ -509,10 +509,20 @@ service cloud.firestore {
       allow delete: if isSchoolAdmin() && sameSchool(resource.data.school_id);
     }
     match /classroom_sessions/{id} {
+      // Phase 5: gold metadata is not world-readable — host/tutor only until Phase 6.
       allow read: if tenantRead(resource.data.school_id)
-        || (isAuthenticated() && resource.data.kind == 'gold');
-      // Teachers/admins start and end live rooms from the browser (avoids Admin SDK
-      // `__dirname` crashes on the Vercel ESM server bundle).
+        || (
+          isAuthenticated()
+          && resource.data.kind == 'gold'
+          && (
+            isOwner(resource.data.host_id)
+            || (
+              resource.data.gold_tutor_id is string
+              && isOwner(resource.data.gold_tutor_id)
+            )
+          )
+        );
+      // Client create is infrastructure fallback only; assignment is enforced in app code.
       allow create: if isAuthenticated()
         && sameSchool(request.resource.data.school_id)
         && isOwner(request.resource.data.host_id)
@@ -520,13 +530,11 @@ service cloud.firestore {
         && request.resource.data.status == 'live'
         && request.resource.data.is_active == true
         && (isTeacher() || isSchoolAdmin());
+      // Phase 5: only the host or a school admin may end/update the session.
       allow update: if isAuthenticated()
         && sameSchool(resource.data.school_id)
-        && (
-          isOwner(resource.data.host_id)
-          || isTeacher()
-          || isSchoolAdmin()
-        )
+        && schoolIdUnchanged()
+        && (isOwner(resource.data.host_id) || isSchoolAdmin())
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly([
             'status',
@@ -559,7 +567,15 @@ service cloud.firestore {
         && sameSchool(request.resource.data.school_id)
         && id == request.resource.data.session_id + '_' + uid()
         && exists(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id))
-        && get(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id)).data.is_active == true;
+        && get(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id)).data.is_active == true
+        // Phase 5: clients may only claim is_host when they are the session host.
+        && (
+          !('is_host' in request.resource.data)
+          || request.resource.data.is_host == false
+          || (
+            get(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id)).data.host_id == uid()
+          )
+        );
       allow delete: if false;
       allow update: if (
           isOwner(resource.data.user_id)
@@ -573,15 +589,16 @@ service cloud.firestore {
               'left_at',
               'last_joined_at',
               'duration_ms',
-              'rejoin_count',
-              'is_host'
+              'rejoin_count'
             ])
+          && request.resource.data.is_host == resource.data.is_host
         )
         || (
           sameSchool(resource.data.school_id)
           && (isTeacher() || isSchoolAdmin())
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['mic_on', 'cam_on', 'camera_allowed', 'warned_at', 'hand_raised'])
+          && request.resource.data.is_host == resource.data.is_host
         );
     }
     match /classroom_messages/{id} {

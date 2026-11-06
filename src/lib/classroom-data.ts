@@ -63,6 +63,15 @@ export function isFreshLiveSession(
   return now - started <= LIVE_SESSION_MAX_MS;
 }
 
+/**
+ * Phase 5 shared LIVE predicate: fresh + host participant still in the room.
+ * Unknown host presence (`null`) is NOT enough — that produced false LIVE badges.
+ */
+export async function isLiveRoomOpen(session: ClassroomSession): Promise<boolean> {
+  if (!isFreshLiveSession(session)) return false;
+  return (await hostStillInRoom(session)) === true;
+}
+
 async function closeOpenParticipantsClient(
   session: Pick<ClassroomSession, "id" | "school_id">,
   leftAt: string,
@@ -117,27 +126,18 @@ async function hostStillInRoom(session: ClassroomSession): Promise<boolean | nul
  * Orphan is_active rows (Leave without End) must not light the badge.
  */
 async function healStaleLiveSessions(rows: ClassroomSession[]): Promise<ClassroomSession[]> {
-  const now = Date.now();
   const keep: ClassroomSession[] = [];
   const close: ClassroomSession[] = [];
 
   await Promise.all(
     rows.map(async (row) => {
-      if ((row.status ?? "live") !== "live" || !row.is_active) {
-        close.push(row);
+      if (await isLiveRoomOpen(row)) {
+        keep.push(row);
         return;
       }
-      if (!isFreshLiveSession(row, now)) {
+      if ((row.status ?? "live") === "live" && row.is_active) {
         close.push(row);
-        return;
       }
-      const hostOk = await hostStillInRoom(row);
-      if (hostOk === false) {
-        close.push(row);
-        return;
-      }
-      // null = permission/read miss — keep if fresh so real LIVE still shows.
-      keep.push(row);
     }),
   );
 
@@ -280,24 +280,13 @@ export function useActiveSession(classId?: string) {
         where("is_active", "==", true),
       ]);
       if (!row) return null;
-      if (!isFreshLiveSession(row)) {
-        try {
-          await endSessionDocClient(row);
-        } catch (error) {
-          console.error("[live] active stale heal failed:", error);
-        }
-        return null;
+      if (await isLiveRoomOpen(row)) return row;
+      try {
+        await endSessionDocClient(row);
+      } catch (error) {
+        console.error("[live] active session heal failed:", error);
       }
-      const hostOk = await hostStillInRoom(row);
-      if (hostOk === false) {
-        try {
-          await endSessionDocClient(row);
-        } catch (error) {
-          console.error("[live] host-left session heal failed:", error);
-        }
-        return null;
-      }
-      return row;
+      return null;
     },
   });
 }
@@ -379,10 +368,10 @@ async function seedHostParticipant(input: {
   const now = nowIso();
   const existing = await getById(COLLECTIONS.classroomParticipants, id);
   if (existing) {
+    // Phase 5: is_host is immutable from the client after create.
     await patchById(COLLECTIONS.classroomParticipants, id, {
       left_at: null,
       last_joined_at: now,
-      is_host: input.isHost,
       hand_raised: false,
     });
     return;
@@ -423,6 +412,29 @@ async function startSessionOnClient(input: {
   if (!cls) throw new Error("That class was not found.");
   if (cls.status === "archived") throw new Error("That class is archived.");
 
+  // Phase 5: client fallback must mirror server assignment checks.
+  const owned = cls.teacher_id === input.hostId;
+  if (!owned) {
+    const assigned = await findMany<{ teacher_id: string; status?: string }>(
+      COLLECTIONS.classTeacherAssignments,
+      [
+        where("class_id", "==", input.classId),
+        where("teacher_id", "==", input.hostId),
+        where("status", "==", "active"),
+      ],
+    ).catch(() => []);
+    if (assigned.length === 0) {
+      const { isSchoolManager } = await import("@/types/roles");
+      const profile = await getById<{ role?: string }>(COLLECTIONS.users, input.hostId).catch(
+        () => null,
+      );
+      const role = profile?.role === "admin" ? "institution" : profile?.role;
+      if (!isSchoolManager(role as "institution" | "admin" | "superadmin" | undefined)) {
+        throw new Error("You are not assigned to this class.");
+      }
+    }
+  }
+
   let existing: ClassroomSession | undefined;
   try {
     const live = await findMany<ClassroomSession>(COLLECTIONS.classroomSessions, [
@@ -435,8 +447,7 @@ async function startSessionOnClient(input: {
     console.error("[live] existing-session lookup failed:", error);
   }
   if (existing) {
-    const hostOk = await hostStillInRoom(existing);
-    const reusable = isFreshLiveSession(existing) && hostOk !== false;
+    const reusable = await isLiveRoomOpen(existing);
     if (!reusable) {
       try {
         await endSessionDocClient(existing);
