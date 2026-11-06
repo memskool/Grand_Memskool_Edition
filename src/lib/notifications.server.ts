@@ -65,10 +65,13 @@ const KIND_LABEL: Record<string, string> = {
   payment: "Payment update",
   order: "Order update",
   assessment: "Assessment update",
+  academic: "Class update",
   meeting: "School meeting",
   announcement: "School announcement",
   security: "Account security",
   live_class: "Live class",
+  missed_work: "Missed work",
+  gold: "Gold class",
 };
 
 function escapeHtml(value: string): string {
@@ -175,7 +178,7 @@ function backoffMinutes(attempts: number) {
   return Math.min(60, 2 ** attempts); // 2, 4, 8, 16 minutes
 }
 
-export async function processPendingDeliveries(limit = BATCH_SIZE) {
+export async function processPendingDeliveries(limit = BATCH_SIZE, opts?: { userId?: string }) {
   const { adminCol, adminGetById, adminUpdate } = await import("@/lib/firebase/admin-repo");
   const { COLLECTIONS } = await import("@/lib/firebase/repo");
   const hasEmail = Boolean(emailConfig());
@@ -185,16 +188,23 @@ export async function processPendingDeliveries(limit = BATCH_SIZE) {
   if (!hasEmail && !hasSms) return result;
 
   const now = new Date().toISOString();
-  const snap = await adminCol(COLLECTIONS.notificationDeliveries)
-    .where("status", "==", "pending")
-    .orderBy("created_at", "asc")
-    .limit(limit)
-    .get();
+  // Phase 8: optional userId scopes the drain so clients cannot empty the global queue.
+  let query = adminCol(COLLECTIONS.notificationDeliveries).where("status", "==", "pending");
+  if (opts?.userId) {
+    query = query.where("user_id", "==", opts.userId);
+  } else {
+    query = query.orderBy("created_at", "asc");
+  }
+  const snap = await query.limit(limit).get();
 
   const rows = snap.docs
-    .map((d) => ({ ...(d.data() as Omit<DeliveryRow, "id" | "notifications">), id: d.id }))
-    .filter((row) => !row.next_attempt_at || row.next_attempt_at <= now) as Array<
-    Omit<DeliveryRow, "notifications"> & { next_attempt_at?: string }
+    .map((d) => ({
+      ...(d.data() as Omit<DeliveryRow, "id" | "notifications"> & { created_at?: string }),
+      id: d.id,
+    }))
+    .filter((row) => !row.next_attempt_at || row.next_attempt_at <= now)
+    .sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? ""))) as Array<
+    Omit<DeliveryRow, "notifications"> & { next_attempt_at?: string; created_at?: string }
   >;
   result.claimed = rows.length;
 

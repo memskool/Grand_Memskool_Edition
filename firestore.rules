@@ -603,20 +603,32 @@ service cloud.firestore {
         );
     }
     match /classroom_messages/{id} {
-      allow read: if tenantRead(resource.data.school_id) && (
-        isTeacher() || isSchoolAdmin() || isLiveParticipant(resource.data.session_id)
+      // Phase 8: school rooms use tenantRead; Gold rooms use live-participant proof.
+      allow read: if isAuthenticated() && (
+        isLiveParticipant(resource.data.session_id)
+        || (
+          tenantRead(resource.data.school_id)
+          && (isTeacher() || isSchoolAdmin())
+        )
       );
       allow create: if isAuthenticated()
         && isOwner(request.resource.data.sender_id)
         && request.resource.data.session_id is string
         && request.resource.data.school_id is string
-        && sameSchool(request.resource.data.school_id)
         && stringMax(request.resource.data.body, 4000)
         && exists(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id))
         && get(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id)).data.is_active == true
         && (
           isLiveParticipant(request.resource.data.session_id)
           || get(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id)).data.host_id == uid()
+        )
+        && (
+          sameSchool(request.resource.data.school_id)
+          || (
+            get(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id)).data.kind == 'gold'
+            && request.resource.data.school_id
+              == get(/databases/$(database)/documents/classroom_sessions/$(request.resource.data.session_id)).data.school_id
+          )
         );
       allow update, delete: if false;
     }
@@ -638,10 +650,21 @@ service cloud.firestore {
     match /conversation_members/{id} {
       allow read: if isOwner(resource.data.user_id)
         || isConversationMember(resource.data.conversation_id);
+      // Phase 8: creator may add same-school peers; invitee may accept themselves.
       allow create: if isAuthenticated()
         && request.resource.data.conversation_id is string
+        && request.resource.data.user_id is string
+        && id == request.resource.data.conversation_id + '_' + request.resource.data.user_id
         && exists(/databases/$(database)/documents/conversations/$(request.resource.data.conversation_id))
-        && conversationDoc(request.resource.data.conversation_id).data.created_by == uid();
+        && (
+          isOwner(request.resource.data.user_id)
+          || (
+            conversationDoc(request.resource.data.conversation_id).data.created_by == uid()
+            && tokenSchool() != null
+            && exists(/databases/$(database)/documents/users/$(request.resource.data.user_id))
+            && get(/databases/$(database)/documents/users/$(request.resource.data.user_id)).data.school_id == tokenSchool()
+          )
+        );
       allow delete: if isOwner(resource.data.user_id);
     }
     match /messages/{id} {
@@ -649,18 +672,33 @@ service cloud.firestore {
       allow create: if isOwner(request.resource.data.sender_id)
         && stringMax(request.resource.data.body, 8000)
         && isConversationMember(request.resource.data.conversation_id);
-      allow update, delete: if isOwner(resource.data.sender_id)
+      // Phase 8: message edits are allowlisted — no free-form field rewrites.
+      allow update: if isOwner(resource.data.sender_id)
+        && isConversationMember(resource.data.conversation_id)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['body', 'edited_at'])
+        && stringMax(request.resource.data.body, 8000)
+        && request.resource.data.sender_id == resource.data.sender_id
+        && request.resource.data.conversation_id == resource.data.conversation_id;
+      allow delete: if isOwner(resource.data.sender_id)
         && isConversationMember(resource.data.conversation_id);
     }
     match /notifications/{id} {
       allow read: if isOwner(resource.data.user_id);
+      // Phase 8: cannot mint notifications for arbitrary users outside your school.
       allow create: if isAuthenticated()
         && request.resource.data.user_id is string
         && stringMax(request.resource.data.title, 160)
         && (
           isOwner(request.resource.data.user_id)
-          || ownsSchoolDoc(request.resource.data.school_id)
-          || (isSchoolAdmin() && sameSchool(request.resource.data.school_id))
+          || (
+            request.resource.data.school_id is string
+            && sameSchool(request.resource.data.school_id)
+            && (ownsSchoolDoc(request.resource.data.school_id) || isSchoolAdmin())
+            && exists(/databases/$(database)/documents/users/$(request.resource.data.user_id))
+            && get(/databases/$(database)/documents/users/$(request.resource.data.user_id)).data.school_id
+              == request.resource.data.school_id
+          )
         );
       allow update: if isOwner(resource.data.user_id)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
@@ -824,7 +862,17 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
     match /gold_resources/{id} {
-      allow get: if isAuthenticated();
+      // Phase 8: materials only for tutor or enrolled learner (not every signed-in user).
+      allow get: if isAuthenticated() && (
+        isOwner(resource.data.tutor_id)
+        || isSuperAdmin()
+        || (
+          resource.data.class_id is string
+          && exists(/databases/$(database)/documents/gold_enrolments/$(resource.data.class_id + '_' + uid()))
+          && get(/databases/$(database)/documents/gold_enrolments/$(resource.data.class_id + '_' + uid())).data.status
+            in ['active', 'completed']
+        )
+      );
       allow list: if isSuperAdmin();
       allow create, update, delete: if false;
     }

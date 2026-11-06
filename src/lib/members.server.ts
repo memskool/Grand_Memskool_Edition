@@ -195,8 +195,11 @@ async function assertSchoolMember(
     userId,
     [["school_id", "==", schoolId]],
   );
-  const inSchool = profile.school_id === schoolId || memberships.length > 0;
-  if (!inSchool) throw new Error("Both people must already belong to your school.");
+  // Phase 8: existence-only membership is not enough — require approved/owner on the roll.
+  const approved = memberships.some((row) => row.status === "approved" || row.status === "owner");
+  if (!approved) {
+    throw new Error("Both people must be approved members of your school.");
+  }
   return profile;
 }
 

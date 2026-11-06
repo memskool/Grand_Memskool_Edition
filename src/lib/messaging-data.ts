@@ -166,14 +166,20 @@ export function useDirectory(userId?: string, search = "") {
     queryKey: ["directory", userId, search],
     enabled: !!userId,
     queryFn: async () => {
-      const rows = await findMany<{ full_name: string; avatar_url: string | null }>(
-        COLLECTIONS.users,
-        [orderBy("full_name"), limit(50)],
-      );
+      // Phase 8: school-scoped people picker — global users list is denied by rules.
+      const me = await getById<{ school_id?: string | null }>(COLLECTIONS.users, userId!);
+      const schoolId = me?.school_id;
+      if (!schoolId) return [];
+      const rows = await findMany<{
+        full_name: string;
+        avatar_url: string | null;
+        school_id?: string | null;
+      }>(COLLECTIONS.users, [where("school_id", "==", schoolId), limit(80)]);
       const needle = search.trim().toLowerCase();
       return rows
         .filter((p) => p.id !== userId)
-        .filter((p) => !needle || p.full_name.toLowerCase().includes(needle))
+        .filter((p) => !needle || (p.full_name ?? "").toLowerCase().includes(needle))
+        .sort((a, b) => (a.full_name ?? "").localeCompare(b.full_name ?? ""))
         .slice(0, 25)
         .map((p) => ({ id: p.id, full_name: p.full_name, avatar_url: p.avatar_url }));
     },

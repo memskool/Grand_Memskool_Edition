@@ -327,11 +327,11 @@ function NotificationPreferencesPanel({ userId }: { userId?: string | undefined 
   const save = useSaveNotificationPreferences(userId);
   const value = prefs.data ?? { email_enabled: true, sms_enabled: true };
 
-  const update = (patch: { email_enabled?: boolean; sms_enabled?: boolean }) => {
+  const update = (patch: { email_enabled?: boolean }) => {
     save.mutate(
       {
         email_enabled: patch.email_enabled ?? value.email_enabled,
-        sms_enabled: patch.sms_enabled ?? value.sms_enabled,
+        sms_enabled: false,
       },
       {
         onSuccess: () => toast.success("Notification preferences saved"),
@@ -360,19 +360,15 @@ function NotificationPreferencesPanel({ userId }: { userId?: string | undefined 
             onCheckedChange={(checked) => update({ email_enabled: checked })}
           />
         </label>
-        <label className="flex items-center justify-between gap-4 text-sm">
+        <div className="flex items-center justify-between gap-4 text-sm opacity-70">
           <span>
             <span className="font-medium">SMS</span>
             <span className="block text-xs text-muted-foreground">
-              Only urgent items: admissions decisions, discipline, meetings and payments.
+              SMS alerts are not available yet. Email and in-app notices still cover urgent updates.
             </span>
           </span>
-          <Switch
-            checked={value.sms_enabled}
-            disabled={prefs.isLoading || save.isPending}
-            onCheckedChange={(checked) => update({ sms_enabled: checked })}
-          />
-        </label>
+          <Switch checked={false} disabled aria-disabled />
+        </div>
       </div>
     </Panel>
   );

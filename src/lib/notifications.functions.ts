@@ -18,8 +18,10 @@ export const flushNotifications = createServerFn({ method: "POST" })
         last_at: new Date().toISOString(),
         user_id: context.userId,
       });
+      // Phase 8: authenticated clients may only flush their own undelivered rows.
+      // Global drain stays on /api/public/notifications/dispatch with the worker secret.
       const { processPendingDeliveries } = await import("./notifications.server");
-      const result = await processPendingDeliveries();
+      const result = await processPendingDeliveries(25, { userId: context.userId });
       return { ok: true, ...result };
     } catch (error) {
       console.error(

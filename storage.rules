@@ -102,6 +102,8 @@ service firebase.storage {
       allow delete: if signedIn() && sameSchool(schoolId) && isSchoolStaff();
     }
 
+    // Phase 8: Home bytes stay private to the creator; published playback uses
+    // Admin signed URLs from home.server (metadata can be public, objects are not).
     match /home/{userId}/{videoId}/{fileName} {
       allow read: if signedIn() && (uid() == userId || role() == 'superadmin');
       allow create, update: if signedIn() && uid() == userId && under80mb()
@@ -114,8 +116,10 @@ service firebase.storage {
       allow delete: if signedIn() && uid() == userId;
     }
 
+    // Phase 8: Gold materials are not world-readable — tutor (or superadmin) only.
+    // Learners receive access via signed URL / resource URL after enrolment checks.
     match /gold/{tutorId}/{allPaths=**} {
-      allow read: if signedIn();
+      allow read: if signedIn() && (uid() == tutorId || role() == 'superadmin');
       allow create, update: if signedIn() && uid() == tutorId && under50mb() && isEducationFile();
       allow delete: if signedIn() && uid() == tutorId;
     }

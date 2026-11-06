@@ -33,9 +33,11 @@ export function useSaveNotificationPreferences(userId: string | undefined) {
   return useMutation({
     mutationFn: async (values: { email_enabled: boolean; sms_enabled: boolean }) => {
       if (!userId) throw new Error("Not signed in");
+      // Phase 8: SMS delivery is not shipped — persist email choice only.
       await setById(COLLECTIONS.notificationPreferences, userId, {
         user_id: userId,
-        ...values,
+        email_enabled: values.email_enabled,
+        sms_enabled: false,
       });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notification-preferences", userId] }),

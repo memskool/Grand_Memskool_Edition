@@ -623,7 +623,8 @@ export async function startGoldLesson(input: {
   let sessionId = lesson.classroom_session_id;
   if (!sessionId) {
     sessionId = await adminCreate(COLLECTIONS.classroomSessions, {
-      school_id: null,
+      // Phase 8: synthetic tenant key so chat/participants rules have a school_id string.
+      school_id: `gold_${cls.tutor_id}`,
       class_id: cls.id,
       host_id: cls.tutor_id,
       lesson_id: lesson.id,

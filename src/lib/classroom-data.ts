@@ -882,13 +882,18 @@ export function useClassroomChat(sessionId?: string) {
     queryKey: ["classroom-chat", sessionId],
     enabled: !!sessionId,
     queryFn: async (): Promise<ClassroomMessage[]> => {
+      // Phase 8: Gold sessions use synthetic school_id (gold_*) — query by session_id.
       const schoolId = await schoolIdForSession(sessionId!);
-      if (!schoolId) return [];
-      const rows = await findMany<Omit<ClassroomMessage, "sender">>(COLLECTIONS.classroomMessages, [
-        where("school_id", "==", schoolId),
-        where("session_id", "==", sessionId!),
-        orderBy("created_at"),
-      ]);
+      const rows = await findMany<Omit<ClassroomMessage, "sender">>(
+        COLLECTIONS.classroomMessages,
+        schoolId && !schoolId.startsWith("gold_")
+          ? [
+              where("school_id", "==", schoolId),
+              where("session_id", "==", sessionId!),
+              orderBy("created_at"),
+            ]
+          : [where("session_id", "==", sessionId!), orderBy("created_at")],
+      );
       return Promise.all(
         rows.map((row) => attachNamedUser(row, row.sender_id, "sender")),
       ) as Promise<ClassroomMessage[]>;
@@ -899,10 +904,11 @@ export function useClassroomChat(sessionId?: string) {
     if (!sessionId) return;
     let unsub: (() => void) | undefined;
     void schoolIdForSession(sessionId).then((schoolId) => {
-      if (!schoolId) return;
       unsub = subscribeMany(
         COLLECTIONS.classroomMessages,
-        [where("school_id", "==", schoolId), where("session_id", "==", sessionId)],
+        schoolId && !schoolId.startsWith("gold_")
+          ? [where("school_id", "==", schoolId), where("session_id", "==", sessionId)]
+          : [where("session_id", "==", sessionId)],
         () => qc.invalidateQueries({ queryKey: ["classroom-chat", sessionId] }),
       );
     });
