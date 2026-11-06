@@ -29,6 +29,7 @@ import type {
   PeriodLabel,
 } from "@/types/academic";
 import {
+  createAcademicClass,
   enrollStudent,
   endEnrollment,
   assignClassTeacher,
@@ -310,6 +311,19 @@ export function useCreateAcademicClass(schoolId: string | undefined) {
       academic_period_id: string | null;
     }) => {
       if (!schoolId) throw new Error("Register your school first.");
+      try {
+        return await createAcademicClass({
+          data: {
+            ...values,
+            status: "active",
+          },
+        });
+      } catch (error) {
+        if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
+        console.error("[class] server create infrastructure failure, client fallback:", error);
+        void noteClientFallback("create_class");
+      }
+      await refreshAuthClaims();
       await createDoc(COLLECTIONS.classes, {
         ...values,
         school_id: schoolId,
@@ -317,8 +331,10 @@ export function useCreateAcademicClass(schoolId: string | undefined) {
         created_at: nowIso(),
         updated_at: nowIso(),
       });
+      return { id: "saved" };
     },
     onSuccess: () => {
+      void refreshAuthClaims();
       qc.invalidateQueries({ queryKey: ["academic-classes", schoolId] });
       qc.invalidateQueries({ queryKey: ["all-classes"] });
     },
@@ -558,6 +574,7 @@ export function useEnrollStudent() {
         console.error("[enrol] server infrastructure failure, client fallback:", error);
         void noteClientFallback("enrol_student");
       }
+      await refreshAuthClaims();
       // Phase 7: client fallback still requires on-roll + deterministic id (no silent skip).
       const [cls, member] = await Promise.all([
         getById<{
@@ -603,7 +620,11 @@ export function useEnrollStudent() {
         throw classifyFirebase(error);
       }
     },
-    onSuccess: (_d, vars) => invalidateClassPeople(qc, vars),
+    onSuccess: (_d, vars) => {
+      void refreshAuthClaims();
+      void qc.invalidateQueries({ queryKey: ["role"] });
+      invalidateClassPeople(qc, vars);
+    },
   });
 }
 
@@ -635,6 +656,7 @@ export function useAssignTeacher() {
         console.error("[assign-teacher] server infrastructure failure, client fallback:", error);
         void noteClientFallback("assign_teacher");
       }
+      await refreshAuthClaims();
       const [cls, member] = await Promise.all([
         getById<{ school_id: string }>(COLLECTIONS.classes, input.class_id),
         getById<{ school_id?: string; status?: string; role?: string }>(

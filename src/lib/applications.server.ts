@@ -4,8 +4,7 @@ import { adminGetById, adminSet, adminUpdate, adminWhere } from "@/lib/firebase/
 import { adminAuth } from "@/lib/firebase/admin.server";
 import { COLLECTIONS } from "@/lib/firebase/collections";
 import { toClientJson } from "@/lib/firebase/plain-data";
-import { isSchoolManager, type AppRole } from "@/types/roles";
-import { managedSchoolIdFor } from "@/lib/firebase/school-context.server";
+import { requireSchoolManagerContext } from "@/lib/firebase/school-context.server";
 
 export type ApplicationStatus = "pending" | "under_review" | "approved" | "rejected";
 
@@ -28,11 +27,8 @@ type ApplicationRow = {
   created_at: string;
 };
 
-async function assertCanManageSchool(context: AuthedContext): Promise<void> {
-  if (isSchoolManager(context.role)) return;
-  const profile = await adminGetById<{ role?: AppRole }>(COLLECTIONS.users, context.userId);
-  if (isSchoolManager(profile?.role)) return;
-  throw new Error("You do not have permission to perform this action.");
+async function assertCanManageSchool(context: AuthedContext): Promise<string> {
+  return requireSchoolManagerContext(context);
 }
 
 async function loadApplicationsForSchool(schoolId: string): Promise<ApplicationRow[]> {
@@ -176,8 +172,7 @@ export async function syncApprovedApplicantsToRoll(schoolId: string): Promise<nu
 }
 
 export async function listSchoolApplicationsHandler(context: AuthedContext) {
-  await assertCanManageSchool(context);
-  const schoolId = await managedSchoolIdFor(context);
+  const schoolId = await assertCanManageSchool(context);
   try {
     await syncApprovedApplicantsToRoll(schoolId);
   } catch (error) {
@@ -206,13 +201,12 @@ export async function reviewSchoolApplicationHandler(
   },
   context: AuthedContext,
 ) {
-  await assertCanManageSchool(context);
+  const schoolId = await assertCanManageSchool(context);
   const application = await adminGetById<ApplicationRow>(
     COLLECTIONS.schoolApplications,
     data.applicationId,
   );
   if (!application) throw new Error("That application was not found.");
-  const schoolId = await managedSchoolIdFor(context);
   if (context.role !== "superadmin" && application.school_id !== schoolId) {
     throw new Error("You do not have permission to perform this action.");
   }

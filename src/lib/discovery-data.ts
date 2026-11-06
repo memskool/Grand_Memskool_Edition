@@ -1081,7 +1081,32 @@ export function useCreateClass() {
       teacher_id: string | null;
       room: string | null;
     }) => {
+      const { createAcademicClass } = await import("@/features/academic/academic.functions");
+      try {
+        await createAcademicClass({
+          data: {
+            ...values,
+            academic_year_id: null,
+            academic_period_id: null,
+            status: "active",
+          },
+        });
+        await refreshAuthClaims();
+        return;
+      } catch (error) {
+        const message = (error instanceof Error ? error.message : String(error)).toLowerCase();
+        const infra =
+          message.includes("fetch failed") ||
+          message.includes("network") ||
+          message.includes("503") ||
+          message.includes("502") ||
+          message.includes("504") ||
+          message.includes("__dirname");
+        if (!infra) throw classifyFirebase(error);
+        console.error("[class] server create infrastructure failure, client fallback:", error);
+      }
       const schoolId = await userSchoolId();
+      if (!schoolId) throw new Error("Register your school first.");
       await createDoc(COLLECTIONS.classes, {
         ...values,
         school_id: schoolId,
@@ -1093,6 +1118,7 @@ export function useCreateClass() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["all-classes"] });
       qc.invalidateQueries({ queryKey: ["weekly-timetable"] });
+      qc.invalidateQueries({ queryKey: ["academic-classes"] });
     },
   });
 }

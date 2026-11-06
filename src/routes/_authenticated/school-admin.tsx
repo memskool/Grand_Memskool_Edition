@@ -113,6 +113,13 @@ function SchoolAdminPage() {
   const school = useMySchool(user?.id);
   const isAdmin = canManageSchool(role.data ?? undefined);
 
+  useEffect(() => {
+    // Stale JWTs after school register show Institution in UI but deny enrol until refresh.
+    void import("@/features/auth/services/auth.service").then(({ refreshAuthClaims }) =>
+      refreshAuthClaims(),
+    );
+  }, [user?.id]);
+
   if (role.isLoading) {
     return (
       <>

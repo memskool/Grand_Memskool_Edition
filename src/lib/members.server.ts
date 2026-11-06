@@ -10,15 +10,12 @@ import {
 import { parentLinkId } from "@/lib/parent-link";
 import { COLLECTIONS } from "@/lib/firebase/repo";
 import { toClientJson } from "@/lib/firebase/plain-data";
-import { isSchoolManager, type AppRole, type MemberStatus } from "@/types/roles";
+import type { MemberStatus } from "@/types/roles";
 import { adminAuth } from "@/lib/firebase/admin.server";
-import { managedSchoolIdFor } from "@/lib/firebase/school-context.server";
+import { requireSchoolManagerContext } from "@/lib/firebase/school-context.server";
 
-async function assertCanManageSchool(context: { userId: string; role: AppRole }): Promise<void> {
-  // Phase 2: claims-derived role only — never trust users/{uid}.role for privilege.
-  if (!isSchoolManager(context.role)) {
-    throw new Error("You do not have permission to perform this action.");
-  }
+async function assertCanManageSchool(context: AuthedContext): Promise<string> {
+  return requireSchoolManagerContext(context);
 }
 
 export async function setSchoolMemberStatusHandler({
@@ -28,14 +25,13 @@ export async function setSchoolMemberStatusHandler({
   data: { memberId: string; status: MemberStatus };
   context: AuthedContext;
 }) {
-  await assertCanManageSchool(context);
+  const schoolId = await assertCanManageSchool(context);
   const member = await adminGetById<{
     school_id: string;
     user_id: string;
     role: string;
   }>(COLLECTIONS.schoolMembers, data.memberId);
   if (!member) throw new Error("That membership was not found.");
-  const schoolId = await managedSchoolIdFor(context);
   if (context.role !== "superadmin" && member.school_id !== schoolId) {
     throw new Error("You do not have permission to perform this action.");
   }
@@ -114,8 +110,7 @@ async function loadMembersForSchool(schoolId: string): Promise<MemberRow[]> {
 
 /** School admin: list members with basic profile info. */
 export async function listSchoolMembersHandler({ context }: { context: AuthedContext }) {
-  await assertCanManageSchool(context);
-  const schoolId = await managedSchoolIdFor(context);
+  const schoolId = await assertCanManageSchool(context);
   try {
     const { syncApprovedApplicantsToRoll } = await import("@/lib/applications.server");
     await syncApprovedApplicantsToRoll(schoolId);
@@ -210,18 +205,10 @@ export async function linkParentStudentHandler({
   data: { parentId: string; studentId: string };
   context: AuthedContext;
 }) {
-  if (!isSchoolManager(context.role)) {
-    throw new Error("You do not have permission to perform this action.");
-  }
-  const schoolId = context.schoolId;
-  if (!schoolId && context.role !== "superadmin") {
-    throw new Error("Your account is not linked to a school.");
-  }
+  const resolvedSchool = await assertCanManageSchool(context);
   if (data.parentId === data.studentId) {
     throw new Error("A parent and a student must be two different accounts.");
   }
-  const resolvedSchool = schoolId;
-  if (!resolvedSchool) throw new Error("Your account is not linked to a school.");
 
   await assertSchoolMember(data.parentId, resolvedSchool, "parent");
   const student = await assertSchoolMember(data.studentId, resolvedSchool, "student");
@@ -265,12 +252,10 @@ export async function unlinkParentStudentHandler({
   data: { linkId: string };
   context: AuthedContext;
 }) {
-  if (!isSchoolManager(context.role)) {
-    throw new Error("You do not have permission to perform this action.");
-  }
+  const schoolId = await assertCanManageSchool(context);
   const link = await adminGetById<{ school_id?: string }>(COLLECTIONS.parentStudents, data.linkId);
   if (!link) throw new Error("That family link was not found.");
-  if (context.role !== "superadmin" && link.school_id !== context.schoolId) {
+  if (context.role !== "superadmin" && link.school_id !== schoolId) {
     throw new Error("You do not have permission to perform this action.");
   }
   await adminDelete(COLLECTIONS.parentStudents, data.linkId);

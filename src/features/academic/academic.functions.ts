@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireFirebaseAuth } from "@/lib/firebase/require-auth";
 import { z } from "zod";
 import {
+  ClassSchema,
   EnrollSchema,
   TeacherAssignSchema,
   SlotSchema,
@@ -10,6 +11,14 @@ import {
   MissedWorkAssignSchema,
   MissedWorkProgressSchema,
 } from "./schemas";
+
+export const createAcademicClass = createServerFn({ method: "POST" })
+  .middleware([requireFirebaseAuth])
+  .inputValidator((data: unknown) => ClassSchema.parse(data))
+  .handler(async (opts) => {
+    const { createAcademicClassHandler } = await import("./academic.server");
+    return createAcademicClassHandler(opts);
+  });
 
 export const enrollStudent = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])

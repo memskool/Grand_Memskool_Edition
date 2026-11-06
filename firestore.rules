@@ -248,7 +248,8 @@ service cloud.firestore {
       );
     }
     function tenantWrite(schoolId) {
-      return isSchoolAdmin() && sameSchool(schoolId) || isTeacher() && sameSchool(schoolId);
+      // School owners may still have a stale JWT without admin claims after register.
+      return managesSchool(schoolId) || isTeacher() && sameSchool(schoolId);
     }
     // Phase 4: school_id is immutable on update — blocks cross-tenant reassignment theft.
     function schoolIdUnchanged() {

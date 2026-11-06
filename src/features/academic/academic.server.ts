@@ -12,7 +12,7 @@ import { adminAuth } from "@/lib/firebase/admin.server";
 import { toClientJson } from "@/lib/firebase/plain-data";
 import { COLLECTIONS } from "@/lib/firebase/repo";
 import { isSchoolManager } from "@/types/roles";
-import { managedSchoolIdFor } from "@/lib/firebase/school-context.server";
+import { requireSchoolManagerContext } from "@/lib/firebase/school-context.server";
 import { classEnrollmentId, classTeacherAssignmentId } from "./ids";
 
 // Handlers receive already-validated payloads from thin createServerFn facades.
@@ -111,15 +111,8 @@ function schoolOf(context: AuthedContext): string {
 }
 
 async function requireManager(context: AuthedContext) {
-  // Phase 2/3: claims-derived role only.
-  if (!isSchoolManager(context.role)) {
-    throw new Error("You do not have permission to perform this action.");
-  }
-  try {
-    return await managedSchoolIdFor(context);
-  } catch {
-    return schoolOf(context);
-  }
+  // Claims first; heal stale JWT when profile + ownership prove school operator.
+  return requireSchoolManagerContext(context);
 }
 
 function requireStaff(context: AuthedContext) {
@@ -134,6 +127,35 @@ function requireStaff(context: AuthedContext) {
 
 function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string) {
   return aStart < bEnd && bStart < aEnd;
+}
+
+export async function createAcademicClassHandler({
+  data,
+  context,
+}: DataCtx<{
+  name: string;
+  room: string | null;
+  subject_id: string | null;
+  teacher_id: string | null;
+  academic_year_id?: string | null;
+  academic_period_id?: string | null;
+  status?: string;
+}>) {
+  const schoolId = await requireManager(context);
+  const now = new Date().toISOString();
+  const id = await adminCreate(COLLECTIONS.classes, {
+    school_id: schoolId,
+    name: data.name,
+    room: data.room,
+    subject_id: data.subject_id,
+    teacher_id: data.teacher_id,
+    academic_year_id: data.academic_year_id ?? null,
+    academic_period_id: data.academic_period_id ?? null,
+    status: data.status ?? "active",
+    created_at: now,
+    updated_at: now,
+  });
+  return toClientJson({ id });
 }
 
 export async function enrollStudentHandler({
