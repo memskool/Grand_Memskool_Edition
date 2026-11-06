@@ -281,10 +281,18 @@ export function useMissedWork(studentId?: string) {
     queryKey: ["missed-work", studentId],
     enabled: !!studentId,
     queryFn: async (): Promise<MissedWorkItem[]> => {
-      const rows = await findMany<Omit<MissedWorkItem, "class">>(COLLECTIONS.missedWork, [
-        where("student_id", "==", studentId!),
-        orderBy("lesson_date", "desc"),
-      ]);
+      const schoolId = await userSchoolId(studentId);
+      const constraints = schoolId
+        ? [
+            where("school_id", "==", schoolId),
+            where("student_id", "==", studentId!),
+            orderBy("lesson_date", "desc"),
+          ]
+        : [where("student_id", "==", studentId!), orderBy("lesson_date", "desc")];
+      const rows = await findMany<Omit<MissedWorkItem, "class">>(
+        COLLECTIONS.missedWork,
+        constraints,
+      );
       return Promise.all(rows.map((row) => attachClassName(row))) as Promise<MissedWorkItem[]>;
     },
   });

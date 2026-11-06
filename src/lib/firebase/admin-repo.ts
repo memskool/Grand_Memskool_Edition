@@ -2,7 +2,6 @@ import "@tanstack/react-start/server-only";
 import type { DocumentData, Query, WhereFilterOp } from "firebase-admin/firestore";
 import { adminDb } from "./admin.server";
 import { plainFirestoreData } from "./plain-data";
-import { matchAdminFilter } from "./query-match";
 
 export function adminCol(name: string) {
   return adminDb().collection(name);
@@ -51,19 +50,6 @@ export async function adminDelete(name: string, id: string) {
   await adminCol(name).doc(id).delete();
 }
 
-function matchesWhere<T extends DocumentData>(
-  row: T & { id: string },
-  field: string,
-  op: WhereFilterOp,
-  value: unknown,
-  extra?: Array<[string, WhereFilterOp, unknown]>,
-): boolean {
-  if (!matchAdminFilter(row as Record<string, unknown>, field, op, value)) return false;
-  return (extra ?? []).every(([f, o, v]) =>
-    matchAdminFilter(row as Record<string, unknown>, f, o, v),
-  );
-}
-
 export async function adminWhere<T extends DocumentData>(
   name: string,
   field: string,
@@ -71,17 +57,11 @@ export async function adminWhere<T extends DocumentData>(
   value: unknown,
   extra?: Array<[string, WhereFilterOp, unknown]>,
 ): Promise<Array<T & { id: string }>> {
-  try {
-    let q: Query = adminCol(name).where(field, op, value);
-    for (const [f, o, v] of extra ?? []) q = q.where(f, o, v);
-    const snap = await q.get();
-    const rows = snap.docs.map((d) => ({ ...(d.data() as T), id: d.id }));
-    if (rows.length > 0) return rows;
-  } catch (error) {
-    console.error("[adminWhere] query failed:", name, field, error);
-  }
-  const all = await adminListAll<T>(name, 500);
-  return all.filter((row) => matchesWhere(row, field, op, value, extra));
+  // Phase 4: never scan the whole collection and pretend the filter was complete.
+  let q: Query = adminCol(name).where(field, op, value);
+  for (const [f, o, v] of extra ?? []) q = q.where(f, o, v);
+  const snap = await q.get();
+  return snap.docs.map((d) => ({ ...(d.data() as T), id: d.id }));
 }
 
 export async function adminIsSuspended(userId: string): Promise<boolean> {

@@ -198,6 +198,21 @@ async function schoolIdForClass(classId: string): Promise<string | null> {
   return typeof cls?.school_id === "string" && cls.school_id ? cls.school_id : null;
 }
 
+/** Phase 4: group class ids by school so multi-school teachers are not truncated to classIds[0]. */
+async function classIdsBySchool(classIds: string[]): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  await Promise.all(
+    classIds.map(async (classId) => {
+      const schoolId = await schoolIdForClass(classId);
+      if (!schoolId) return;
+      const list = map.get(schoolId) ?? [];
+      list.push(classId);
+      map.set(schoolId, list);
+    }),
+  );
+  return map;
+}
+
 export function useLiveSessions(classIds: string[]) {
   const qc = useQueryClient();
   const key = classIds.slice().sort().join(",");
@@ -207,35 +222,46 @@ export function useLiveSessions(classIds: string[]) {
     enabled: classIds.length > 0,
     refetchInterval: 20_000,
     queryFn: async (): Promise<ClassroomSession[]> => {
-      const schoolId = await schoolIdForClass(classIds[0]!);
-      if (!schoolId) return [];
-      // school_id must be in the query or Firestore rules reject the list.
-      const rows = await findMany<ClassroomSession>(COLLECTIONS.classroomSessions, [
-        where("school_id", "==", schoolId),
-        where("class_id", "in", classIds.slice(0, 30)),
-        where("is_active", "==", true),
-      ]);
+      const bySchool = await classIdsBySchool(classIds);
+      if (bySchool.size === 0) return [];
+      const chunks = await Promise.all(
+        [...bySchool.entries()].map(([schoolId, ids]) =>
+          findMany<ClassroomSession>(COLLECTIONS.classroomSessions, [
+            where("school_id", "==", schoolId),
+            where("class_id", "in", ids.slice(0, 30)),
+            where("is_active", "==", true),
+          ]),
+        ),
+      );
       // Drop (and heal) ghost sessions left active after Leave without End.
-      return healStaleLiveSessions(rows.filter((row) => (row.status ?? "live") === "live"));
+      return healStaleLiveSessions(
+        chunks.flat().filter((row) => (row.status ?? "live") === "live"),
+      );
     },
   });
 
   useEffect(() => {
     if (!classIds.length) return;
-    let unsub: (() => void) | undefined;
-    void schoolIdForClass(classIds[0]!).then((schoolId) => {
-      if (!schoolId) return;
-      unsub = subscribeMany(
-        COLLECTIONS.classroomSessions,
-        [
-          where("school_id", "==", schoolId),
-          where("class_id", "in", classIds.slice(0, 30)),
-          where("is_active", "==", true),
-        ],
-        () => qc.invalidateQueries({ queryKey: ["live-sessions", key] }),
+    let unsubs: Array<() => void> = [];
+    let cancelled = false;
+    void classIdsBySchool(classIds).then((bySchool) => {
+      if (cancelled) return;
+      unsubs = [...bySchool.entries()].map(([schoolId, ids]) =>
+        subscribeMany(
+          COLLECTIONS.classroomSessions,
+          [
+            where("school_id", "==", schoolId),
+            where("class_id", "in", ids.slice(0, 30)),
+            where("is_active", "==", true),
+          ],
+          () => qc.invalidateQueries({ queryKey: ["live-sessions", key] }),
+        ),
       );
     });
-    return () => unsub?.();
+    return () => {
+      cancelled = true;
+      for (const unsub of unsubs) unsub();
+    };
   }, [key, classIds, qc]);
 
   return query;
@@ -897,7 +923,10 @@ export function useSessionAttendance(sessionId?: string) {
     queryKey: ["session-attendance", sessionId],
     enabled: !!sessionId,
     queryFn: async (): Promise<SessionAttendanceRow[]> => {
+      const schoolId = await schoolIdForSession(sessionId!);
+      if (!schoolId) return [];
       const rows = await findMany<Omit<SessionAttendanceRow, "profile">>(COLLECTIONS.attendance, [
+        where("school_id", "==", schoolId),
         where("session_id", "==", sessionId!),
       ]);
       return Promise.all(

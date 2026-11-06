@@ -8,6 +8,7 @@ import {
   where,
   orderBy,
 } from "@/lib/firebase/repo";
+import { userSchoolId } from "@/lib/firebase/hydrate";
 
 export function useTeacherAssignments(classIds: string[]) {
   const key = [...classIds].sort().join(",");
@@ -15,6 +16,8 @@ export function useTeacherAssignments(classIds: string[]) {
     queryKey: ["teacher-assignments", key],
     enabled: classIds.length > 0,
     queryFn: async () => {
+      const schoolId = await userSchoolId();
+      if (!schoolId) return [];
       const rows = await findMany<{
         title: string;
         description: string | null;
@@ -22,6 +25,7 @@ export function useTeacherAssignments(classIds: string[]) {
         points: number;
         class_id: string;
       }>(COLLECTIONS.assignments, [
+        where("school_id", "==", schoolId),
         where("class_id", "in", classIds.slice(0, 30)),
         orderBy("due_at", "asc"),
       ]);

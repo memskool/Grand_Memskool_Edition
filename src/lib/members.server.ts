@@ -3,7 +3,6 @@ import type { AuthedContext } from "@/lib/firebase/require-auth";
 import {
   adminDelete,
   adminGetById,
-  adminListAll,
   adminSet,
   adminUpdate,
   adminWhere,
@@ -108,16 +107,8 @@ type MemberRow = {
 };
 
 async function loadMembersForSchool(schoolId: string): Promise<MemberRow[]> {
-  let rows: MemberRow[] = [];
-  try {
-    rows = await adminWhere<MemberRow>(COLLECTIONS.schoolMembers, "school_id", "==", schoolId);
-  } catch (error) {
-    console.error("[members] query failed:", error);
-  }
-  if (rows.length === 0) {
-    const all = await adminListAll<MemberRow>(COLLECTIONS.schoolMembers, 500);
-    rows = all.filter((row) => row.school_id === schoolId);
-  }
+  // Phase 4: trust the school_id query — no whole-collection scan fallback.
+  const rows = await adminWhere<MemberRow>(COLLECTIONS.schoolMembers, "school_id", "==", schoolId);
   return rows.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
 }
 

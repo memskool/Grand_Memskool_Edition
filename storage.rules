@@ -20,6 +20,7 @@ service firebase.storage {
     function role() {
       return request.auth.token.role;
     }
+    // Phase 2/4: tenancy from Auth claims only — never users/{uid}.school_id.
     function school() {
       return request.auth.token.schoolId;
     }

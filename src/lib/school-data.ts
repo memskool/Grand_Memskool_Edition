@@ -152,9 +152,11 @@ export function useUpcomingSlots(userId?: string) {
     queryKey: ["upcoming-slots", userId],
     enabled: !!userId,
     queryFn: async () => {
+      const schoolId = await userSchoolId(userId);
+      if (!schoolId) return [];
       const enrollments = await findMany<{ class_id: string; status?: string }>(
         COLLECTIONS.classEnrollments,
-        [where("student_id", "==", userId!)],
+        [where("student_id", "==", userId!), where("school_id", "==", schoolId)],
       );
       const classIds = new Set(
         enrollments.filter((e) => e.status !== "ended").map((e) => e.class_id),
@@ -164,7 +166,12 @@ export function useUpcomingSlots(userId?: string) {
         start_time: string;
         end_time: string;
         class_id: string;
-      }>(COLLECTIONS.timetableSlots, [orderBy("day_of_week"), orderBy("start_time"), limit(40)]);
+      }>(COLLECTIONS.timetableSlots, [
+        where("school_id", "==", schoolId),
+        orderBy("day_of_week"),
+        orderBy("start_time"),
+        limit(40),
+      ]);
       const mine = slots.filter((s) => classIds.has(s.class_id)).slice(0, 6);
       return Promise.all(
         mine.map(async (s) => {
@@ -184,9 +191,11 @@ export function useMyAssignments(userId?: string) {
     queryKey: ["my-assignments", userId],
     enabled: !!userId,
     queryFn: async () => {
+      const schoolId = await userSchoolId(userId);
+      if (!schoolId) return [];
       const enrollments = await findMany<{ class_id: string; status?: string }>(
         COLLECTIONS.classEnrollments,
-        [where("student_id", "==", userId!)],
+        [where("student_id", "==", userId!), where("school_id", "==", schoolId)],
       );
       const classIds = enrollments.filter((e) => e.status !== "ended").map((e) => e.class_id);
       if (classIds.length === 0) return [];
@@ -198,6 +207,7 @@ export function useMyAssignments(userId?: string) {
         class_id: string | null;
         status?: string;
       }>(COLLECTIONS.assignments, [
+        where("school_id", "==", schoolId),
         where("class_id", "in", classIds.slice(0, 30)),
         orderBy("due_at", "asc"),
       ]);
@@ -207,7 +217,10 @@ export function useMyAssignments(userId?: string) {
         status: string;
         grade: number | null;
         student_id: string;
-      }>(COLLECTIONS.submissions, [where("student_id", "==", userId)]);
+      }>(COLLECTIONS.submissions, [
+        where("student_id", "==", userId),
+        where("school_id", "==", schoolId),
+      ]);
       return Promise.all(
         visible.map(async (a) => {
           const cls = a.class_id ? await getById<ClassDoc>(COLLECTIONS.classes, a.class_id) : null;
@@ -295,26 +308,21 @@ export function useTeacherTimetable(userId?: string) {
     enabled: !!userId,
     queryFn: async () => {
       const today = new Date().getDay();
+      const schoolId = await userSchoolId(userId);
+      if (!schoolId) return [];
       const teachingRows = await clientTeachingClasses(userId!).catch(() => [] as ClassRow[]);
       const classIds = new Set(teachingRows.map((row) => row.id));
-      let slots: Array<{
+      const slots = await findMany<{
         id: string;
         day_of_week: number;
         start_time: string;
         end_time: string;
         class_id: string;
-      }> = [];
-      try {
-        slots = await findMany<{
-          day_of_week: number;
-          start_time: string;
-          end_time: string;
-          class_id: string;
-        }>(COLLECTIONS.timetableSlots, [where("day_of_week", "==", today), orderBy("start_time")]);
-      } catch (error) {
-        console.error("[teacher-timetable] slots query failed:", error);
-        return [];
-      }
+      }>(COLLECTIONS.timetableSlots, [
+        where("school_id", "==", schoolId),
+        where("day_of_week", "==", today),
+        orderBy("start_time"),
+      ]);
       const mine = slots.filter((s) => classIds.has(s.class_id));
       return Promise.all(
         mine.map(async (s) => {
@@ -335,10 +343,12 @@ export function usePendingGrading(userId?: string) {
     queryKey: ["pending-grading", userId],
     enabled: !!userId,
     queryFn: async () => {
+      const schoolId = await userSchoolId(userId);
+      if (!schoolId) return [];
       const teachingRows = await clientTeachingClasses(userId!).catch(() => [] as ClassRow[]);
       const classIds = teachingRows.map((row) => row.id);
       if (classIds.length === 0) return [];
-      let rows: Array<{
+      const rows = await findMany<{
         id: string;
         status: string;
         submitted_at: string | null;
@@ -346,24 +356,12 @@ export function usePendingGrading(userId?: string) {
         assignment_id: string;
         grade: number | null;
         class_id?: string | null;
-      }> = [];
-      try {
-        rows = await findMany<{
-          status: string;
-          submitted_at: string | null;
-          student_id: string;
-          assignment_id: string;
-          grade: number | null;
-          class_id?: string | null;
-        }>(COLLECTIONS.submissions, [
-          where("grade", "==", null),
-          orderBy("submitted_at", "asc"),
-          limit(40),
-        ]);
-      } catch (error) {
-        console.error("[pending-grading] submissions query failed:", error);
-        return [];
-      }
+      }>(COLLECTIONS.submissions, [
+        where("school_id", "==", schoolId),
+        where("grade", "==", null),
+        orderBy("submitted_at", "asc"),
+        limit(40),
+      ]);
       const mine = rows.filter((s) => !s.class_id || classIds.includes(s.class_id));
       return Promise.all(
         mine.slice(0, 20).map(async (s) => {

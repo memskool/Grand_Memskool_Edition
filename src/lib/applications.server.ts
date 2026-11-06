@@ -1,12 +1,6 @@
 import "@tanstack/react-start/server-only";
 import type { AuthedContext } from "@/lib/firebase/require-auth";
-import {
-  adminGetById,
-  adminListAll,
-  adminSet,
-  adminUpdate,
-  adminWhere,
-} from "@/lib/firebase/admin-repo";
+import { adminGetById, adminSet, adminUpdate, adminWhere } from "@/lib/firebase/admin-repo";
 import { adminAuth } from "@/lib/firebase/admin.server";
 import { COLLECTIONS } from "@/lib/firebase/collections";
 import { toClientJson } from "@/lib/firebase/plain-data";
@@ -42,21 +36,13 @@ async function assertCanManageSchool(context: AuthedContext): Promise<void> {
 }
 
 async function loadApplicationsForSchool(schoolId: string): Promise<ApplicationRow[]> {
-  let rows: ApplicationRow[] = [];
-  try {
-    rows = await adminWhere<ApplicationRow>(
-      COLLECTIONS.schoolApplications,
-      "school_id",
-      "==",
-      schoolId,
-    );
-  } catch (error) {
-    console.error("[applications] query failed:", error);
-  }
-  if (rows.length === 0) {
-    const all = await adminListAll<ApplicationRow>(COLLECTIONS.schoolApplications, 200);
-    rows = all.filter((row) => row.school_id === schoolId);
-  }
+  // Phase 4: trust the school_id query — no whole-collection scan fallback.
+  const rows = await adminWhere<ApplicationRow>(
+    COLLECTIONS.schoolApplications,
+    "school_id",
+    "==",
+    schoolId,
+  );
   return rows.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
 }
 

@@ -60,11 +60,10 @@ export function useAllDisciplinaryActions(enabled: boolean) {
     enabled,
     queryFn: async (): Promise<DisciplinaryAction[]> => {
       const schoolId = await userSchoolId();
+      if (!schoolId) return [];
       const rows = await findMany<Omit<DisciplinaryAction, "student">>(
         COLLECTIONS.disciplinaryActions,
-        schoolId
-          ? [where("school_id", "==", schoolId), orderBy("created_at", "desc"), limit(100)]
-          : [orderBy("created_at", "desc"), limit(100)],
+        [where("school_id", "==", schoolId), orderBy("created_at", "desc"), limit(100)],
       );
       return Promise.all(
         rows.map((row) => attachNamedUser(row, row.student_id, "student")),
@@ -81,12 +80,11 @@ export function useStudentDirectory(enabled: boolean) {
     enabled,
     queryFn: async (): Promise<StudentOption[]> => {
       const schoolId = await userSchoolId();
-      const rows = await findMany<{ full_name: string; role: string }>(
-        COLLECTIONS.users,
-        schoolId
-          ? [where("school_id", "==", schoolId), where("role", "==", "student")]
-          : [where("role", "==", "student")],
-      );
+      if (!schoolId) return [];
+      const rows = await findMany<{ full_name: string; role: string }>(COLLECTIONS.users, [
+        where("school_id", "==", schoolId),
+        where("role", "==", "student"),
+      ]);
       return rows
         .map((r) => ({ id: r.id, full_name: r.full_name }))
         .sort((a, b) => a.full_name.localeCompare(b.full_name));
