@@ -22,7 +22,7 @@ Do **not** deploy Cloud Functions until the project is on **Blaze**.
 
 ## 2. Application host (typical: Vercel)
 
-1. Connect the GitHub repo. Build command: `npm run build`. Node 20+.
+1. Connect the GitHub repo. Build command: `npm run build`. Set the project's Node.js version to **22.x or newer** (the function runtime is also pinned to `nodejs22.x` in `vite.config.ts`: the traced Admin SDK chain `require()`s the ESM-only `jose` v6, which throws `ERR_REQUIRE_ESM` on older Node).
 2. Set environment variables from `.env.example`, using **real secrets** from a password manager — never from git.
 3. `FIREBASE_SERVICE_ACCOUNT_JSON` must be the **JSON object as one line**, not `./something.json`.
 4. Set `APP_ORIGIN` to the production URL (`https://memskool.com` or the actual host).
@@ -66,7 +66,7 @@ The web app is responsive. Play/App Store packaging, signing, and store listings
     -H "accept: application/json" -H "content-type: application/json" --data "$BODY"
   ```
 
-  A healthy server answers with a `null` result (`{"t":2,"s":1}` in the `result` slot). `"Could not verify that School ID right now (…)"` means the Admin SDK is broken on the host; the parenthetical names the cause class — `server bundle error` (bundling regression, see `npm run check:server-bundle`), `credentials` / `app/invalid-credential` (bad `FIREBASE_SERVICE_ACCOUNT_JSON`), `PERMISSION_DENIED` / `UNAUTHENTICATED` (service account lacks Firestore access), `NOT_FOUND` (wrong database id) — and the full error is in the Vercel function logs under `[lookupSchoolByCode]`. The explicit "missing Firebase admin credentials" message means the env var is unset.
+  A healthy server answers with a `null` result (`{"t":2,"s":1}` in the `result` slot). `"Could not verify that School ID right now (…)"` means the Admin SDK is broken on the host; the parenthetical names the cause class — `server bundle error` (bundling regression, see `npm run check:server-bundle`), `credentials` / `app/invalid-credential` (bad `FIREBASE_SERVICE_ACCOUNT_JSON`), `PERMISSION_DENIED` / `UNAUTHENTICATED` (service account lacks Firestore access), `NOT_FOUND` (wrong database id), `ERR_REQUIRE_ESM` (function runtime older than Node 22.12; the message also prints the live `node vXX` version) — and the full error is in the Vercel function logs under `[lookupSchoolByCode]`. The explicit "missing Firebase admin credentials" message means the env var is unset.
 
 - Sign up + verification email
 - Sign in + sign out

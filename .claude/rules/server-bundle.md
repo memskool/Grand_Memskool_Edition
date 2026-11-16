@@ -15,6 +15,8 @@ paths:
   server function fails (writes then fall back to client Firestore writes that rules reject).
 - `package.json` `sideEffects` must keep listing `src/lib/node-esm-globals.ts` and
   `src/lib/error-capture.ts`; `"sideEffects": false` lets the bundler drop those bare imports.
+- The Vercel function runtime is pinned to `nodejs22.x` (`nitro.vercel.functions.runtime`); the traced
+  chain `require()`s the ESM-only `jose` v6, so anything below Node 22.12 fails with `ERR_REQUIRE_ESM`.
 - `npm run build && npm run check:server-bundle` must pass before shipping server changes.
 - Production health probe (no auth): `lookupSchoolByCode` with an unknown code returns `null` when the
   Admin SDK works, and "Could not verify that School ID right now." when it is broken.

@@ -35,7 +35,8 @@ Production: `memskool.com` · Firebase project `memskool-4e193` · Firestore Ent
 
 - Nitro 3 **inlines all dependencies** into `_libs/` and ignores `vite.ssr.external`. The Firebase Admin / Google Cloud stack must be listed in `nitro.traceDeps` (`vite.config.ts`) so it stays in `node_modules`; inlined, google-gax throws `__dirname is not defined in ES module scope` and **every Admin SDK server function fails** — the client falls back to direct Firestore writes, rules deny them, and users see "You do not have permission to perform this action."
 - `package.json` `sideEffects` is an explicit list; `"sideEffects": false` drops the `node-esm-globals` polyfill import. Keep both polyfill files listed.
-- `npm run check:server-bundle` (CI) fails if either regresses. `src/lib/infra-failure.ts` treats the `__dirname` crash as an infrastructure failure on purpose.
+- The function runtime is pinned to `nodejs22.x` in `vite.config.ts` (`nitro.vercel.functions.runtime`): the traced chain `require()`s the ESM-only `jose` v6, which is `ERR_REQUIRE_ESM` below Node 22.12. Nitro would otherwise copy the build machine's Node major.
+- `npm run check:server-bundle` (CI) fails if any of these regress. `src/lib/infra-failure.ts` treats the `__dirname` crash as an infrastructure failure on purpose.
 - Prod probe: POST `/_serverFn/<lookupSchoolByCode id>` with an unknown code → `null` = Admin SDK healthy; "Could not verify that School ID right now." = broken (see `docs/DEPLOYMENT.md` §8).
 
 ## Commands

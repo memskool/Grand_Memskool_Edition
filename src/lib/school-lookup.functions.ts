@@ -74,6 +74,7 @@ function describeAdminFailure(error: unknown): string {
         ? (GRPC_STATUS[code] ?? `grpc ${code}`)
         : lower.includes("credential") || lower.includes("private key")
           ? "credentials"
-          : null;
-  return status ? `${base} (${status}).` : `${base}.`;
+          : "unknown";
+  // The runtime version matters: ERR_REQUIRE_ESM means Node < 22.12 (no require(esm)).
+  return `${base} (${status}; node ${process.version}).`;
 }

@@ -35,6 +35,15 @@ const ADMIN_SDK_TRACE_DEPS = [
 const NITRO_OPTIONS = {
   preset: "vercel",
   traceDeps: ADMIN_SDK_TRACE_DEPS,
+  vercel: {
+    functions: {
+      // Nitro otherwise copies the *build machine's* Node major into .vc-config.json.
+      // The traced Admin SDK chain require()s the ESM-only `jose` v6 (via gtoken), which
+      // needs require(esm) — Node ≥ 22.12. Pin the runtime so a Vercel project set to an
+      // older Node cannot silently reintroduce ERR_REQUIRE_ESM on every server function.
+      runtime: "nodejs22.x",
+    },
+  },
 };
 
 export default defineConfig({

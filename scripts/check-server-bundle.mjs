@@ -44,7 +44,20 @@ if (fs.existsSync(libsDir)) {
   }
 }
 
-// 2. The __dirname polyfill must be present in the server code.
+// 2. The function runtime must support require(esm): the traced Admin SDK chain
+//    require()s the ESM-only `jose` v6, which throws ERR_REQUIRE_ESM below Node 22.12.
+const vcConfigPath = path.join(funcDir, ".vc-config.json");
+try {
+  const runtime = String(JSON.parse(fs.readFileSync(vcConfigPath, "utf8")).runtime ?? "");
+  const major = Number(/^nodejs(\d+)\.x$/.exec(runtime)?.[1] ?? NaN);
+  if (!(major >= 22)) {
+    failures.push(`function runtime is "${runtime}" — must be nodejs22.x or newer (require(esm))`);
+  }
+} catch (error) {
+  failures.push(`could not read ${path.relative(process.cwd(), vcConfigPath)}: ${String(error)}`);
+}
+
+// 3. The __dirname polyfill must be present in the server code.
 const serverFiles = walk(funcDir).filter(
   (file) => /\.(mjs|js|cjs)$/.test(file) && !file.includes(`${path.sep}node_modules${path.sep}`),
 );
