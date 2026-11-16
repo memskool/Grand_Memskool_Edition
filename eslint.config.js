@@ -7,16 +7,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: [
-      "dist",
-      ".output",
-      ".vinxi",
-      "functions/**",
-      "dataconnect/**",
-      "src/dataconnect-generated/**",
-      "src/dataconnect-admin-generated/**",
-      "supabase/**",
-    ],
+    ignores: ["dist", ".output", ".vinxi", "functions/**", "supabase/**"],
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

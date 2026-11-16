@@ -9,7 +9,7 @@ Production: `memskool.com` · Firebase project `memskool-4e193` · Firestore Ent
 - **App:** TanStack Start + React 19 + Vite + TanStack Query/Router
 - **Auth/data:** Firebase Auth custom claims + Firestore + Admin SDK on server
 - **Live:** LiveKit (server-minted tokens)
-- **Not live product paths:** Supabase client leftovers, Data Connect stubs — do not revive
+- **Removed:** Supabase client, Data Connect, and the Genkit sample were deleted — do not revive (`supabase/config.toml` stays only as the Lovable project link)
 
 ## Architecture (non-negotiable)
 

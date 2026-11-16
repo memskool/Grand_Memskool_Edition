@@ -38,7 +38,6 @@ Honest list of what the product does **not** do yet, or does only when a human c
 - Content-security-policy headers are not fully locked down on the host.
 - Old direct messages without `member_ids` are not backfilled.
 - Dual academic write paths from earlier phases still exist in places; do not add a third.
-- `src/integrations/supabase` and Data Connect artifacts are leftover and unused by the live app.
 
 ## Legal
 

@@ -58,7 +58,9 @@ export async function requireSchoolManagerContext(context: AuthedContext): Promi
   if (!schoolId) throw new Error("You are not attached to a school.");
 
   const school = await adminGetById<{ owner_id?: string }>(COLLECTIONS.schools, schoolId);
-  const owns = school?.owner_id === context.userId || schoolId === context.userId;
+  // A real schools/{id} doc must exist — never grant manage rights from bare uid === schoolId.
+  if (!school) throw new Error("You do not have permission to perform this action.");
+  const owns = school.owner_id === context.userId;
   const member = await adminGetById<{
     school_id?: string;
     status?: string;

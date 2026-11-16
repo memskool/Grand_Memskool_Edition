@@ -1,6 +1,6 @@
 # Firebase architecture
 
-Memskool’s system of record is **Cloud Firestore** (native mode, `(default)`, `africa-south1`, Enterprise). Firebase Data Connect (`dataconnect/`) is unused.
+Memskool’s system of record is **Cloud Firestore** (native mode, named database `default`, `africa-south1`, Enterprise). Firebase Data Connect was removed.
 
 ## Clients
 
@@ -33,7 +33,8 @@ Postgres `postgres_changes` is replaced by Firestore `onSnapshot` (`subscribeMan
 
 - `onNotificationCreated` — email/SMS delivery rows + FCM multicast
 - `onDisciplinaryActionCreated` — audit log
-- `refreshUserClaims` — privileged callable
+- `refreshUserClaims` — callable: school managers re-sync student/teacher/parent claims for members of their own school; superadmin for any school/role (never assigns superadmin); audit-logged
+- All functions target the named database `default` (triggers set `database: "default"`)
 - `ping` — health
 
 ## Queries

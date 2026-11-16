@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 .output
+.vercel
 .vinxi
 .tanstack/**
 .nitro
@@ -53,3 +54,7 @@ firebase-debug.log*
 firebase-debug.*.log*
 .dataconnect
 *firebase-adminsdk*.json
+
+# Local scratch (PDF exports, one-off scripts)
+/tmp/
+/output/

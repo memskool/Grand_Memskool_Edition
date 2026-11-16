@@ -2,7 +2,7 @@
 
 This file describes integrations that exist in the Memskool codebase today. A row is **complete in code** when the client, server, env, and failure path are implemented. It is **not live in production** until a human sets credentials, webhooks, and domains.
 
-Do not treat leftover folders (`src/integrations/supabase`, Data Connect) as product backends. The app backend is Firebase.
+The app backend is Firebase. The old Supabase client and Data Connect artifacts have been removed.
 
 ---
 
@@ -131,6 +131,5 @@ Do not treat leftover folders (`src/integrations/supabase`, Data Connect) as pro
 | Item | Status |
 | --- | --- |
 | Daily.co | Not in the product. LiveKit is the provider. |
-| Supabase client (`src/integrations/supabase`) | Leftover types/helpers. Not the runtime backend. |
-| Firebase Data Connect | Present in `firebase.json` / generated packages. App data is Firestore. |
+| Supabase client / Data Connect | Removed. `supabase/config.toml` remains only as the Lovable project link. App data is Firestore. |
 | Crane5 / Flutterwave | Wired in code. Keys are added by humans later. |
