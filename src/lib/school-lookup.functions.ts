@@ -76,5 +76,10 @@ function describeAdminFailure(error: unknown): string {
           ? "credentials"
           : "unknown";
   // The runtime version matters: ERR_REQUIRE_ESM means Node < 22.12 (no require(esm)).
-  return `${base} (${status}; node ${process.version}).`;
+  // The first dependency frame names the module that failed to load (path only, no data).
+  const frame = (error instanceof Error ? (error.stack ?? "") : "")
+    .split(/\r?\n/)
+    .map((line) => /node_modules[\\/](.+?):\d+/.exec(line)?.[1])
+    .find((hit): hit is string => Boolean(hit));
+  return `${base} (${status}; node ${process.version}${frame ? `; at ${frame}` : ""}).`;
 }

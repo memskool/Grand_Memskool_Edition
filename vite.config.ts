@@ -15,8 +15,11 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
  * `node_modules` so Node loads it natively. `scripts/check-server-bundle.mjs`
  * fails CI if these ever get inlined again.
  */
+// `firebase-admin` itself is deliberately NOT traced: its CJS requires `jwks-rsa`, which
+// requires the ESM-only `jose` v6 — a native require(esm) that Vercel's Node runtime
+// rejects with ERR_REQUIRE_ESM. Bundled by rolldown instead, that edge becomes a plain
+// ESM import and firebase-admin still reaches the traced Google stack through externals.
 const ADMIN_SDK_TRACE_DEPS = [
-  "firebase-admin",
   "@google-cloud/firestore",
   "@google-cloud/storage",
   "google-gax",

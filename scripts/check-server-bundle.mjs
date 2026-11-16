@@ -25,8 +25,8 @@ if (!funcDir) {
 
 const failures = [];
 
-// 1. Admin SDK packages must be traced into node_modules, never inlined into _libs.
-const mustBeTraced = ["firebase-admin", "@google-cloud/firestore", "google-gax", "@grpc/grpc-js"];
+// 1. The gRPC / google-gax stack must be traced into node_modules, never inlined into _libs.
+const mustBeTraced = ["@google-cloud/firestore", "google-gax", "@grpc/grpc-js"];
 for (const pkg of mustBeTraced) {
   if (!fs.existsSync(path.join(funcDir, "node_modules", pkg))) {
     failures.push(
@@ -37,10 +37,26 @@ for (const pkg of mustBeTraced) {
 const libsDir = path.join(funcDir, "_libs");
 if (fs.existsSync(libsDir)) {
   const inlined = walk(libsDir).filter((file) =>
-    /(^|[\\/])_libs[\\/](@google-cloud|google-gax|firebase-admin|@grpc)/.test(file),
+    /(^|[\\/])_libs[\\/](@google-cloud|google-gax|@grpc)/.test(file),
   );
   for (const file of inlined) {
-    failures.push(`Admin SDK dependency inlined into bundle: ${path.relative(funcDir, file)}`);
+    failures.push(`gRPC stack dependency inlined into bundle: ${path.relative(funcDir, file)}`);
+  }
+}
+
+// 1b. Nothing in the traced tree may need a native require(esm): `jwks-rsa` (pulled by
+//     firebase-admin) requires the ESM-only `jose` v6, which Vercel's runtime rejects with
+//     ERR_REQUIRE_ESM. firebase-admin must therefore be bundled, not traced.
+for (const pkg of ["firebase-admin", "jwks-rsa"]) {
+  if (fs.existsSync(path.join(funcDir, "node_modules", pkg))) {
+    failures.push(`${pkg} was traced into node_modules — it must be bundled (see vite.config.ts)`);
+  }
+}
+const tracedJose = path.join(funcDir, "node_modules", "jose", "package.json");
+if (fs.existsSync(tracedJose)) {
+  const jose = JSON.parse(fs.readFileSync(tracedJose, "utf8"));
+  if (jose.type === "module") {
+    failures.push(`traced node_modules/jose@${jose.version} is ESM-only (native require(esm))`);
   }
 }
 
@@ -73,7 +89,7 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  `[check-server-bundle] OK — Admin SDK traced into node_modules, nothing inlined under _libs, polyfill present (${path.relative(process.cwd(), funcDir)}).`,
+  `[check-server-bundle] OK — gRPC stack traced into node_modules, firebase-admin bundled (no native require(esm)), runtime >= nodejs22.x, polyfill present (${path.relative(process.cwd(), funcDir)}).`,
 );
 
 function walk(dir) {

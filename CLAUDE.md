@@ -33,9 +33,10 @@ Production: `memskool.com` · Firebase project `memskool-4e193` · Firestore Ent
 
 ## Server bundle on Vercel (read before touching vite.config.ts / package.json)
 
-- Nitro 3 **inlines all dependencies** into `_libs/` and ignores `vite.ssr.external`. The Firebase Admin / Google Cloud stack must be listed in `nitro.traceDeps` (`vite.config.ts`) so it stays in `node_modules`; inlined, google-gax throws `__dirname is not defined in ES module scope` and **every Admin SDK server function fails** — the client falls back to direct Firestore writes, rules deny them, and users see "You do not have permission to perform this action."
+- Nitro 3 **inlines all dependencies** into `_libs/` and ignores `vite.ssr.external`. The Google Cloud / gRPC stack (`@google-cloud/*`, `google-gax`, `@grpc/*`, `protobufjs`, …) must be listed in `nitro.traceDeps` (`vite.config.ts`) so it stays in `node_modules`; inlined, google-gax throws `__dirname is not defined in ES module scope` and **every Admin SDK server function fails** — the client falls back to direct Firestore writes, rules deny them, and users see "You do not have permission to perform this action."
+- `firebase-admin` itself must stay **bundled** (not traced): its `jwks-rsa` dependency `require()`s the ESM-only `jose` v6, and that native `require(esm)` fails on Vercel's runtime with `ERR_REQUIRE_ESM`. Bundled, the edge is a plain ESM import.
 - `package.json` `sideEffects` is an explicit list; `"sideEffects": false` drops the `node-esm-globals` polyfill import. Keep both polyfill files listed.
-- The function runtime is pinned to `nodejs22.x` in `vite.config.ts` (`nitro.vercel.functions.runtime`): the traced chain `require()`s the ESM-only `jose` v6, which is `ERR_REQUIRE_ESM` below Node 22.12. Nitro would otherwise copy the build machine's Node major.
+- The function runtime is pinned to `nodejs22.x` in `vite.config.ts` (`nitro.vercel.functions.runtime`); Nitro would otherwise copy the build machine's Node major.
 - `npm run check:server-bundle` (CI) fails if any of these regress. `src/lib/infra-failure.ts` treats the `__dirname` crash as an infrastructure failure on purpose.
 - Prod probe: POST `/_serverFn/<lookupSchoolByCode id>` with an unknown code → `null` = Admin SDK healthy; "Could not verify that School ID right now." = broken (see `docs/DEPLOYMENT.md` §8).
 
