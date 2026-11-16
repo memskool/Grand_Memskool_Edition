@@ -81,5 +81,17 @@ function describeAdminFailure(error: unknown): string {
     .split(/\r?\n/)
     .map((line) => /node_modules[\\/](.+?):\d+/.exec(line)?.[1])
     .find((hit): hit is string => Boolean(hit));
-  return `${base} (${status}; node ${process.version}${frame ? `; at ${frame}` : ""}).`;
+  // Filesystem / module-resolution failures carry only a bundle path — surface it.
+  const pathHint =
+    status === "ENOENT" || status === "MODULE_NOT_FOUND" || status === "ERR_MODULE_NOT_FOUND"
+      ? (/'([^']+)'/.exec(message)?.[1] ?? message.split(/\r?\n/)[0]?.slice(0, 160))
+      : undefined;
+  const details = [
+    `node ${process.version}`,
+    frame && `at ${frame}`,
+    pathHint && `path ${pathHint}`,
+  ]
+    .filter(Boolean)
+    .join("; ");
+  return `${base} (${status}; ${details}).`;
 }

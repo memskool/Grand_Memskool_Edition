@@ -18,6 +18,8 @@ paths:
 - `package.json` `sideEffects` must keep listing `src/lib/node-esm-globals.ts` and
   `src/lib/error-capture.ts`; `"sideEffects": false` lets the bundler drop those bare imports.
 - The Vercel function runtime is pinned to `nodejs22.x` (`nitro.vercel.functions.runtime`).
+- nf3 symlinks multi-version packages into `node_modules/.nf3/`; Vercel drops those links (ENOENT at
+  runtime). The `compiled` hook in `vite.config.ts` replaces them with real copies — keep it.
 - `npm run build && npm run check:server-bundle` must pass before shipping server changes.
 - Production health probe (no auth): `lookupSchoolByCode` with an unknown code returns `null` when the
   Admin SDK works, and "Could not verify that School ID right now." when it is broken.

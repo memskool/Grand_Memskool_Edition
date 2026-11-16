@@ -60,6 +60,18 @@ if (fs.existsSync(tracedJose)) {
   }
 }
 
+// 1c. No symlinks or nf3 store may remain: Vercel's packaging drops them and Node then
+//     fails with ENOENT on the linked package (vite.config.ts dereferences them post-build).
+const nodeModulesDir = path.join(funcDir, "node_modules");
+if (fs.existsSync(path.join(nodeModulesDir, ".nf3"))) {
+  failures.push("node_modules/.nf3 store still present — symlink dereference hook did not run");
+}
+const links = walkEntries(nodeModulesDir).filter((entry) => entry.isSymbolicLink());
+for (const link of links.slice(0, 5)) {
+  failures.push(`symlink left in traced node_modules: ${path.relative(funcDir, link.full)}`);
+}
+if (links.length > 5) failures.push(`…and ${links.length - 5} more symlinks`);
+
 // 2. The function runtime must support require(esm): the traced Admin SDK chain
 //    require()s the ESM-only `jose` v6, which throws ERR_REQUIRE_ESM below Node 22.12.
 const vcConfigPath = path.join(funcDir, ".vc-config.json");
@@ -98,6 +110,18 @@ function walk(dir) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) out.push(...walk(full));
     else out.push(full);
+  }
+  return out;
+}
+
+/** Like walk(), but returns dirents (with `full`) and does not follow symlinks. */
+function walkEntries(dir) {
+  const out = [];
+  if (!fs.existsSync(dir)) return out;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    out.push(Object.assign(entry, { full }));
+    if (entry.isDirectory() && !entry.isSymbolicLink()) out.push(...walkEntries(full));
   }
   return out;
 }

@@ -4,7 +4,57 @@
 //     nitro (build-only using cloudflare as a default target), VITE_* env injection, @ path alias,
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
+import fs from "node:fs";
+import path from "node:path";
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+
+/**
+ * nf3 (Nitro's dependency tracer) stores packages that exist in several versions under
+ * `node_modules/.nf3/<pkg>@<version>` and *symlinks* them into place. Vercel's packaging
+ * does not carry those links/dot-dir into the deployed function, so Node hit ENOENT on
+ * e.g. `@grpc/grpc-js` at runtime. Replace every link with a real dereferenced copy and
+ * drop the store, so the uploaded function is plain directories only.
+ */
+function dereferenceTracedSymlinks(functionsDir: string): void {
+  if (!fs.existsSync(functionsDir)) return;
+  for (const fn of fs.readdirSync(functionsDir, { withFileTypes: true })) {
+    if (!fn.isDirectory()) continue;
+    const nodeModules = path.join(functionsDir, fn.name, "node_modules");
+    if (!fs.existsSync(nodeModules)) continue;
+    let replaced = 0;
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isSymbolicLink()) {
+          const target = fs.realpathSync(full);
+          // Unlink the link/junction itself (never its target), then copy the real tree in.
+          // Windows can report EPERM/ENOTEMPTY while a just-removed junction is still
+          // pending deletion, so retry briefly instead of failing the whole build.
+          for (let attempt = 1; ; attempt += 1) {
+            try {
+              fs.rmSync(full, { recursive: true, force: true });
+              fs.cpSync(target, full, { recursive: true, dereference: true });
+              break;
+            } catch (error) {
+              if (attempt >= 5) throw error;
+              Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200 * attempt);
+            }
+          }
+          replaced += 1;
+        } else if (entry.isDirectory() && entry.name !== ".nf3") {
+          walk(full);
+        }
+      }
+    };
+    walk(nodeModules);
+    fs.rmSync(path.join(nodeModules, ".nf3"), { recursive: true, force: true });
+    if (replaced) {
+      console.log(
+        `[memskool] dereferenced ${replaced} traced symlink(s) in ${fn.name}/node_modules`,
+      );
+    }
+  }
+}
 
 /**
  * CJS packages that crash when Nitro inlines them into the ESM server bundle
@@ -47,6 +97,22 @@ const NITRO_OPTIONS = {
       runtime: "nodejs22.x",
     },
   },
+  // Registered as a module so the hook is *added* to the Vercel preset's own `compiled`
+  // hook. A top-level `hooks.compiled` in config would replace the preset's (which writes
+  // .vc-config.json) and ship a broken function.
+  modules: [
+    {
+      name: "memskool:dereference-traced-symlinks",
+      setup(nitro: {
+        options: { output: { dir: string } };
+        hooks: { hook: (name: "compiled", fn: () => void | Promise<void>) => unknown };
+      }) {
+        nitro.hooks.hook("compiled", () => {
+          dereferenceTracedSymlinks(path.join(nitro.options.output.dir, "functions"));
+        });
+      },
+    },
+  ],
 };
 
 export default defineConfig({
