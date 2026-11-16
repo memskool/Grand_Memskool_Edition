@@ -33,6 +33,8 @@ export const lookupSchoolByCode = createServerFn({ method: "POST" })
         country: (row["country"] as string | null) ?? null,
       };
     } catch (error) {
+      // Log the real cause: this RPC is the public health probe for the Admin SDK.
+      console.error("[lookupSchoolByCode]", error);
       const message = error instanceof Error ? error.message : "";
       if (message.includes("missing Firebase admin credentials")) throw error;
       throw new Error("Could not verify that School ID right now.");

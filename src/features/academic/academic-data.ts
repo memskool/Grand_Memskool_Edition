@@ -12,7 +12,7 @@ import {
 import { userSchoolId } from "@/lib/firebase/hydrate";
 import { classifyFirebase } from "@/lib/errors/app-error";
 import { PRODUCT_EVENTS, trackProductEvent } from "@/lib/analytics";
-import { isInfrastructureFailure } from "@/lib/infra-failure";
+import { fallbackWriteError, isInfrastructureFailure } from "@/lib/infra-failure";
 import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 import { classEnrollmentId, classTeacherAssignmentId } from "@/features/academic/ids";
 import type {
@@ -311,6 +311,7 @@ export function useCreateAcademicClass(schoolId: string | undefined) {
       academic_period_id: string | null;
     }) => {
       if (!schoolId) throw new Error("Register your school first.");
+      let serverError: unknown;
       try {
         return await createAcademicClass({
           data: {
@@ -321,16 +322,21 @@ export function useCreateAcademicClass(schoolId: string | undefined) {
       } catch (error) {
         if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
         console.error("[class] server create infrastructure failure, client fallback:", error);
+        serverError = error;
         void noteClientFallback("create_class");
       }
       await refreshAuthClaims();
-      await createDoc(COLLECTIONS.classes, {
-        ...values,
-        school_id: schoolId,
-        status: "active",
-        created_at: nowIso(),
-        updated_at: nowIso(),
-      });
+      try {
+        await createDoc(COLLECTIONS.classes, {
+          ...values,
+          school_id: schoolId,
+          status: "active",
+          created_at: nowIso(),
+          updated_at: nowIso(),
+        });
+      } catch (clientError) {
+        throw fallbackWriteError(serverError, clientError);
+      }
       return { id: "saved" };
     },
     onSuccess: () => {
@@ -563,6 +569,7 @@ export function useEnrollStudent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { class_id: string; student_id: string }) => {
+      let serverError: unknown;
       try {
         const raw = await enrollStudent({ data: input });
         const id = unwrapNestedId(raw);
@@ -572,6 +579,7 @@ export function useEnrollStudent() {
       } catch (error) {
         if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
         console.error("[enrol] server infrastructure failure, client fallback:", error);
+        serverError = error;
         void noteClientFallback("enrol_student");
       }
       await refreshAuthClaims();
@@ -617,7 +625,7 @@ export function useEnrollStudent() {
         });
         return { id };
       } catch (error) {
-        throw classifyFirebase(error);
+        throw fallbackWriteError(serverError, error);
       }
     },
     onSuccess: (_d, vars) => {
@@ -646,6 +654,7 @@ export function useAssignTeacher() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { class_id: string; subject_id: string; teacher_id: string }) => {
+      let serverError: unknown;
       try {
         const raw = await assignClassTeacher({ data: input });
         const id = unwrapNestedId(raw);
@@ -654,6 +663,7 @@ export function useAssignTeacher() {
       } catch (error) {
         if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
         console.error("[assign-teacher] server infrastructure failure, client fallback:", error);
+        serverError = error;
         void noteClientFallback("assign_teacher");
       }
       await refreshAuthClaims();
@@ -702,7 +712,7 @@ export function useAssignTeacher() {
         }
         return { id };
       } catch (error) {
-        throw classifyFirebase(error);
+        throw fallbackWriteError(serverError, error);
       }
     },
     onSuccess: (_d, vars) => invalidateClassPeople(qc, vars),

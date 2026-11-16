@@ -16,7 +16,7 @@ import {
 import { attachNamedUser } from "@/lib/firebase/hydrate";
 import { classifyFirebase } from "@/lib/errors/app-error";
 import { PRODUCT_EVENTS, trackProductEvent } from "@/lib/analytics";
-import { isInfrastructureFailure } from "@/lib/infra-failure";
+import { fallbackWriteError, isInfrastructureFailure } from "@/lib/infra-failure";
 import { isFreshLiveSession } from "@/lib/live-session-fresh";
 import {
   cancelLiveSession,
@@ -524,18 +524,20 @@ export function useEndSession() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (session: ClassroomSession) => {
+      let serverError: unknown;
       try {
         await endLiveSession({ data: { sessionId: session.id } });
         return session;
       } catch (error) {
         if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
         console.error("[live] server end infrastructure failure, client fallback:", error);
+        serverError = error;
         void noteClientFallback("live_end");
       }
       try {
         await endSessionDocClient(session);
       } catch (clientError) {
-        throw classifyFirebase(clientError);
+        throw fallbackWriteError(serverError, clientError);
       }
       // Phase 6: never silently skip attendance finalize on infrastructure fallback.
       try {
@@ -558,12 +560,14 @@ export function useCancelSession() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (session: ClassroomSession) => {
+      let serverError: unknown;
       try {
         await cancelLiveSession({ data: { sessionId: session.id } });
         return session;
       } catch (error) {
         if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
         console.error("[live] server cancel infrastructure failure, client fallback:", error);
+        serverError = error;
         void noteClientFallback("live_cancel");
       }
       try {
@@ -576,7 +580,7 @@ export function useCancelSession() {
         });
         await closeOpenParticipantsClient(session, endedAt);
       } catch (clientError) {
-        throw classifyFirebase(clientError);
+        throw fallbackWriteError(serverError, clientError);
       }
       try {
         await finalizeSessionAttendance({ data: { sessionId: session.id } });
@@ -673,12 +677,14 @@ export function useLeaveRoom() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { sessionId: string; userId: string }) => {
+      let serverError: unknown;
       try {
         await leaveLiveSession({ data: { sessionId: input.sessionId } });
         return;
       } catch (error) {
         if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
         console.error("[live] server leave infrastructure failure, client fallback:", error);
+        serverError = error;
         void noteClientFallback("live_leave");
       }
       const id = participantDocId(input.sessionId, input.userId);
@@ -688,7 +694,7 @@ export function useLeaveRoom() {
           hand_raised: false,
         });
       } catch (clientError) {
-        throw classifyFirebase(clientError);
+        throw fallbackWriteError(serverError, clientError);
       }
     },
     onSuccess: (_d, v) =>

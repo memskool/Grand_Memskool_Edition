@@ -27,8 +27,9 @@ Do **not** deploy Cloud Functions until the project is on **Blaze**.
 3. `FIREBASE_SERVICE_ACCOUNT_JSON` must be the **JSON object as one line**, not `./something.json`.
 4. Set `APP_ORIGIN` to the production URL (`https://memskool.com` or the actual host).
 5. Add that origin to Firebase Auth authorized domains and to Resend continue-link allowlisting (`mail.server.ts`).
+6. The Firebase Admin SDK must stay **external** to the Nitro server bundle (`nitro.traceDeps` in `vite.config.ts`). Nitro 3 inlines every dependency by default and ignores `vite.ssr.external`; inlined google-gax throws `__dirname is not defined in ES module scope`, which silently breaks every Admin SDK server function (writes then fall back to client Firestore writes that rules reject as "You do not have permission to perform this action."). `npm run check:server-bundle` guards this in CI.
 
-GitHub Actions (`.github/workflows/ci.yml`) typechecks, lints, runs unit checks, and builds. Do not promote a commit that fails CI.
+GitHub Actions (`.github/workflows/ci.yml`) typechecks, lints, runs unit checks, builds, and verifies both bundles (`check:no-admin-client`, `check:server-bundle`). Do not promote a commit that fails CI.
 
 ## 3. LiveKit
 
@@ -56,6 +57,16 @@ Set `CRANE5_API_URL` and `CRANE5_API_KEY` on the host only. Restart the server. 
 The web app is responsive. Play/App Store packaging, signing, and store listings are human release tasks. Deep links should use the same production origin.
 
 ## 8. After deploy smoke list
+
+- **Admin SDK health probe (no sign-in needed).** Find the `lookupSchoolByCode` server-function id in the deployed `school-membership-*.js` chunk (a 64-hex string), then:
+
+  ```sh
+  BODY='{"t":{"t":10,"i":0,"p":{"k":["data"],"v":[{"t":10,"i":1,"p":{"k":["code"],"v":[{"t":1,"s":"NO-SUCH-SCHOOL"}]},"o":0}]},"o":0},"f":127,"m":[]}'
+  curl -s -X POST "https://www.memskool.com/_serverFn/<id>" -H "x-tsr-serverFn: true" \
+    -H "accept: application/json" -H "content-type: application/json" --data "$BODY"
+  ```
+
+  A healthy server answers with a `null` result (`{"t":2,"s":1}` in the `result` slot); `"Could not verify that School ID right now."` means the Admin SDK is broken on the host — check Vercel function logs for the real cause (missing `FIREBASE_SERVICE_ACCOUNT_JSON`, or a bundling regression caught by `npm run check:server-bundle`).
 
 - Sign up + verification email
 - Sign in + sign out

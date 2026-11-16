@@ -28,9 +28,9 @@ Correlate reports with: Firebase Auth uid (from the user or school admin), appro
 
 ## Permission errors on academic data
 
-**Likely:** rules not deployed; user in the wrong school; parent reading unreleased assessments via a client query.
+**Likely:** the Admin SDK server path is down on the host (every server-first write then falls back to a client write that rules reject — the toast says "You do not have permission to perform this action." even for a legitimate school admin); rules not deployed; user in the wrong school; parent reading unreleased assessments via a client query.
 
-**Check:** `firebase deploy --only firestore:rules,firestore:indexes,storage` was run after Phase 7/8. Parent charts must use `listLinkedChildResults`.
+**Check:** run the Admin SDK health probe in `docs/DEPLOYMENT.md` §8 first — if it fails, look at Vercel function logs for `__dirname is not defined in ES module scope` (bundling regression; `npm run check:server-bundle`) or `missing Firebase admin credentials` (`FIREBASE_SERVICE_ACCOUNT_JSON` unset). Then confirm `firebase deploy --only firestore:rules,firestore:indexes,storage` was run after Phase 7/8. Parent charts must use `listLinkedChildResults`.
 
 ## AI Tutor fails
 
