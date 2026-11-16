@@ -26,3 +26,5 @@ jobs:
           NODE_ENV: production
       - name: Ban firebase-admin in client bundles
         run: npm run check:no-admin-client
+      - name: Admin SDK must stay external in the Vercel server bundle
+        run: npm run check:server-bundle

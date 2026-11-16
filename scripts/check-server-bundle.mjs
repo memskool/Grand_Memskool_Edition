@@ -1,0 +1,74 @@
+/**
+ * Guard the Vercel server bundle against the regression that silently broke every
+ * Admin SDK server function in production:
+ *
+ *   ReferenceError: __dirname is not defined in ES module scope
+ *
+ * Nitro 3 inlines dependencies into `_libs/` unless they are listed in `traceDeps`
+ * (vite.config.ts). google-gax / grpc evaluate `path.join(__dirname, …)`, so the
+ * Firebase Admin stack must stay in `node_modules` (loaded natively by Node), and the
+ * `node-esm-globals` polyfill must survive tree-shaking (`sideEffects` in package.json).
+ */
+import fs from "node:fs";
+import path from "node:path";
+
+const funcDir = [".vercel/output/functions/__server.func", ".vercel/output/functions/__nitro.func"]
+  .map((dir) => path.resolve(dir))
+  .find((dir) => fs.existsSync(dir));
+
+if (!funcDir) {
+  console.error(
+    "[check-server-bundle] No Vercel function output found. Run `npm run build` first.",
+  );
+  process.exit(1);
+}
+
+const failures = [];
+
+// 1. Admin SDK packages must be traced into node_modules, never inlined into _libs.
+const mustBeTraced = ["firebase-admin", "@google-cloud/firestore", "google-gax", "@grpc/grpc-js"];
+for (const pkg of mustBeTraced) {
+  if (!fs.existsSync(path.join(funcDir, "node_modules", pkg))) {
+    failures.push(
+      `${pkg} is missing from ${path.relative(process.cwd(), funcDir)}/node_modules (not traced)`,
+    );
+  }
+}
+const libsDir = path.join(funcDir, "_libs");
+if (fs.existsSync(libsDir)) {
+  const inlined = walk(libsDir).filter((file) =>
+    /(^|[\\/])_libs[\\/](@google-cloud|google-gax|firebase-admin|@grpc)/.test(file),
+  );
+  for (const file of inlined) {
+    failures.push(`Admin SDK dependency inlined into bundle: ${path.relative(funcDir, file)}`);
+  }
+}
+
+// 2. The __dirname polyfill must be present in the server code.
+const serverFiles = walk(funcDir).filter(
+  (file) => /\.(mjs|js|cjs)$/.test(file) && !file.includes(`${path.sep}node_modules${path.sep}`),
+);
+const polyfilled = serverFiles.some((file) => fs.readFileSync(file, "utf8").includes("/var/task"));
+if (!polyfilled) {
+  failures.push(
+    "node-esm-globals polyfill (/var/task) is absent — check `sideEffects` in package.json",
+  );
+}
+
+if (failures.length) {
+  console.error("[check-server-bundle] FAILED:\n - " + failures.join("\n - "));
+  process.exit(1);
+}
+console.log(
+  `[check-server-bundle] OK — Admin SDK traced into node_modules, nothing inlined under _libs, polyfill present (${path.relative(process.cwd(), funcDir)}).`,
+);
+
+function walk(dir) {
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...walk(full));
+    else out.push(full);
+  }
+  return out;
+}

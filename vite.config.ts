@@ -6,14 +6,17 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
-/** CJS packages that break when Nitro bundles them into ESM (bare `__dirname`). */
-const SSR_EXTERNALS = [
+/**
+ * CJS packages that crash when Nitro inlines them into the ESM server bundle
+ * (google-gax / grpc evaluate `path.join(__dirname, …)` → "__dirname is not
+ * defined in ES module scope", which took down every Admin SDK server function
+ * on Vercel). Nitro 3 bundles *all* dependencies into `_libs/` by default and
+ * ignores `vite.ssr.external`; `traceDeps` is the option that keeps a package in
+ * `node_modules` so Node loads it natively. `scripts/check-server-bundle.mjs`
+ * fails CI if these ever get inlined again.
+ */
+const ADMIN_SDK_TRACE_DEPS = [
   "firebase-admin",
-  "firebase-admin/app",
-  "firebase-admin/auth",
-  "firebase-admin/firestore",
-  "firebase-admin/storage",
-  "firebase-admin/messaging",
   "@google-cloud/firestore",
   "@google-cloud/storage",
   "google-gax",
@@ -24,22 +27,20 @@ const SSR_EXTERNALS = [
   "@grpc/proto-loader",
   "protobufjs",
   "node-forge",
-  "livekit-server-sdk",
-  "jose",
 ];
 
+// memskool.com deploys on Vercel — pin so Cloudflare's worker bundle is not used.
+// Declared as a variable (not an inline literal) because @lovable.dev/vite-tanstack-config
+// types only a subset of Nitro options; the full object is still passed through to Nitro.
+const NITRO_OPTIONS = {
+  preset: "vercel",
+  traceDeps: ADMIN_SDK_TRACE_DEPS,
+};
+
 export default defineConfig({
-  // memskool.com deploys on Vercel — pin so Cloudflare's worker bundle is not used.
-  nitro: {
-    preset: "vercel",
-  },
+  nitro: NITRO_OPTIONS,
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     server: { entry: "server" },
-  },
-  vite: {
-    ssr: {
-      external: SSR_EXTERNALS,
-    },
   },
 });
