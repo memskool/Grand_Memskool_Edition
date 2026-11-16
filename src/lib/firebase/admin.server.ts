@@ -1,6 +1,6 @@
 import "@tanstack/react-start/server-only";
 import "@/lib/node-esm-globals";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { initializeApp, getApps, cert, applicationDefault, type App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
@@ -16,9 +16,20 @@ const PROJECT_ID =
 function loadServiceAccount(): Record<string, unknown> | null {
   const raw = process.env["FIREBASE_SERVICE_ACCOUNT_JSON"]?.trim();
   if (!raw) return null;
-  const source = raw.startsWith("{")
-    ? raw
-    : readFileSync(isAbsolute(raw) ? raw : resolve(process.cwd(), raw), "utf8");
+  let source = raw;
+  if (!raw.startsWith("{")) {
+    // A file path only works locally. On the host the key file is git-ignored and never
+    // deployed, so say so instead of surfacing a bare ENOENT from deep inside the SDK.
+    const file = isAbsolute(raw) ? raw : resolve(process.cwd(), raw);
+    if (!existsSync(file)) {
+      throw new Error(
+        "Memskool could not finish signup because the live server is missing Firebase admin credentials: " +
+          "FIREBASE_SERVICE_ACCOUNT_JSON points to a file that does not exist on the server. " +
+          "Set it to the service-account JSON itself (one line), not a file path.",
+      );
+    }
+    source = readFileSync(file, "utf8");
+  }
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(source) as Record<string, unknown>;
