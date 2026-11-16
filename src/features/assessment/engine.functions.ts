@@ -10,6 +10,7 @@ import {
   adminWhere,
 } from "@/lib/firebase/admin-repo";
 import { COLLECTIONS } from "@/lib/firebase/repo";
+import { requireSchoolStaffContext } from "@/lib/firebase/school-context.server";
 import {
   AssessmentIdSchema,
   AttemptIdSchema,
@@ -103,15 +104,9 @@ function resultsArePublic(assessment: AssessmentDoc) {
   return assessment.results_released !== false || assessment.type === "practice";
 }
 
-function requireStaff(context: AuthedContext) {
-  if (context.role !== "teacher" && !isSchoolManager(context.role)) {
-    throw new Error("You do not have permission to perform this action.");
-  }
-  if (context.role === "teacher" && !context.approved) {
-    throw new Error("Your school has not approved your teacher account yet.");
-  }
-  if (!context.schoolId) throw new Error("You are not attached to a school.");
-  return context.schoolId;
+async function requireStaff(context: AuthedContext) {
+  // Teachers: claims only. Managers: heal stale Institution JWT like enrol/create-class.
+  return requireSchoolStaffContext(context);
 }
 
 async function assertTeachesClass(userId: string, role: string, schoolId: string, classId: string) {
@@ -138,7 +133,7 @@ async function assertManagesAssessment(
   context: AuthedContext,
   assessment: AssessmentDoc & { id: string },
 ) {
-  const schoolId = requireStaff(context);
+  const schoolId = await requireStaff(context);
   if (assessment.school_id !== schoolId)
     throw new Error("You do not have permission to perform this action.");
   if (assessment.created_by === context.userId || isSchoolManager(context.role)) return;
@@ -171,7 +166,7 @@ export const saveAssessment = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
   .inputValidator((data: unknown) => SaveAssessmentSchema.parse(data))
   .handler(async ({ data, context }) => {
-    const schoolId = requireStaff(context);
+    const schoolId = await requireStaff(context);
     await assertTeachesClass(context.userId, context.role, schoolId, data.class_id);
     const total = data.questions.reduce((sum, q) => sum + q.points, 0);
     const now = new Date().toISOString();

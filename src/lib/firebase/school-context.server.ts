@@ -89,3 +89,17 @@ export async function requireSchoolManagerContext(context: AuthedContext): Promi
   context.approved = true;
   return schoolId;
 }
+
+/**
+ * Teacher-or-manager gate with the same stale-JWT heal as `requireSchoolManagerContext`.
+ * Teachers stay claims-only (approved + schoolId); anyone else must prove school operator.
+ */
+export async function requireSchoolStaffContext(context: AuthedContext): Promise<string> {
+  if (context.role === "teacher") {
+    if (!context.approved)
+      throw new Error("Your school has not approved your teacher account yet.");
+    if (!context.schoolId) throw new Error("You are not attached to a school.");
+    return context.schoolId;
+  }
+  return requireSchoolManagerContext(context);
+}

@@ -12,7 +12,10 @@ import { adminAuth } from "@/lib/firebase/admin.server";
 import { toClientJson } from "@/lib/firebase/plain-data";
 import { COLLECTIONS } from "@/lib/firebase/repo";
 import { isSchoolManager } from "@/types/roles";
-import { requireSchoolManagerContext } from "@/lib/firebase/school-context.server";
+import {
+  requireSchoolManagerContext,
+  requireSchoolStaffContext,
+} from "@/lib/firebase/school-context.server";
 import { classEnrollmentId, classTeacherAssignmentId } from "./ids";
 
 // Handlers receive already-validated payloads from thin createServerFn facades.
@@ -115,14 +118,9 @@ async function requireManager(context: AuthedContext) {
   return requireSchoolManagerContext(context);
 }
 
-function requireStaff(context: AuthedContext) {
-  if (context.role !== "teacher" && !isSchoolManager(context.role)) {
-    throw new Error("You do not have permission to perform this action.");
-  }
-  if (context.role === "teacher" && !context.approved) {
-    throw new Error("Your school has not approved your teacher account yet.");
-  }
-  return schoolOf(context);
+async function requireStaff(context: AuthedContext) {
+  // Teachers: claims only. Managers: heal stale Institution JWT like enrol/create-class.
+  return requireSchoolStaffContext(context);
 }
 
 function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string) {
@@ -421,7 +419,7 @@ export async function createTimetableSlotSafeHandler({
   end_time: string;
   room: string | null;
 }>) {
-  const schoolId = requireStaff(context);
+  const schoolId = await requireStaff(context);
   if (data.start_time >= data.end_time) throw new Error("The class must end after it starts.");
   const cls = await adminGetById<{ school_id: string }>(COLLECTIONS.classes, data.class_id);
   if (!cls || cls.school_id !== schoolId) throw new Error("That class is not in your school.");
@@ -521,7 +519,7 @@ export async function recordLessonAttendanceHandler({
   data,
   context,
 }: DataCtx<{ lesson_id: string; marks: Array<{ student_id: string; status: string }> }>) {
-  const schoolId = requireStaff(context);
+  const schoolId = await requireStaff(context);
   const lesson = await adminGetById<{
     school_id: string;
     class_id: string;
@@ -571,7 +569,7 @@ export async function assignMissedWorkHandler({
   material_id: string | null;
   title: string;
 }>) {
-  const schoolId = requireStaff(context);
+  const schoolId = await requireStaff(context);
   const now = new Date().toISOString();
   const id = await adminCreate(COLLECTIONS.missedWork, {
     school_id: schoolId,

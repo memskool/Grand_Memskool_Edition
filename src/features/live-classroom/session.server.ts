@@ -10,6 +10,7 @@ import {
   adminWhere,
 } from "@/lib/firebase/admin-repo";
 import { toClientJson } from "@/lib/firebase/plain-data";
+import { requireSchoolManagerContext } from "@/lib/firebase/school-context.server";
 import { COLLECTIONS } from "@/lib/firebase/repo";
 import {
   CorrectLiveAttendanceSchema,
@@ -176,6 +177,10 @@ export async function startLiveSessionHandler({
   }
   if (await adminIsSuspended(context.userId)) {
     throw new Error("Your account is suspended and cannot start live classes.");
+  }
+  if (context.role !== "teacher") {
+    // Stale Institution JWT after register: heal before the claims-only host check.
+    await requireSchoolManagerContext(context);
   }
   const cls = await assertCanHostClass(
     context.role,
