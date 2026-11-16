@@ -224,6 +224,25 @@ function RoomLoader({
 
   if (session.isLoading) return <ListSkeleton rows={4} />;
 
+  if (session.isError && !session.data) {
+    // Say what failed instead of pretending the room is idle.
+    return (
+      <>
+        <PageHeader title={className} subtitle="Could not load the live room." />
+        <Panel title="Live room unavailable" description={authErrorMessage(session.error)}>
+          <div className="flex flex-wrap gap-2">
+            <Button className="rounded-full" onClick={() => void session.refetch()}>
+              Try again
+            </Button>
+            <Button variant="outline" className="rounded-full" onClick={onExit}>
+              Back to rooms
+            </Button>
+          </div>
+        </Panel>
+      </>
+    );
+  }
+
   if (session.data) {
     const isHost = session.data.host_id === userId;
     return (

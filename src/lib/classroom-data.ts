@@ -18,6 +18,7 @@ import { classifyFirebase } from "@/lib/errors/app-error";
 import { PRODUCT_EVENTS, trackProductEvent } from "@/lib/analytics";
 import { fallbackWriteError, isInfrastructureFailure } from "@/lib/infra-failure";
 import { isFreshLiveSession } from "@/lib/live-session-fresh";
+import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 import {
   cancelLiveSession,
   correctLiveAttendance,
@@ -53,13 +54,43 @@ export type ClassroomSession = {
 
 export { isFreshLiveSession } from "@/lib/live-session-fresh";
 
+function isPermissionError(error: unknown): boolean {
+  return classifyFirebase(error).code === "permission";
+}
+
+/**
+ * Client reads are gated by the token's claims. The server heals claims on every page
+ * load, but the browser can keep the old token for up to an hour — so a denial here is
+ * usually a stale token, not a real permission problem. Refresh once and retry.
+ */
+async function withFreshClaims<T>(read: () => Promise<T>): Promise<T> {
+  try {
+    return await read();
+  } catch (error) {
+    if (!isPermissionError(error)) throw error;
+    await refreshAuthClaims();
+    return read();
+  }
+}
+
+export type LiveRoomState = "open" | "closed" | "unknown";
+
 /**
  * Phase 5 shared LIVE predicate: fresh + host participant still in the room.
- * Unknown host presence (`null`) is NOT enough — that produced false LIVE badges.
+ * `unknown` means the presence check itself failed (rules / network). That must never be
+ * treated as "host gone": closing a room on a failed read ended sessions the teacher had
+ * just started ("Session started" → "No live session right now").
  */
+export async function liveRoomState(session: ClassroomSession): Promise<LiveRoomState> {
+  if (!isFreshLiveSession(session)) return "closed";
+  const present = await hostStillInRoom(session);
+  if (present === null) return "unknown";
+  return present ? "open" : "closed";
+}
+
+/** LIVE badge truth: only a confirmed-open room counts (unknown ≠ live). */
 export async function isLiveRoomOpen(session: ClassroomSession): Promise<boolean> {
-  if (!isFreshLiveSession(session)) return false;
-  return (await hostStillInRoom(session)) === true;
+  return (await liveRoomState(session)) === "open";
 }
 
 async function closeOpenParticipantsClient(
@@ -121,11 +152,13 @@ async function healStaleLiveSessions(rows: ClassroomSession[]): Promise<Classroo
 
   await Promise.all(
     rows.map(async (row) => {
-      if (await isLiveRoomOpen(row)) {
+      const state = await liveRoomState(row);
+      if (state === "open") {
         keep.push(row);
         return;
       }
-      if ((row.status ?? "live") === "live" && row.is_active) {
+      // "unknown" (presence check failed) is neither LIVE nor a ghost — leave it alone.
+      if (state === "closed" && (row.status ?? "live") === "live" && row.is_active) {
         close.push(row);
       }
     }),
@@ -211,23 +244,24 @@ export function useLiveSessions(classIds: string[]) {
     queryKey: ["live-sessions", key],
     enabled: classIds.length > 0,
     refetchInterval: 20_000,
-    queryFn: async (): Promise<ClassroomSession[]> => {
-      const bySchool = await classIdsBySchool(classIds);
-      if (bySchool.size === 0) return [];
-      const chunks = await Promise.all(
-        [...bySchool.entries()].map(([schoolId, ids]) =>
-          findMany<ClassroomSession>(COLLECTIONS.classroomSessions, [
-            where("school_id", "==", schoolId),
-            where("class_id", "in", ids.slice(0, 30)),
-            where("is_active", "==", true),
-          ]),
-        ),
-      );
-      // Drop (and heal) ghost sessions left active after Leave without End.
-      return healStaleLiveSessions(
-        chunks.flat().filter((row) => (row.status ?? "live") === "live"),
-      );
-    },
+    queryFn: async (): Promise<ClassroomSession[]> =>
+      withFreshClaims(async () => {
+        const bySchool = await classIdsBySchool(classIds);
+        if (bySchool.size === 0) return [];
+        const chunks = await Promise.all(
+          [...bySchool.entries()].map(([schoolId, ids]) =>
+            findMany<ClassroomSession>(COLLECTIONS.classroomSessions, [
+              where("school_id", "==", schoolId),
+              where("class_id", "in", ids.slice(0, 30)),
+              where("is_active", "==", true),
+            ]),
+          ),
+        );
+        // Drop (and heal) ghost sessions left active after Leave without End.
+        return healStaleLiveSessions(
+          chunks.flat().filter((row) => (row.status ?? "live") === "live"),
+        );
+      }),
   });
 
   useEffect(() => {
@@ -261,23 +295,27 @@ export function useActiveSession(classId?: string) {
   return useQuery({
     queryKey: ["classroom-session", classId],
     enabled: !!classId,
-    queryFn: async (): Promise<ClassroomSession | null> => {
-      const schoolId = await schoolIdForClass(classId!);
-      if (!schoolId) return null;
-      const row = await findOne<ClassroomSession>(COLLECTIONS.classroomSessions, [
-        where("school_id", "==", schoolId),
-        where("class_id", "==", classId!),
-        where("is_active", "==", true),
-      ]);
-      if (!row) return null;
-      if (await isLiveRoomOpen(row)) return row;
-      try {
-        await endSessionDocClient(row);
-      } catch (error) {
-        console.error("[live] active session heal failed:", error);
-      }
-      return null;
-    },
+    queryFn: async (): Promise<ClassroomSession | null> =>
+      withFreshClaims(async () => {
+        const schoolId = await schoolIdForClass(classId!);
+        if (!schoolId) return null;
+        const row = await findOne<ClassroomSession>(COLLECTIONS.classroomSessions, [
+          where("school_id", "==", schoolId),
+          where("class_id", "==", classId!),
+          where("is_active", "==", true),
+        ]);
+        if (!row) return null;
+        const state = await liveRoomState(row);
+        // Only a *confirmed* host absence closes the room. An unverifiable check keeps the
+        // fresh session visible instead of ending it behind the teacher's back.
+        if (state !== "closed") return row;
+        try {
+          await endSessionDocClient(row);
+        } catch (error) {
+          console.error("[live] active session heal failed:", error);
+        }
+        return null;
+      }),
   });
 }
 
@@ -285,15 +323,16 @@ export function useRecentSession(classId?: string) {
   return useQuery({
     queryKey: ["recent-classroom-session", classId],
     enabled: !!classId,
-    queryFn: async (): Promise<ClassroomSession | null> => {
-      const schoolId = await schoolIdForClass(classId!);
-      if (!schoolId) return null;
-      return findOne<ClassroomSession>(COLLECTIONS.classroomSessions, [
-        where("school_id", "==", schoolId),
-        where("class_id", "==", classId!),
-        orderBy("started_at", "desc"),
-      ]);
-    },
+    queryFn: async (): Promise<ClassroomSession | null> =>
+      withFreshClaims(async () => {
+        const schoolId = await schoolIdForClass(classId!);
+        if (!schoolId) return null;
+        return findOne<ClassroomSession>(COLLECTIONS.classroomSessions, [
+          where("school_id", "==", schoolId),
+          where("class_id", "==", classId!),
+          orderBy("started_at", "desc"),
+        ]);
+      }),
   });
 }
 
@@ -513,7 +552,10 @@ export function useStartSession() {
       }
     },
     onSuccess: (s) => {
-      void qc.invalidateQueries({ queryKey: ["classroom-session", s.class_id] });
+      // The server's record is authoritative: open the room from it right away instead of
+      // depending on a follow-up client read (which a stale token can still be denied).
+      qc.setQueryData(["classroom-session", s.class_id], s);
+      void refreshAuthClaims();
       void qc.invalidateQueries({ queryKey: ["live-sessions"] });
       void qc.invalidateQueries({ queryKey: ["classroom-participants", s.id] });
     },
