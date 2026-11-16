@@ -35,8 +35,45 @@ export const lookupSchoolByCode = createServerFn({ method: "POST" })
     } catch (error) {
       // Log the real cause: this RPC is the public health probe for the Admin SDK.
       console.error("[lookupSchoolByCode]", error);
-      const message = error instanceof Error ? error.message : "";
-      if (message.includes("missing Firebase admin credentials")) throw error;
-      throw new Error("Could not verify that School ID right now.");
+      throw new Error(describeAdminFailure(error));
     }
   });
+
+const GRPC_STATUS: Record<number, string> = {
+  1: "CANCELLED",
+  2: "UNKNOWN",
+  3: "INVALID_ARGUMENT",
+  4: "DEADLINE_EXCEEDED",
+  5: "NOT_FOUND",
+  7: "PERMISSION_DENIED",
+  8: "RESOURCE_EXHAUSTED",
+  9: "FAILED_PRECONDITION",
+  13: "INTERNAL",
+  14: "UNAVAILABLE",
+  16: "UNAUTHENTICATED",
+};
+
+/**
+ * Public, non-sensitive classification of an Admin SDK failure so operators can tell
+ * *why* the server path is down without Vercel log access (see docs/DEPLOYMENT.md §8).
+ * Only status names / error codes are exposed — never messages that could carry secrets.
+ */
+function describeAdminFailure(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (message.includes("missing Firebase admin credentials")) return message;
+  const lower = message.toLowerCase();
+  const base = "Could not verify that School ID right now";
+  if (lower.includes("__dirname") || lower.includes("es module scope")) {
+    return `${base} (server bundle error).`;
+  }
+  const code = (error as { code?: unknown } | null)?.code;
+  const status =
+    typeof code === "string"
+      ? code
+      : typeof code === "number"
+        ? (GRPC_STATUS[code] ?? `grpc ${code}`)
+        : lower.includes("credential") || lower.includes("private key")
+          ? "credentials"
+          : null;
+  return status ? `${base} (${status}).` : `${base}.`;
+}

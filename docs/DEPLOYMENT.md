@@ -66,7 +66,7 @@ The web app is responsive. Play/App Store packaging, signing, and store listings
     -H "accept: application/json" -H "content-type: application/json" --data "$BODY"
   ```
 
-  A healthy server answers with a `null` result (`{"t":2,"s":1}` in the `result` slot); `"Could not verify that School ID right now."` means the Admin SDK is broken on the host — check Vercel function logs for the real cause (missing `FIREBASE_SERVICE_ACCOUNT_JSON`, or a bundling regression caught by `npm run check:server-bundle`).
+  A healthy server answers with a `null` result (`{"t":2,"s":1}` in the `result` slot). `"Could not verify that School ID right now (…)"` means the Admin SDK is broken on the host; the parenthetical names the cause class — `server bundle error` (bundling regression, see `npm run check:server-bundle`), `credentials` / `app/invalid-credential` (bad `FIREBASE_SERVICE_ACCOUNT_JSON`), `PERMISSION_DENIED` / `UNAUTHENTICATED` (service account lacks Firestore access), `NOT_FOUND` (wrong database id) — and the full error is in the Vercel function logs under `[lookupSchoolByCode]`. The explicit "missing Firebase admin credentials" message means the env var is unset.
 
 - Sign up + verification email
 - Sign in + sign out
