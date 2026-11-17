@@ -13,5 +13,8 @@ paths:
 - `connected_at` is server/webhook only — client presence must not forge it.
 - Attendance finalize uses `liveAttendanceDocId` / `markFromParticipation` from `attendance-policy.ts`.
 - Client dual-path only via `isInfrastructureFailure`; emit `client_fallback` analytics; never fall back on permission errors.
-- Host presence is three-state (`liveRoomState`: open / closed / unknown). Only a *confirmed* `closed` may end a session; `unknown` (failed read) is neither LIVE nor a ghost. Never close a room because a client read was denied.
+- Host presence is three-state (`liveRoomState`: open / closed / unknown). Only a _confirmed_ `closed` may end a session; `unknown` (failed read) is neither LIVE nor a ghost. Never close a room because a client read was denied.
 - After `startLiveSession` succeeds, seed the `classroom-session` query from the server's returned record (`setQueryData`); never make the room depend on a follow-up client read alone. Client reads retry once after `refreshAuthClaims()` on a permission denial (`withFreshClaims`).
+- Realtime lists (chat, participants, notifications, DMs) use `subscribeLive` / `subscribeDocLive` (`src/lib/firebase/live-subscribe.ts`), never raw `onSnapshot`/`subscribeMany`: a raw listener dies permanently on its first error. Apply snapshots straight to the query cache and hydrate names with `profileLite` (cached) — no invalidate→refetch→N reads.
+- Moderation chrome (End / Mute all / Nudge / per-learner controls) is host **or** school manager, mirroring `assertCanManageSession`. Ending or cancelling a session must also call `teardownProviderRoom` so LiveKit disconnects everyone.
+- Audit + manual matrix: `docs/qa/live-classroom-audit.md`.

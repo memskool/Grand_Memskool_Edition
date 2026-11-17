@@ -45,3 +45,43 @@ export async function mintLiveKitAccessToken(input: {
     .setExpirationTime(`${ttl}s`)
     .sign(secret);
 }
+
+/**
+ * Tear down the LiveKit room when a session ends or is cancelled, so every participant is
+ * disconnected at once instead of lingering in a dead room. Uses LiveKit's Twirp REST API
+ * directly (no `livekit-server-sdk` in the bundle). Best-effort: callers never block on it.
+ */
+export async function deleteLiveKitRoom(input: {
+  apiKey: string;
+  apiSecret: string;
+  serverUrl: string;
+  room: string;
+}): Promise<boolean> {
+  const { SignJWT } = await import("jose");
+  const secret = new TextEncoder().encode(input.apiSecret);
+  const token = await new SignJWT({ video: { roomCreate: true, room: input.room } })
+    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+    .setIssuer(input.apiKey)
+    .setSubject("memskool-server")
+    .setNotBefore(0)
+    .setExpirationTime("60s")
+    .sign(secret);
+  const base = input.serverUrl
+    .replace(/^wss:/, "https:")
+    .replace(/^ws:/, "http:")
+    .replace(/\/+$/, "");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const res = await fetch(`${base}/twirp/livekit.RoomService/DeleteRoom`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ room: input.room }),
+      signal: controller.signal,
+    });
+    // 404 = already gone (room emptied on its own) — that is success for our purposes.
+    return res.ok || res.status === 404;
+  } finally {
+    clearTimeout(timeout);
+  }
+}

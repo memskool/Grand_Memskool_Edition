@@ -40,6 +40,7 @@ import {
   useSendClassroomMessage,
   useSessionAttendance,
   useUpdateParticipant,
+  useWatchLiveSession,
   type ClassroomSession,
   type Participant,
 } from "@/lib/classroom-data";
@@ -77,13 +78,36 @@ type Props = {
   className: string;
   userId: string;
   isTeacher: boolean;
+  /** School manager (admin/institution/superadmin): may end/moderate any room in the school. */
+  isManager?: boolean;
   onExit: () => void;
 };
 
-export function ClassroomRoom({ session, className, userId, isTeacher, onExit }: Props) {
+export function ClassroomRoom({
+  session,
+  className,
+  userId,
+  isTeacher,
+  isManager = false,
+  onExit,
+}: Props) {
   const isSessionHost = session.host_id === userId;
-  // Staff chrome (mute-all, end, etc.) vs session host (stage ownership).
-  const canModerate = isTeacher || isSessionHost;
+  // Mirrors the server (`assertCanManageSession`): only the host or a school manager may
+  // end the room or moderate learners. A co-teacher who joins is a participant with
+  // publish rights, not a moderator — showing them End/Mute-all only produced denials.
+  const canModerate = isSessionHost || isManager;
+  const endedHereRef = useRef(false);
+
+  useWatchLiveSession(session, (latest) => {
+    if (endedHereRef.current) return;
+    media.stop();
+    toast.info(
+      latest.status === "cancelled"
+        ? "This live class was cancelled."
+        : "The live class has ended.",
+    );
+    onExit();
+  });
   const media = useLiveKit(session.id);
   // Presence/chat must load even if join is slow — otherwise host UI says "Waiting for the teacher".
   const participants = useParticipants(session.id);
@@ -224,6 +248,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
     // Host Leave must end the room — otherwise students keep seeing a false LIVE badge.
     // Prefer endSession; leaveLiveSession also ends for hosts server-side as a safety net.
     if (userId === session.host_id || isSessionHost) {
+      endedHereRef.current = true;
       endSession.mutate(session, {
         onSuccess: () => {
           toast.success("Live session ended.");
@@ -246,6 +271,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
 
   const handleEnd = () => {
     media.stop();
+    endedHereRef.current = true;
     endSession.mutate(session, {
       onSuccess: () => {
         toast.success("Session ended. Review attendance below.");
@@ -469,7 +495,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
               >
                 {media.camOn ? <VideoIcon className="size-5" /> : <VideoOff className="size-5" />}
               </Button>
-              {canModerate && media.canShareScreen ? (
+              {media.canShareScreen ? (
                 <Button
                   className={cn(media.screenShareOn ? controlBtnOn : controlBtn)}
                   onClick={() => void media.toggleScreenShare()}
@@ -487,7 +513,7 @@ export function ClassroomRoom({ session, className, userId, isTeacher, onExit }:
                   </span>
                 </Button>
               ) : null}
-              {!canModerate ? (
+              {!canModerate && !isTeacher ? (
                 <Button
                   className={cn(me?.hand_raised ? controlBtnOn : controlBtn)}
                   onClick={() => patch({ hand_raised: !me?.hand_raised })}

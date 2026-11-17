@@ -98,6 +98,15 @@ export const Route = createFileRoute("/api/public/webhooks/livekit")({
                     ended_at: now,
                     attendance_finalized_at: now,
                   });
+                  // Host is gone for good: clear the room so learners are not left behind.
+                  const { teardownProviderRoom } =
+                    await import("@/features/live-classroom/session.server");
+                  void teardownProviderRoom({
+                    id: sessionId,
+                    school_id: session.school_id ?? null,
+                    class_id: session.class_id ?? "",
+                    host_id: session.host_id,
+                  });
                   if (session.lesson_id) {
                     await adminUpdate(COLLECTIONS.lessons, session.lesson_id, {
                       status: "completed",

@@ -108,6 +108,26 @@ type Args<T> = { data: T; context: AuthedContext };
 
 const LIVE_MAX_MS = 4 * 60 * 60 * 1000;
 
+/** Disconnect everyone from the provider room once the session is over (never throws). */
+export async function teardownProviderRoom(session: SessionDoc & { id: string }): Promise<void> {
+  const serverUrl = process.env["LIVEKIT_URL"];
+  const apiKey = process.env["LIVEKIT_API_KEY"];
+  const apiSecret = process.env["LIVEKIT_API_SECRET"];
+  if (!serverUrl || !apiKey || !apiSecret) return;
+  try {
+    const { deleteLiveKitRoom } = await import("@/lib/livekit-token.server");
+    const ok = await deleteLiveKitRoom({
+      serverUrl,
+      apiKey,
+      apiSecret,
+      room: session.provider_room || providerRoomName(session.id),
+    });
+    if (!ok) console.error("[live] provider room teardown was rejected:", session.id);
+  } catch (error) {
+    console.error("[live] provider room teardown failed:", session.id, error);
+  }
+}
+
 function isFreshStartedAt(startedAt: string | undefined, now = Date.now()): boolean {
   if (!startedAt) return false;
   const started = Date.parse(startedAt);
@@ -322,6 +342,7 @@ export async function endLiveSessionHandler({
     ended_at: now,
     attendance_finalized_at: now,
   });
+  void teardownProviderRoom(session);
   if (session.lesson_id) {
     await adminUpdate(COLLECTIONS.lessons, session.lesson_id, {
       status: "completed",
@@ -376,6 +397,7 @@ export async function cancelLiveSessionHandler({
     cancelled_at: now,
     attendance_finalized_at: now,
   });
+  void teardownProviderRoom(session);
   if (session.lesson_id && session.kind !== "gold") {
     await adminUpdate(COLLECTIONS.lessons, session.lesson_id, {
       classroom_session_id: null,

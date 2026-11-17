@@ -22,6 +22,8 @@ Honest list of what the product does **not** do yet, or does only when a human c
 - Parents do not see unreleased assessment papers.
 - AI is not a final exam marker. Streaming tutor replies are not implemented.
 - Live classroom has no cloud recording/egress, live captions, or parent live view.
+- A host who refreshes the page or drops off the network beyond LiveKit's reconnect window ends the session (webhook `participant_left`); attendance is finalised and re-entering starts a new session. See `docs/qa/live-classroom-audit.md` §3.
+- Live chat and direct-message threads show the latest 80 messages; there is no history paging.
 - Marketplace listings can be created by teachers/admins; money movement waits on Flutterwave.
 - Gold tutor earnings are **pending settlement** after a verified Flutterwave payment. Split payouts to tutors are not configured; do not treat pending totals as transferred money.
 - Gold live lessons reuse LiveKit. They fail if LiveKit host credentials are missing. Cloud recording is not implemented.

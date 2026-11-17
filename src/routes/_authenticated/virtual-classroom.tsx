@@ -76,6 +76,7 @@ function VirtualClassroomPage() {
   const { data: capabilities } = usePlatformCapabilities();
   const liveReady = capabilities?.liveVideo !== false;
   const isTeacher = role === "teacher" || role === "admin" || role === "institution";
+  const isManager = role === "admin" || role === "institution" || role === "superadmin";
   const enrolled = useMyEnrolledClasses(isTeacher ? undefined : user?.id);
   const teaching = useTeachingClasses(isTeacher ? user?.id : undefined);
   const source = isTeacher ? teaching : enrolled;
@@ -111,6 +112,7 @@ function VirtualClassroomPage() {
         className={openClass.name}
         userId={user.id}
         isTeacher={isTeacher}
+        isManager={isManager}
         onExit={() => setOpenClass(null)}
       />
     );
@@ -202,12 +204,14 @@ function RoomLoader({
   className,
   userId,
   isTeacher,
+  isManager,
   onExit,
 }: {
   classId: string;
   className: string;
   userId: string;
   isTeacher: boolean;
+  isManager: boolean;
   onExit: () => void;
 }) {
   const session = useActiveSession(classId);
@@ -252,6 +256,7 @@ function RoomLoader({
           className={className}
           userId={userId}
           isTeacher={isTeacher || isHost}
+          isManager={isManager}
           onExit={onExit}
         />
       </Suspense>
