@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   COLLECTIONS,
@@ -13,7 +13,8 @@ import {
   where,
   orderBy,
 } from "@/lib/firebase/repo";
-import { attachNamedUser } from "@/lib/firebase/hydrate";
+import { attachNamedUser, profileLite } from "@/lib/firebase/hydrate";
+import { subscribeDocLive, subscribeLive } from "@/lib/firebase/live-subscribe";
 import { classifyFirebase } from "@/lib/errors/app-error";
 import { PRODUCT_EVENTS, trackProductEvent } from "@/lib/analytics";
 import { fallbackWriteError, isInfrastructureFailure } from "@/lib/infra-failure";
@@ -271,7 +272,7 @@ export function useLiveSessions(classIds: string[]) {
     void classIdsBySchool(classIds).then((bySchool) => {
       if (cancelled) return;
       unsubs = [...bySchool.entries()].map(([schoolId, ids]) =>
-        subscribeMany(
+        subscribeLive(
           COLLECTIONS.classroomSessions,
           [
             where("school_id", "==", schoolId),
@@ -638,6 +639,13 @@ export function useCancelSession() {
   });
 }
 
+async function hydrateParticipants(rows: Omit<Participant, "profile">[]): Promise<Participant[]> {
+  const sorted = rows.slice().sort((a, b) => (a.joined_at ?? "").localeCompare(b.joined_at ?? ""));
+  return Promise.all(
+    sorted.map(async (row) => ({ ...row, profile: await profileLite(row.user_id) })),
+  );
+}
+
 export function useParticipants(sessionId?: string) {
   const qc = useQueryClient();
   const query = useQuery({
@@ -654,29 +662,70 @@ export function useParticipants(sessionId?: string) {
         where("session_id", "==", sessionId!),
         orderBy("joined_at"),
       ]);
-      return Promise.all(
-        rows.map((row) => attachNamedUser(row, row.user_id, "profile")),
-      ) as Promise<Participant[]>;
+      return hydrateParticipants(rows);
     },
   });
 
   useEffect(() => {
     if (!sessionId) return;
     let unsub: (() => void) | undefined;
+    let cancelled = false;
+    let seq = 0;
     void getById<{ school_id?: string | null }>(COLLECTIONS.classroomSessions, sessionId).then(
       (session) => {
-        if (!session?.school_id) return;
-        unsub = subscribeMany(
+        if (cancelled || !session?.school_id) return;
+        // Snapshot rows go straight into the cache — no refetch round-trip, profiles cached.
+        unsub = subscribeLive<Omit<Participant, "profile">>(
           COLLECTIONS.classroomParticipants,
           [where("school_id", "==", session.school_id), where("session_id", "==", sessionId)],
-          () => qc.invalidateQueries({ queryKey: ["classroom-participants", sessionId] }),
+          (rows) => {
+            const mine = ++seq;
+            void hydrateParticipants(rows).then((hydrated) => {
+              if (!cancelled && mine === seq) {
+                qc.setQueryData(["classroom-participants", sessionId], hydrated);
+              }
+            });
+          },
         );
       },
     );
-    return () => unsub?.();
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
   }, [sessionId, qc]);
 
   return query;
+}
+
+/**
+ * Follow the session document itself so everyone in the room learns the moment it is
+ * ended or cancelled (by the host, a school admin, or the LiveKit host-disconnect webhook)
+ * — no refresh, no sitting in a dead room.
+ */
+export function useWatchLiveSession(
+  session: Pick<ClassroomSession, "id" | "class_id"> | null | undefined,
+  onEnded: (latest: ClassroomSession) => void,
+) {
+  const qc = useQueryClient();
+  const handler = useRef(onEnded);
+  handler.current = onEnded;
+  const sessionId = session?.id;
+  const classId = session?.class_id;
+
+  useEffect(() => {
+    if (!sessionId || !classId) return;
+    let fired = false;
+    return subscribeDocLive<ClassroomSession>(COLLECTIONS.classroomSessions, sessionId, (row) => {
+      if (!row) return;
+      qc.setQueryData(["classroom-session", classId], row.is_active ? row : null);
+      const live = row.is_active !== false && (row.status ?? "live") === "live";
+      if (!live && !fired) {
+        fired = true;
+        handler.current(row);
+      }
+    });
+  }, [sessionId, classId, qc]);
 }
 
 export function useJoinRoom() {
@@ -827,12 +876,19 @@ export function useUpdateParticipant() {
             },
           });
         } catch (error) {
-          console.error("[live] server moderate failed, using client:", error);
-          await patchById(
-            COLLECTIONS.classroomParticipants,
-            participantDocId(input.sessionId, input.userId),
-            patch,
-          );
+          // Only an infrastructure failure may fall back; a denial stays a denial.
+          if (!isInfrastructureFailure(error)) throw error;
+          console.error("[live] server moderate infrastructure failure, client fallback:", error);
+          void noteClientFallback("live_moderate");
+          try {
+            await patchById(
+              COLLECTIONS.classroomParticipants,
+              participantDocId(input.sessionId, input.userId),
+              patch,
+            );
+          } catch (clientError) {
+            throw fallbackWriteError(error, clientError);
+          }
         }
       } catch (error) {
         throw classifyFirebase(error);
@@ -872,23 +928,65 @@ export function useBulkParticipantUpdate() {
         });
         return;
       } catch (error) {
-        console.error("[live] server bulk moderate failed, using client:", error);
+        if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
+        console.error(
+          "[live] server bulk moderate infrastructure failure, client fallback:",
+          error,
+        );
+        void noteClientFallback("live_moderate_all");
+        const schoolId = await schoolIdForSession(input.sessionId);
+        if (!schoolId) throw new Error("That live session was not found.");
+        try {
+          const rows = await findMany<{ id: string; user_id: string; left_at?: string | null }>(
+            COLLECTIONS.classroomParticipants,
+            [where("school_id", "==", schoolId), where("session_id", "==", input.sessionId)],
+          );
+          await Promise.all(
+            rows
+              .filter((row) => !row.left_at && row.user_id !== input.exceptUserId)
+              .map((row) => patchById(COLLECTIONS.classroomParticipants, row.id, patch)),
+          );
+        } catch (clientError) {
+          throw fallbackWriteError(error, clientError);
+        }
       }
-      const schoolId = await schoolIdForSession(input.sessionId);
-      if (!schoolId) throw new Error("That live session was not found.");
-      const rows = await findMany<{ id: string; user_id: string; left_at?: string | null }>(
-        COLLECTIONS.classroomParticipants,
-        [where("school_id", "==", schoolId), where("session_id", "==", input.sessionId)],
-      );
-      await Promise.all(
-        rows
-          .filter((row) => !row.left_at && row.user_id !== input.exceptUserId)
-          .map((row) => patchById(COLLECTIONS.classroomParticipants, row.id, patch)),
-      );
     },
     onSuccess: (_d, v) =>
       qc.invalidateQueries({ queryKey: ["classroom-participants", v.sessionId] }),
   });
+}
+
+const LOCAL_MESSAGE_PREFIX = "local-";
+
+async function hydrateMessages(
+  rows: Omit<ClassroomMessage, "sender">[],
+): Promise<ClassroomMessage[]> {
+  const sorted = rows
+    .slice()
+    .sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""));
+  return Promise.all(
+    sorted.map(async (row) => ({ ...row, sender: await profileLite(row.sender_id) })),
+  );
+}
+
+/** Keep optimistic (not yet confirmed) messages visible until the server copy arrives. */
+function mergePendingMessages(
+  confirmed: ClassroomMessage[],
+  previous: ClassroomMessage[] | undefined,
+): ClassroomMessage[] {
+  const pending = (previous ?? []).filter(
+    (m) =>
+      m.id.startsWith(LOCAL_MESSAGE_PREFIX) &&
+      !confirmed.some((c) => c.sender_id === m.sender_id && c.body === m.body),
+  );
+  return pending.length ? [...confirmed, ...pending] : confirmed;
+}
+
+function chatConstraints(sessionId: string, schoolId: string | null) {
+  // Phase 8: Gold sessions use synthetic school_id (gold_*) — query by session_id.
+  return schoolId && !schoolId.startsWith("gold_")
+    ? [where("school_id", "==", schoolId), where("session_id", "==", sessionId)]
+    : [where("session_id", "==", sessionId)];
 }
 
 export function useClassroomChat(sessionId?: string) {
@@ -897,37 +995,42 @@ export function useClassroomChat(sessionId?: string) {
     queryKey: ["classroom-chat", sessionId],
     enabled: !!sessionId,
     queryFn: async (): Promise<ClassroomMessage[]> => {
-      // Phase 8: Gold sessions use synthetic school_id (gold_*) — query by session_id.
       const schoolId = await schoolIdForSession(sessionId!);
-      const rows = await findMany<Omit<ClassroomMessage, "sender">>(
-        COLLECTIONS.classroomMessages,
-        schoolId && !schoolId.startsWith("gold_")
-          ? [
-              where("school_id", "==", schoolId),
-              where("session_id", "==", sessionId!),
-              orderBy("created_at"),
-            ]
-          : [where("session_id", "==", sessionId!), orderBy("created_at")],
-      );
-      return Promise.all(
-        rows.map((row) => attachNamedUser(row, row.sender_id, "sender")),
-      ) as Promise<ClassroomMessage[]>;
+      const rows = await findMany<Omit<ClassroomMessage, "sender">>(COLLECTIONS.classroomMessages, [
+        ...chatConstraints(sessionId!, schoolId),
+        orderBy("created_at"),
+      ]);
+      return hydrateMessages(rows);
     },
   });
 
   useEffect(() => {
     if (!sessionId) return;
     let unsub: (() => void) | undefined;
+    let cancelled = false;
+    let seq = 0;
     void schoolIdForSession(sessionId).then((schoolId) => {
-      unsub = subscribeMany(
+      if (cancelled) return;
+      // Each snapshot is applied directly: a new message shows up within one round-trip,
+      // and a listener rejected before the participant row exists re-arms itself.
+      unsub = subscribeLive<Omit<ClassroomMessage, "sender">>(
         COLLECTIONS.classroomMessages,
-        schoolId && !schoolId.startsWith("gold_")
-          ? [where("school_id", "==", schoolId), where("session_id", "==", sessionId)]
-          : [where("session_id", "==", sessionId)],
-        () => qc.invalidateQueries({ queryKey: ["classroom-chat", sessionId] }),
+        chatConstraints(sessionId, schoolId),
+        (rows) => {
+          const mine = ++seq;
+          void hydrateMessages(rows).then((hydrated) => {
+            if (cancelled || mine !== seq) return;
+            qc.setQueryData<ClassroomMessage[]>(["classroom-chat", sessionId], (previous) =>
+              mergePendingMessages(hydrated, previous),
+            );
+          });
+        },
       );
     });
-    return () => unsub?.();
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
   }, [sessionId, qc]);
 
   return query;
@@ -937,23 +1040,54 @@ export function useSendClassroomMessage() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { sessionId: string; senderId: string; body: string }) => {
+      let serverError: unknown;
       try {
         await sendClassroomChat({ data: { sessionId: input.sessionId, body: input.body } });
         return;
       } catch (error) {
-        console.error("[live] server chat failed, using client:", error);
+        if (!isInfrastructureFailure(error)) throw classifyFirebase(error);
+        console.error("[live] server chat infrastructure failure, client fallback:", error);
+        serverError = error;
+        void noteClientFallback("live_chat");
       }
       const schoolId = await schoolIdForSession(input.sessionId);
       if (!schoolId) throw new Error("That live session was not found.");
-      await createDoc(COLLECTIONS.classroomMessages, {
-        session_id: input.sessionId,
-        sender_id: input.senderId,
-        body: input.body,
-        school_id: schoolId,
-        created_at: nowIso(),
-      });
+      try {
+        await createDoc(COLLECTIONS.classroomMessages, {
+          session_id: input.sessionId,
+          sender_id: input.senderId,
+          body: input.body,
+          school_id: schoolId,
+          created_at: nowIso(),
+        });
+      } catch (clientError) {
+        throw fallbackWriteError(serverError, clientError);
+      }
     },
-    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["classroom-chat", v.sessionId] }),
+    // Optimistic: the sender sees their message instantly; the snapshot replaces it.
+    onMutate: async (input) => {
+      const key = ["classroom-chat", input.sessionId];
+      const localId = `${LOCAL_MESSAGE_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const sender = await profileLite(input.senderId);
+      qc.setQueryData<ClassroomMessage[]>(key, (previous) => [
+        ...(previous ?? []),
+        {
+          id: localId,
+          session_id: input.sessionId,
+          sender_id: input.senderId,
+          body: input.body,
+          created_at: nowIso(),
+          sender,
+        },
+      ]);
+      return { localId };
+    },
+    onError: (_error, input, context) => {
+      if (!context?.localId) return;
+      qc.setQueryData<ClassroomMessage[]>(["classroom-chat", input.sessionId], (previous) =>
+        (previous ?? []).filter((m) => m.id !== context.localId),
+      );
+    },
   });
 }
 

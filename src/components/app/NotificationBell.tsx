@@ -1,5 +1,7 @@
+import { useEffect, useRef } from "react";
 import { Bell } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { useSession } from "@/hooks/useAuth";
 import { useNotifications, useMarkNotificationRead } from "@/lib/discovery-data";
 import { Button } from "@/components/ui/button";
@@ -15,6 +17,29 @@ export function NotificationBell() {
 
   const items = notifications.data ?? [];
   const unread = items.filter((n) => !n.read).length;
+
+  // Announce notifications that arrive while the app is open (live class started, approval,
+  // missed work…) — after the first load, so the toast never replays old history.
+  const seenIds = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!notifications.data) return;
+    if (!seenIds.current) {
+      seenIds.current = new Set(notifications.data.map((n) => n.id));
+      return;
+    }
+    for (const n of notifications.data) {
+      if (seenIds.current.has(n.id)) continue;
+      seenIds.current.add(n.id);
+      if (!n.read) {
+        toast(n.title, {
+          description: n.body ?? undefined,
+          action: n.link
+            ? { label: "Open", onClick: () => window.location.assign(n.link!) }
+            : undefined,
+        });
+      }
+    }
+  }, [notifications.data]);
 
   return (
     <Popover>

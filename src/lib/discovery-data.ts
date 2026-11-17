@@ -10,11 +10,11 @@ import {
   setById,
   unionById,
   removeById,
-  subscribeMany,
   where,
   orderBy,
   limit,
 } from "@/lib/firebase/repo";
+import { subscribeLive } from "@/lib/firebase/live-subscribe";
 import {
   attachClassName,
   attachSubject,
@@ -771,7 +771,7 @@ export function useWeeklyTimetable(userId?: string) {
     let unsub: (() => void) | undefined;
     void userSchoolId(userId).then((schoolId) => {
       if (!schoolId) return;
-      unsub = subscribeMany(COLLECTIONS.timetableSlots, [where("school_id", "==", schoolId)], () =>
+      unsub = subscribeLive(COLLECTIONS.timetableSlots, [where("school_id", "==", schoolId)], () =>
         qc.invalidateQueries({ queryKey: ["weekly-timetable", userId] }),
       );
     });
@@ -938,8 +938,18 @@ export function useNotifications(userId?: string) {
 
   useEffect(() => {
     if (!userId) return;
-    return subscribeMany(COLLECTIONS.notifications, [where("user_id", "==", userId)], () =>
-      qc.invalidateQueries({ queryKey: ["notifications", userId] }),
+    // Snapshot rows are applied directly (newest first, same cap as the initial query), and
+    // the listener re-arms itself if the token was stale — the bell never needs a refresh.
+    return subscribeLive<AppNotification>(
+      COLLECTIONS.notifications,
+      [where("user_id", "==", userId)],
+      (rows) => {
+        const latest = rows
+          .slice()
+          .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+          .slice(0, 30);
+        qc.setQueryData(["notifications", userId], latest);
+      },
     );
   }, [qc, userId]);
 

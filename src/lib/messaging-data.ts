@@ -10,12 +10,12 @@ import {
   patchById,
   removeById,
   setById,
-  subscribeMany,
   where,
   orderBy,
   limit,
 } from "@/lib/firebase/repo";
-import { attachNamedUser } from "@/lib/firebase/hydrate";
+import { attachNamedUser, profileLite } from "@/lib/firebase/hydrate";
+import { subscribeLive } from "@/lib/firebase/live-subscribe";
 
 export type ConversationKind = "direct" | "group" | "clinic";
 
@@ -74,12 +74,26 @@ export function useMyConversations(userId?: string) {
 
   useEffect(() => {
     if (!userId) return;
-    return subscribeMany(COLLECTIONS.conversationMembers, [where("user_id", "==", userId)], () =>
+    return subscribeLive(COLLECTIONS.conversationMembers, [where("user_id", "==", userId)], () =>
       qc.invalidateQueries({ queryKey: ["conversations", userId] }),
     );
   }, [userId, qc]);
 
   return query;
+}
+
+const MESSAGE_WINDOW = 80;
+const LOCAL_MESSAGE_PREFIX = "local-";
+
+async function hydrateMessages(rows: Omit<Message, "sender">[]): Promise<Message[]> {
+  const chronological = rows
+    .slice()
+    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+    .slice(0, MESSAGE_WINDOW)
+    .reverse();
+  return Promise.all(
+    chronological.map(async (row) => ({ ...row, sender: await profileLite(row.sender_id) })),
+  );
 }
 
 export function useMessages(conversationId?: string) {
@@ -91,28 +105,46 @@ export function useMessages(conversationId?: string) {
       const rows = await findMany<Omit<Message, "sender">>(COLLECTIONS.messages, [
         where("conversation_id", "==", conversationId!),
         orderBy("created_at", "desc"),
-        limit(80),
+        limit(MESSAGE_WINDOW),
       ]);
-      const chronological = rows.slice().reverse();
-      return Promise.all(
-        chronological.map((row) => attachNamedUser(row, row.sender_id, "sender")),
-      ) as Promise<Message[]>;
+      return hydrateMessages(rows);
     },
   });
 
   useEffect(() => {
     if (!conversationId) return;
-    return subscribeMany(
+    let cancelled = false;
+    let seq = 0;
+    // Snapshot → cache directly (cached sender profiles); listener re-arms on errors.
+    const unsub = subscribeLive<Omit<Message, "sender">>(
       COLLECTIONS.messages,
       [where("conversation_id", "==", conversationId)],
-      () => qc.invalidateQueries({ queryKey: ["messages", conversationId] }),
+      (rows) => {
+        const mine = ++seq;
+        void hydrateMessages(rows).then((hydrated) => {
+          if (cancelled || mine !== seq) return;
+          qc.setQueryData<Message[]>(["messages", conversationId], (previous) => {
+            const pending = (previous ?? []).filter(
+              (m) =>
+                m.id.startsWith(LOCAL_MESSAGE_PREFIX) &&
+                !hydrated.some((c) => c.sender_id === m.sender_id && c.body === m.body),
+            );
+            return pending.length ? [...hydrated, ...pending] : hydrated;
+          });
+        });
+      },
     );
+    return () => {
+      cancelled = true;
+      unsub();
+    };
   }, [conversationId, qc]);
 
   return query;
 }
 
 export function useSendMessage() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { conversationId: string; senderId: string; body: string }) => {
       await createDoc(COLLECTIONS.messages, {
@@ -124,6 +156,29 @@ export function useSendMessage() {
       await patchById(COLLECTIONS.conversations, input.conversationId, {
         updated_at: new Date().toISOString(),
       });
+    },
+    // Optimistic: the sender's bubble appears instantly; the snapshot replaces it.
+    onMutate: async (input) => {
+      const localId = `${LOCAL_MESSAGE_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const sender = await profileLite(input.senderId);
+      qc.setQueryData<Message[]>(["messages", input.conversationId], (previous) => [
+        ...(previous ?? []),
+        {
+          id: localId,
+          conversation_id: input.conversationId,
+          sender_id: input.senderId,
+          body: input.body,
+          created_at: new Date().toISOString(),
+          sender,
+        },
+      ]);
+      return { localId };
+    },
+    onError: (_error, input, context) => {
+      if (!context?.localId) return;
+      qc.setQueryData<Message[]>(["messages", input.conversationId], (previous) =>
+        (previous ?? []).filter((m) => m.id !== context.localId),
+      );
     },
   });
 }

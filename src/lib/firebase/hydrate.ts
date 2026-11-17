@@ -22,6 +22,37 @@ export async function userSchoolId(userId?: string): Promise<string | null> {
   return row?.school_id ?? null;
 }
 
+const PROFILE_TTL_MS = 5 * 60_000;
+const profileCache = new Map<string, { at: number; value: Promise<ProfileLite | null> }>();
+
+/**
+ * Cached, de-duplicated profile lookup for realtime lists (chat, participants, DMs).
+ * Without it every snapshot re-read one `users/{id}` doc per row, which made a 200-message
+ * chat cost 200 reads per new message and lag by seconds.
+ */
+export function profileLite(userId: string | null | undefined): Promise<ProfileLite | null> {
+  if (!userId) return Promise.resolve(null);
+  const hit = profileCache.get(userId);
+  if (hit && Date.now() - hit.at < PROFILE_TTL_MS) return hit.value;
+  const value = getById<UserDoc>(COLLECTIONS.users, userId)
+    .then((user) =>
+      user
+        ? {
+            id: user.id,
+            full_name: user.full_name,
+            email: user.email ?? null,
+            avatar_url: user.avatar_url ?? null,
+          }
+        : null,
+    )
+    .catch(() => {
+      profileCache.delete(userId);
+      return null;
+    });
+  profileCache.set(userId, { at: Date.now(), value });
+  return value;
+}
+
 export async function attachSubject<T extends { subject_id?: string | null }>(row: T) {
   const subjectId = row.subject_id;
   const subject = subjectId ? await getById<SubjectDoc>(COLLECTIONS.subjects, subjectId) : null;
