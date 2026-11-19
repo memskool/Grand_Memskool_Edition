@@ -96,6 +96,8 @@ function TeacherView({ userId }: { userId?: string | undefined }) {
           <Panel title="Created assessments">
             {list.isLoading ? (
               <ListSkeleton />
+            ) : list.isError ? (
+              <p className="text-sm text-destructive">{authErrorMessage(list.error)}</p>
             ) : list.data?.length ? (
               <ul className="space-y-2">
                 {list.data.map((a) => (

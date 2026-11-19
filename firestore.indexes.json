@@ -1,6 +1,59 @@
 {
   "indexes": [
     {
+      "collectionGroup": "lessons",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "school_id", "order": "ASCENDING" },
+        { "fieldPath": "teacher_id", "order": "ASCENDING" },
+        { "fieldPath": "starts_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assessments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "school_id", "order": "ASCENDING" },
+        { "fieldPath": "created_by", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assessments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "school_id", "order": "ASCENDING" },
+        { "fieldPath": "created_by", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assessment_questions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "school_id", "order": "ASCENDING" },
+        { "fieldPath": "assessment_id", "order": "ASCENDING" },
+        { "fieldPath": "position", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assessment_submissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "school_id", "order": "ASCENDING" },
+        { "fieldPath": "assessment_id", "order": "ASCENDING" },
+        { "fieldPath": "submitted_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assessment_submissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "school_id", "order": "ASCENDING" },
+        { "fieldPath": "assessment_id", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "assignments",
       "queryScope": "COLLECTION",
       "fields": [

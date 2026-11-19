@@ -448,11 +448,16 @@ export function useLessonsForTeacher(teacherId: string | undefined) {
   return useQuery({
     queryKey: ["teacher-lessons", teacherId],
     enabled: !!teacherId,
-    queryFn: () =>
-      findMany<Lesson>(COLLECTIONS.lessons, [
+    queryFn: async () => {
+      // The lessons read rule checks school_id, so the query must pin it (rules are not filters).
+      const schoolId = await userSchoolId(teacherId);
+      if (!schoolId) return [];
+      return findMany<Lesson>(COLLECTIONS.lessons, [
+        where("school_id", "==", schoolId),
         where("teacher_id", "==", teacherId!),
         orderBy("starts_at", "asc"),
-      ]),
+      ]);
+    },
   });
 }
 

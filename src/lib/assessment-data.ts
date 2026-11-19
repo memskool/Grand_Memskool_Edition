@@ -97,7 +97,12 @@ export function useTeacherAssessments(userId?: string) {
     queryKey: ["assessments", "teacher", userId],
     enabled: !!userId,
     queryFn: async () => {
+      // Rules are not filters: the read rule checks school_id, so the query must pin it
+      // or Firestore rejects the whole list (it used to show "No assessments yet").
+      const schoolId = await userSchoolId(userId);
+      if (!schoolId) return [];
       const rows = await findMany<Assessment>(COLLECTIONS.assessments, [
+        where("school_id", "==", schoolId),
         where("created_by", "==", userId!),
         orderBy("created_at", "desc"),
         limit(40),
@@ -152,7 +157,10 @@ export function useAssessmentQuestions(assessmentId?: string) {
     queryKey: ["assessment-questions", assessmentId],
     enabled: !!assessmentId,
     queryFn: async () => {
+      const schoolId = await userSchoolId();
+      if (!schoolId) return [];
       const rows = await findMany<AssessmentQuestion>(COLLECTIONS.assessmentQuestions, [
+        where("school_id", "==", schoolId),
         where("assessment_id", "==", assessmentId!),
         orderBy("position"),
       ]);
@@ -206,7 +214,10 @@ export function useAssessmentResults(assessmentId?: string) {
     queryKey: ["assessment-submissions", "assessment", assessmentId],
     enabled: !!assessmentId,
     queryFn: async () => {
+      const schoolId = await userSchoolId();
+      if (!schoolId) return [];
       const rows = await findMany<AssessmentSubmission>(COLLECTIONS.assessmentSubmissions, [
+        where("school_id", "==", schoolId),
         where("assessment_id", "==", assessmentId!),
         orderBy("submitted_at", "desc"),
       ]);
@@ -581,7 +592,10 @@ export function useTeacherAssessmentStats(teacherId?: string) {
     queryKey: ["teacher-assessment-stats", teacherId],
     enabled: !!teacherId,
     queryFn: async (): Promise<ClassStat[]> => {
+      const schoolId = await userSchoolId(teacherId);
+      if (!schoolId) return [];
       const assessments = await findMany<{ title: string }>(COLLECTIONS.assessments, [
+        where("school_id", "==", schoolId),
         where("created_by", "==", teacherId!),
         orderBy("created_at", "asc"),
       ]);
@@ -592,7 +606,10 @@ export function useTeacherAssessmentStats(teacherId?: string) {
             manual_score: number | null;
             total_points: number | null;
             submitted_at: string | null;
-          }>(COLLECTIONS.assessmentSubmissions, [where("assessment_id", "==", a.id)]);
+          }>(COLLECTIONS.assessmentSubmissions, [
+            where("school_id", "==", schoolId),
+            where("assessment_id", "==", a.id),
+          ]);
           const done = subs.filter((s) => s.submitted_at);
           const percents = done.map((s) => {
             const score = Number(s.manual_score ?? s.auto_score ?? 0);
