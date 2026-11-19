@@ -18,12 +18,13 @@ import { subscribeDocLive, subscribeLive } from "@/lib/firebase/live-subscribe";
 import { classifyFirebase } from "@/lib/errors/app-error";
 import { PRODUCT_EVENTS, trackProductEvent } from "@/lib/analytics";
 import { fallbackWriteError, isInfrastructureFailure } from "@/lib/infra-failure";
-import { isFreshLiveSession } from "@/lib/live-session-fresh";
+import { hostPresence, isFreshLiveSession } from "@/lib/live-session-fresh";
 import { refreshAuthClaims } from "@/features/auth/services/auth.service";
 import {
   cancelLiveSession,
   correctLiveAttendance,
   endLiveSession,
+  expireHostGrace,
   finalizeSessionAttendance,
   joinLiveSession,
   leaveLiveSession,
@@ -51,6 +52,8 @@ export type ClassroomSession = {
   is_active: boolean;
   provider?: string;
   provider_room?: string;
+  /** Set while the host's connection is down (reconnect grace); null once they are back. */
+  host_disconnected_at?: string | null;
 };
 
 export { isFreshLiveSession } from "@/lib/live-session-fresh";
@@ -136,10 +139,26 @@ async function hostStillInRoom(session: ClassroomSession): Promise<boolean | nul
       COLLECTIONS.classroomParticipants,
       participantDocId(session.id, session.host_id),
     );
-    if (!host) return false;
-    return !host.left_at;
+    // Inside the reconnect grace the host still counts as present (Phase 3).
+    return hostPresence(host) !== "gone";
   } catch {
     return null;
+  }
+}
+
+/**
+ * A class page found a session whose host looks gone. The server decides (it re-checks
+ * the grace and finalizes attendance + tears down the room); a direct client write is
+ * only the fallback when the server itself is unreachable.
+ */
+async function closeStaleSession(session: ClassroomSession): Promise<boolean> {
+  try {
+    const res = await expireHostGrace({ data: { sessionId: session.id } });
+    return res.ended;
+  } catch (error) {
+    if (!isInfrastructureFailure(error)) throw error;
+    await endSessionDocClient(session);
+    return true;
   }
 }
 
@@ -169,7 +188,7 @@ async function healStaleLiveSessions(rows: ClassroomSession[]): Promise<Classroo
     void Promise.all(
       close.map(async (row) => {
         try {
-          await endSessionDocClient(row);
+          await closeStaleSession(row);
         } catch (error) {
           console.error("[live] stale session heal failed:", row.id, error);
         }
@@ -311,7 +330,8 @@ export function useActiveSession(classId?: string) {
         // fresh session visible instead of ending it behind the teacher's back.
         if (state !== "closed") return row;
         try {
-          await endSessionDocClient(row);
+          // The server may still see the host inside the reconnect grace: keep the room.
+          if (!(await closeStaleSession(row))) return row;
         } catch (error) {
           console.error("[live] active session heal failed:", error);
         }
@@ -560,6 +580,19 @@ export function useStartSession() {
       void refreshAuthClaims();
       void qc.invalidateQueries({ queryKey: ["live-sessions"] });
       void qc.invalidateQueries({ queryKey: ["classroom-participants", s.id] });
+    },
+  });
+}
+
+/** Learners call this when the host's reconnect countdown reaches zero. */
+export function useExpireHostGrace() {
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      try {
+        return await expireHostGrace({ data: { sessionId } });
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
     },
   });
 }

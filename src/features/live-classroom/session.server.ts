@@ -35,6 +35,7 @@ import {
   upsertParticipantJoin,
 } from "./participation";
 import { finalizeLiveAttendance, listLiveAbsenteeStudentIds } from "./attendance";
+import { hostGraceRemainingMs, hostPresence } from "@/lib/live-session-fresh";
 
 function asRecord(session: SessionDoc & { id: string }): LiveSessionRecord {
   const status =
@@ -145,7 +146,8 @@ async function reconcileActiveSessionsForClass(
       COLLECTIONS.classroomParticipants,
       participantDocId(row.id, row.host_id),
     );
-    const hostPresent = Boolean(host && !host.left_at);
+    // Inside the reconnect grace the host still counts as present (Phase 3).
+    const hostPresent = hostPresence(host) !== "gone";
     const fresh = isFreshStartedAt(row.started_at);
     if (fresh && hostPresent && (row.status ?? "live") === "live") {
       keepers.push(row);
@@ -325,9 +327,19 @@ export async function endLiveSessionHandler({
   if (session.status === "ended" || session.is_active === false) {
     return { ok: true as const, alreadyEnded: true };
   }
+  const attendance = await finishLiveSession(session, context.userId);
+  return { ok: true as const, alreadyEnded: false, attendance };
+}
+
+/**
+ * Ends a live session the same way whoever triggers it (host End, host Leave, or the
+ * host's reconnect grace running out): close presence, finalize attendance, mark ended,
+ * tear down the LiveKit room, complete the lesson, tell absentees.
+ */
+async function finishLiveSession(session: SessionDoc & { id: string }, recordedBy: string) {
   const now = new Date().toISOString();
   await closeOpenParticipants(session.id);
-  const attendance = await finalizeLiveAttendance({ session, recordedBy: context.userId });
+  const attendance = await finalizeLiveAttendance({ session, recordedBy });
   await adminUpdate(COLLECTIONS.classroomSessions, session.id, {
     status: "ended",
     is_active: false,
@@ -351,30 +363,61 @@ export async function endLiveSessionHandler({
 
   if (session.school_id && session.kind !== "gold") {
     const absentees = await listLiveAbsenteeStudentIds(session);
-    const { createAndQueueNotification, dispatchNotifications } =
-      await import("@/lib/notifications.server");
-    // Phase 6: notify in pages — do not silently drop after 80.
-    const NOTIFY_PAGE = 80;
-    for (let i = 0; i < absentees.length; i += NOTIFY_PAGE) {
-      const page = absentees.slice(i, i + NOTIFY_PAGE);
-      await Promise.all(
-        page.map((userId) =>
-          createAndQueueNotification({
-            userId,
-            title: "You missed a live class",
-            body: "Open Missed Work to see follow-up tasks your teacher assigns for this lesson.",
-            kind: "live_class",
-            link: "/missed-work",
-            schoolId: session.school_id,
-            createdAt: now,
-          }),
-        ),
-      );
-    }
-    void dispatchNotifications();
+    const { notifyUsers } = await import("@/lib/notifications.server");
+    await notifyUsers(absentees, {
+      title: "You missed a live class",
+      body: "Open Missed Work to see follow-up tasks your teacher assigns for this lesson.",
+      kind: "live_class",
+      link: "/missed-work",
+      schoolId: session.school_id,
+      createdAt: now,
+    });
   }
 
-  return { ok: true as const, alreadyEnded: false, attendance };
+  return attendance;
+}
+
+/**
+ * Called by anyone in the class when the host's reconnect grace runs out (and lazily by
+ * class pages). Ends the session only if the server confirms the host is really gone
+ * past the grace — or the session is stale — so it is safe for students to call.
+ */
+export async function expireHostGraceHandler({
+  data,
+  context,
+}: Args<z.infer<typeof SessionIdSchema>>): Promise<{
+  ended: boolean;
+  graceRemainingMs: number;
+}> {
+  const session = await loadSession(data.sessionId);
+  await assertCanJoinSession(context.role, context.schoolId, context.userId, session);
+  if (session.status !== undefined && session.status !== "live") {
+    return { ended: true, graceRemainingMs: 0 };
+  }
+  if (session.is_active === false) return { ended: true, graceRemainingMs: 0 };
+  const host = await adminGetById<{ left_at?: string | null }>(
+    COLLECTIONS.classroomParticipants,
+    participantDocId(session.id, session.host_id),
+  );
+  const presence = hostPresence(host);
+  if (isFreshStartedAt(session.started_at) && presence !== "gone") {
+    return { ended: false, graceRemainingMs: hostGraceRemainingMs(host) };
+  }
+  await finishLiveSession(session, session.host_id);
+  return { ended: true, graceRemainingMs: 0 };
+}
+
+/**
+ * LiveKit says the host's connection dropped. Keep the class open for the reconnect
+ * grace and flag it so learners see "your teacher is reconnecting".
+ */
+export async function noteHostDisconnected(sessionId: string, userId: string): Promise<void> {
+  const session = await adminGetById<SessionDoc>(COLLECTIONS.classroomSessions, sessionId);
+  if (!session || session.host_id !== userId) return;
+  if (session.is_active === false || (session.status ?? "live") !== "live") return;
+  await adminUpdate(COLLECTIONS.classroomSessions, sessionId, {
+    host_disconnected_at: new Date().toISOString(),
+  });
 }
 
 export async function cancelLiveSessionHandler({

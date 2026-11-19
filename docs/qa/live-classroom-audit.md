@@ -40,10 +40,13 @@ before this is declared fully verified.
 
 ## 3. Known limitations (decisions, not bugs)
 
-- **Host disconnect ends the room.** A teacher who refreshes the page or loses network for
-  longer than LiveKit's reconnect window triggers `participant_left`; the webhook ends the
-  session and finalises attendance. Re-entering starts a _new_ session. Documented product
-  truth (Phase 5/6); a grace period would require a scheduler the Spark plan does not offer.
+- **Host drop → 3-minute reconnect grace (Phase 3).** When the teacher's connection drops
+  (network, refresh, closed tab) the webhook marks them left and flags `host_disconnected_at`
+  instead of ending the class. Both sides auto-rejoin with backoff (and on the browser
+  `online` event), restoring mic/camera. Learners see a countdown; at zero their client calls
+  `expireHostGrace`, which re-checks on the server and only then finalises attendance and
+  deletes the LiveKit room. With nobody in the room, class pages (`liveRoomState` heal) and
+  the next start (`reconcileActiveSessionsForClass`) close it lazily — no scheduler needed.
 - The webhook only fires if the LiveKit project's webhook URL points at
   `/api/public/webhooks/livekit`. Without it, attendance still works via `reportLivePresence`,
   but host-disconnect clean-up relies on the client `liveRoomState` heal.

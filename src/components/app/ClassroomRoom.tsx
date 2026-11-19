@@ -35,6 +35,7 @@ import {
   useEndSession,
   useJoinRoom,
   useLeaveRoom,
+  useExpireHostGrace,
   useParticipants,
   useReportPresence,
   useSendClassroomMessage,
@@ -50,6 +51,7 @@ import { AskAiButton } from "@/components/app/AskAiButton";
 import { getSchoolObjectUrl } from "@/lib/storage";
 import { ATTENDANCE_STATUSES, type LessonMaterial } from "@/types/academic";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
+import { hostGraceRemainingMs, hostPresence } from "@/lib/live-session-fresh";
 
 function initials(name?: string | null) {
   return (name ?? "?")
@@ -119,6 +121,7 @@ export function ClassroomRoom({
   const endSession = useEndSession();
   const send = useSendClassroomMessage();
   const presence = useReportPresence();
+  const expireGrace = useExpireHostGrace();
   const materials = useLessonMaterials(session.lesson_id ?? undefined);
 
   const [chatOpen, setChatOpen] = useState(false);
@@ -167,6 +170,11 @@ export function ClassroomRoom({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id, userId, isSessionHost, joinAttempt]);
 
+  // A rejoin after a drop must report presence again.
+  useEffect(() => {
+    if (!media.connected) presenceRef.current = false;
+  }, [media.connected]);
+
   useEffect(() => {
     if (!media.connected || presenceRef.current) return;
     presenceRef.current = true;
@@ -182,6 +190,24 @@ export function ClassroomRoom({
     [participants.data],
   );
   const me = live.find((p) => p.user_id === userId);
+
+  // Phase 3: the host's connection dropped. The class stays open for the reconnect grace;
+  // learners see a countdown, and when it runs out we ask the server to close the class
+  // (it re-checks, so a host who is back in time keeps teaching).
+  const amHost = userId === session.host_id || isSessionHost;
+  const hostRow = (participants.data ?? []).find((p) => p.user_id === session.host_id) ?? null;
+  const hostState = hostRow ? hostPresence(hostRow) : "present";
+  const graceLeftMs = hostRow ? hostGraceRemainingMs(hostRow) : 0;
+  const hostReconnecting = !amHost && hostRow !== null && hostState === "grace";
+  const expiredForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (amHost || !hostRow?.left_at || hostState !== "gone") return;
+    if (expiredForRef.current === hostRow.left_at) return;
+    expiredForRef.current = hostRow.left_at;
+    expireGrace.mutate(session.id);
+    // Re-evaluated every second through `tick`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [amHost, hostRow?.left_at, hostState, session.id, tick]);
   const host = live.find((p) => p.is_host || p.user_id === session.host_id) ?? null;
   const learners = live.filter((p) => !p.is_host && p.user_id !== session.host_id);
   // Count the host even before their participant row finishes loading.
@@ -206,6 +232,7 @@ export function ClassroomRoom({
     if (host) {
       return `${host.profile?.full_name ?? "Teacher"} is broadcasting`;
     }
+    if (hostReconnecting) return "Your teacher is reconnecting…";
     return "Waiting for the teacher…";
   })();
 
@@ -310,10 +337,17 @@ export function ClassroomRoom({
     media.status === "connecting"
       ? "Joining the classroom…"
       : media.status === "reconnecting"
-        ? "Reconnecting…"
+        ? amHost
+          ? "Your connection dropped. Rejoining automatically — the class stays open for your learners for a few minutes."
+          : "Your connection dropped. Rejoining automatically…"
         : media.status === "disconnected" && !media.connecting
-          ? "Connection lost. Check your network, then leave and join again if this continues."
+          ? media.rejoinExhausted
+            ? "Could not reconnect. Check your network, then tap Rejoin."
+            : "Connection lost. Check your network, then tap Rejoin."
           : null;
+  const graceClock = `${Math.floor(graceLeftMs / 60_000)}:${String(
+    Math.floor((graceLeftMs % 60_000) / 1000),
+  ).padStart(2, "0")}`;
 
   // Phase 9: dock controls stay high-contrast on light theme (ink fill, not washed secondary).
   const controlBtn =
@@ -373,7 +407,25 @@ export function ClassroomRoom({
                 ? "Connecting"
                 : "Connection lost"}
           </AlertTitle>
-          <AlertDescription>{connectionCopy}</AlertDescription>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{connectionCopy}</span>
+            {media.status === "disconnected" && !media.connecting ? (
+              <Button size="sm" className="rounded-full" onClick={media.reconnect}>
+                Rejoin
+              </Button>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {hostReconnecting ? (
+        <Alert>
+          <AlertTitle>Your teacher&apos;s connection dropped</AlertTitle>
+          <AlertDescription>
+            Stay here — the class stays open while they reconnect. If they are not back in{" "}
+            <span className="font-semibold tabular-nums">{graceClock}</span>, the class will end and
+            your attendance is saved.
+          </AlertDescription>
         </Alert>
       ) : null}
 

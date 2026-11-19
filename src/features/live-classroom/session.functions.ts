@@ -25,6 +25,15 @@ export const endLiveSession = createServerFn({ method: "POST" })
     return endLiveSessionHandler(opts);
   });
 
+/** Ends the session only if the server confirms the host's reconnect grace ran out. */
+export const expireHostGrace = createServerFn({ method: "POST" })
+  .middleware([requireFirebaseAuth])
+  .inputValidator((data: unknown) => SessionIdSchema.parse(data))
+  .handler(async (opts) => {
+    const { expireHostGraceHandler } = await import("./session.server");
+    return expireHostGraceHandler(opts);
+  });
+
 export const cancelLiveSession = createServerFn({ method: "POST" })
   .middleware([requireFirebaseAuth])
   .inputValidator((data: unknown) => SessionIdSchema.parse(data))

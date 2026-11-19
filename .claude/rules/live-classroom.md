@@ -8,7 +8,7 @@ paths:
 
 # Live classroom
 
-- LIVE = `isFreshLiveSession` (active, status live, started_at ≤ 4h) **and** host participant `left_at` is null.
+- LIVE = `isFreshLiveSession` (active, status live, started_at ≤ 4h) **and** `hostPresence(host) !== "gone"` — the host is in the room or inside `HOST_RECONNECT_GRACE_MS` (3 min) after a drop. Only `expireHostGraceHandler` / `finishLiveSession` end a session for host loss; the LiveKit webhook just flags `host_disconnected_at`. Never reintroduce an immediate end on `participant_left`.
 - Tokens: server-only (`token.server.ts`); screen share host/manager only; students may publish cam/mic when authorized.
 - `connected_at` is server/webhook only — client presence must not forge it.
 - Attendance finalize uses `liveAttendanceDocId` / `markFromParticipation` from `attendance-policy.ts`.

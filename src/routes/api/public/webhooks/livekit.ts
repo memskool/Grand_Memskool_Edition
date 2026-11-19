@@ -27,7 +27,7 @@ export const Route = createFileRoute("/api/public/webhooks/livekit")({
           const receiver = new WebhookReceiver(apiKey, apiSecret);
           const event = await receiver.receive(raw, auth);
 
-          const { adminGetById, adminSet, adminUpdate } = await import("@/lib/firebase/admin-repo");
+          const { adminGetById, adminSet } = await import("@/lib/firebase/admin-repo");
           const { COLLECTIONS } = await import("@/lib/firebase/repo");
 
           const eventId =
@@ -39,7 +39,7 @@ export const Route = createFileRoute("/api/public/webhooks/livekit")({
           const identity = event.participant?.identity;
 
           if (sessionId && identity) {
-            const { markParticipantConnected, markParticipantLeft, closeOpenParticipants } =
+            const { markParticipantConnected, markParticipantLeft } =
               await import("@/features/live-classroom/participation");
             if (event.event === "participant_joined") {
               await markParticipantConnected(sessionId, identity);
@@ -49,73 +49,16 @@ export const Route = createFileRoute("/api/public/webhooks/livekit")({
               event.event === "participant_connection_aborted"
             ) {
               await markParticipantLeft(sessionId, identity);
-              // Host disconnect ends the session and finalizes attendance (Phase 5+6).
+              // Phase 3: a host drop no longer ends the class at once. The class stays
+              // open for HOST_RECONNECT_GRACE_MS; learners see a countdown, and
+              // expireHostGrace ends it (attendance + room teardown) only if the host
+              // has not come back. The host's own Leave / End still ends it immediately.
               try {
-                const session = await adminGetById<{
-                  id?: string;
-                  host_id?: string;
-                  is_active?: boolean;
-                  status?: string;
-                  lesson_id?: string | null;
-                  school_id?: string | null;
-                  class_id?: string;
-                  kind?: string | null;
-                  started_at?: string;
-                  gold_class_id?: string | null;
-                }>(COLLECTIONS.classroomSessions, sessionId);
-                if (
-                  session &&
-                  session.host_id === identity &&
-                  session.is_active !== false &&
-                  (session.status ?? "live") === "live"
-                ) {
-                  const now = new Date().toISOString();
-                  await closeOpenParticipants(sessionId);
-                  const { finalizeLiveAttendance } =
-                    await import("@/features/live-classroom/attendance");
-                  await finalizeLiveAttendance({
-                    session: {
-                      id: sessionId,
-                      school_id: session.school_id ?? null,
-                      class_id: session.class_id ?? "",
-                      host_id: session.host_id,
-                      lesson_id: session.lesson_id ?? null,
-                      ...(session.status !== undefined ? { status: session.status } : {}),
-                      ...(session.is_active !== undefined ? { is_active: session.is_active } : {}),
-                      ...(session.started_at !== undefined
-                        ? { started_at: session.started_at }
-                        : {}),
-                      ...(session.kind != null ? { kind: session.kind } : {}),
-                      ...(session.gold_class_id != null
-                        ? { gold_class_id: session.gold_class_id }
-                        : {}),
-                    },
-                    recordedBy: identity,
-                  });
-                  await adminUpdate(COLLECTIONS.classroomSessions, sessionId, {
-                    status: "ended",
-                    is_active: false,
-                    ended_at: now,
-                    attendance_finalized_at: now,
-                  });
-                  // Host is gone for good: clear the room so learners are not left behind.
-                  const { teardownProviderRoom } =
-                    await import("@/features/live-classroom/session.server");
-                  void teardownProviderRoom({
-                    id: sessionId,
-                    school_id: session.school_id ?? null,
-                    class_id: session.class_id ?? "",
-                    host_id: session.host_id,
-                  });
-                  if (session.lesson_id) {
-                    await adminUpdate(COLLECTIONS.lessons, session.lesson_id, {
-                      status: "completed",
-                      updated_at: now,
-                    });
-                  }
-                }
-              } catch (hostEndError) {
-                console.error("[livekit webhook] host-leave end failed:", hostEndError);
+                const { noteHostDisconnected } =
+                  await import("@/features/live-classroom/session.server");
+                await noteHostDisconnected(sessionId, identity);
+              } catch (hostDropError) {
+                console.error("[livekit webhook] host-drop flag failed:", hostDropError);
               }
             }
           }

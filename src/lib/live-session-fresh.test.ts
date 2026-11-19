@@ -1,4 +1,9 @@
-import { isFreshLiveSession } from "./live-session-fresh";
+import {
+  HOST_RECONNECT_GRACE_MS,
+  hostGraceRemainingMs,
+  hostPresence,
+  isFreshLiveSession,
+} from "./live-session-fresh";
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message);
@@ -44,3 +49,23 @@ assert(
 );
 
 console.log("live-session-fresh unit checks passed");
+
+// Host reconnect grace (Phase 3).
+assert(hostPresence({ left_at: null }, now) === "present", "host in room is present");
+assert(hostPresence(null, now) === "gone", "missing host row is gone");
+assert(
+  hostPresence({ left_at: new Date(now - 30_000).toISOString() }, now) === "grace",
+  "host dropped 30s ago is in grace",
+);
+assert(
+  hostPresence({ left_at: new Date(now - HOST_RECONNECT_GRACE_MS - 1).toISOString() }, now) ===
+    "gone",
+  "host dropped past the grace is gone",
+);
+assert(hostPresence({ left_at: "not-a-date" }, now) === "gone", "bad timestamp is gone");
+assert(
+  hostGraceRemainingMs({ left_at: new Date(now - 60_000).toISOString() }, now) ===
+    HOST_RECONNECT_GRACE_MS - 60_000,
+  "grace remaining counts down",
+);
+assert(hostGraceRemainingMs({ left_at: null }, now) === 0, "no grace while present");

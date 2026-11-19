@@ -55,7 +55,7 @@ Node `>=22.12`. Never commit `.env` or `*firebase-adminsdk*.json`.
 
 ## Product truths (Phases 1–10 done)
 
-- LIVE badge = `isFreshLiveSession` (≤4h) **and** host still in room (`left_at` null).
+- LIVE badge = `isFreshLiveSession` (≤4h) **and** host present — `left_at` null **or** inside the 3-min reconnect grace (`hostPresence`, `src/lib/live-session-fresh.ts`). A host *drop* never ends the class at once; `expireHostGrace` ends it after the grace. Host Leave / End still end immediately.
 - Attendance: provisional; id `live_{sessionId}_{studentId}`; no client-forged `connected_at`.
 - Enrol / assign teacher: server path; deterministic ids in `src/features/academic/ids.ts`.
 - Pending teachers: `PENDING_SCHOOL_LOCK` — school tools closed; Gold + Home studio open.

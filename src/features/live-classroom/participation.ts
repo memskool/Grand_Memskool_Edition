@@ -49,6 +49,7 @@ export async function upsertParticipantJoin(input: {
       rejoin_count: rejoin,
       hand_raised: false,
     });
+    if (input.isHost && existing.left_at) await clearHostDisconnected(input.session.id);
     return { id };
   }
   await adminSet(COLLECTIONS.classroomParticipants, id, {
@@ -82,6 +83,16 @@ export async function markParticipantConnected(sessionId: string, userId: string
     last_connected_at: now,
     left_at: null,
   });
+  if (existing.is_host) await clearHostDisconnected(sessionId);
+}
+
+/** Host is back inside the reconnect grace: drop the "teacher reconnecting" flag. */
+async function clearHostDisconnected(sessionId: string): Promise<void> {
+  try {
+    await adminUpdate(COLLECTIONS.classroomSessions, sessionId, { host_disconnected_at: null });
+  } catch (error) {
+    console.error("[live] clear host_disconnected_at failed:", sessionId, error);
+  }
 }
 
 export async function markParticipantLeft(sessionId: string, userId: string): Promise<void> {

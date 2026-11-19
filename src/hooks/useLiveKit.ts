@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ConnectionState,
+  DisconnectReason,
   Room,
   RoomEvent,
   Track,
@@ -73,6 +74,17 @@ export type RemoteMedia = {
   speaking: boolean;
 };
 
+/** Reasons a dropped room should NOT auto-rejoin: the user left, was removed, or it ended. */
+const FINAL_DISCONNECTS = new Set<DisconnectReason | undefined>([
+  DisconnectReason.CLIENT_INITIATED,
+  DisconnectReason.DUPLICATE_IDENTITY,
+  DisconnectReason.PARTICIPANT_REMOVED,
+  DisconnectReason.ROOM_DELETED,
+  DisconnectReason.ROOM_CLOSED,
+]);
+/** Rejoin backoff after a full drop (LiveKit already retries short blips itself). */
+const REJOIN_DELAYS_MS = [1_500, 3_000, 5_000, 10_000, 15_000, 20_000, 30_000, 30_000];
+
 function screenShareSupported() {
   return typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia;
 }
@@ -97,6 +109,63 @@ export function useLiveKit(sessionId: string, enabled = true) {
   const [error, setError] = useState<MediaError | null>(null);
   const [remotes, setRemotes] = useState<Record<string, RemoteMedia>>({});
   const [canShareScreen, setCanShareScreen] = useState(false);
+  // Phase 3: auto-rejoin after a full drop so a host's network blip does not end the class.
+  const [attempt, setAttempt] = useState(0);
+  const retriesRef = useRef(0);
+  const retryTimerRef = useRef<number | null>(null);
+  const userStoppedRef = useRef(false);
+  const mediaWantedRef = useRef({ mic: false, cam: false });
+  const restoreRef = useRef<{ mic: boolean; cam: boolean } | null>(null);
+  const [rejoinExhausted, setRejoinExhausted] = useState(false);
+
+  useEffect(() => {
+    mediaWantedRef.current = { mic: micOn, cam: camOn };
+  }, [micOn, camOn]);
+
+  useEffect(() => {
+    userStoppedRef.current = false;
+    retriesRef.current = 0;
+    restoreRef.current = null;
+    setRejoinExhausted(false);
+  }, [sessionId]);
+
+  const scheduleRejoin = useCallback(() => {
+    if (userStoppedRef.current || retryTimerRef.current !== null) return;
+    const n = retriesRef.current;
+    if (n >= REJOIN_DELAYS_MS.length) {
+      setRejoinExhausted(true);
+      return;
+    }
+    retriesRef.current = n + 1;
+    setStatus("reconnecting");
+    retryTimerRef.current = window.setTimeout(() => {
+      retryTimerRef.current = null;
+      setAttempt((a) => a + 1);
+    }, REJOIN_DELAYS_MS[n]);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (retryTimerRef.current !== null) window.clearTimeout(retryTimerRef.current);
+    },
+    [],
+  );
+
+  // Network came back: try straight away instead of waiting out the backoff.
+  useEffect(() => {
+    const onOnline = () => {
+      if (userStoppedRef.current || roomRef.current) return;
+      if (retryTimerRef.current !== null) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+      retriesRef.current = 0;
+      setRejoinExhausted(false);
+      setAttempt((a) => a + 1);
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, []);
 
   const syncRemotes = useCallback((room: Room) => {
     const next: Record<string, RemoteMedia> = {};
@@ -134,11 +203,33 @@ export function useLiveKit(sessionId: string, enabled = true) {
         setConnected(true);
         setStatus("connected");
         setError(null);
+        retriesRef.current = 0;
+        setRejoinExhausted(false);
         syncRemotes(room);
+        // After an automatic rejoin, turn back on what the user had on before the drop.
+        const restore = restoreRef.current;
+        restoreRef.current = null;
+        if (restore?.mic) {
+          await room.localParticipant
+            .setMicrophoneEnabled(true)
+            .then(() => setMicOn(true))
+            .catch(() => undefined);
+        }
+        if (restore?.cam) {
+          await room.localParticipant
+            .setCameraEnabled(true)
+            .then(() => setCamOn(true))
+            .catch(() => undefined);
+        }
       } catch (err) {
         if (!cancelled) {
-          setError(toMediaError(err));
-          setStatus("disconnected");
+          if (attempt > 0 && !userStoppedRef.current) {
+            // A rejoin failed (often still offline): keep trying on the backoff.
+            scheduleRejoin();
+          } else {
+            setError(toMediaError(err));
+            setStatus("disconnected");
+          }
         }
       } finally {
         if (!cancelled) setConnecting(false);
@@ -158,12 +249,17 @@ export function useLiveKit(sessionId: string, enabled = true) {
         setConnected(true);
         setError(null);
       })
-      .on(RoomEvent.Disconnected, () => {
+      .on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {
+        const wanted = mediaWantedRef.current;
         setConnected(false);
         setStatus("disconnected");
         setMicOn(false);
         setCamOn(false);
         setScreenShareOn(false);
+        if (roomRef.current === room) roomRef.current = null;
+        if (cancelled || userStoppedRef.current || FINAL_DISCONNECTS.has(reason)) return;
+        restoreRef.current = { mic: wanted.mic, cam: wanted.cam };
+        scheduleRejoin();
       })
       .on(RoomEvent.ConnectionStateChanged, (state: ConnectionState) => {
         if (state === ConnectionState.Reconnecting) setStatus("reconnecting");
@@ -184,7 +280,7 @@ export function useLiveKit(sessionId: string, enabled = true) {
       setConnected(false);
       setStatus("disconnected");
     };
-  }, [sessionId, enabled, getToken, syncRemotes]);
+  }, [sessionId, enabled, getToken, syncRemotes, attempt, scheduleRejoin]);
 
   useEffect(() => {
     const track = roomRef.current?.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
@@ -274,6 +370,11 @@ export function useLiveKit(sessionId: string, enabled = true) {
   }, []);
 
   const stop = useCallback(() => {
+    userStoppedRef.current = true;
+    if (retryTimerRef.current !== null) {
+      window.clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
     void roomRef.current?.disconnect();
     setConnected(false);
     setMicOn(false);
@@ -304,8 +405,25 @@ export function useLiveKit(sessionId: string, enabled = true) {
     }
   }, []);
 
+  /** Manual "Rejoin" after automatic retries gave up (or any time the room is down). */
+  const reconnect = useCallback(() => {
+    userStoppedRef.current = false;
+    if (retryTimerRef.current !== null) {
+      window.clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+    retriesRef.current = 0;
+    setRejoinExhausted(false);
+    setError(null);
+    // Keep what was on before the drop (state was already cleared by the disconnect).
+    restoreRef.current ??= { ...mediaWantedRef.current };
+    setAttempt((a) => a + 1);
+  }, []);
+
   return {
     videoRef: localVideoRef,
+    reconnect,
+    rejoinExhausted,
     screenVideoRef,
     remotes,
     connected,

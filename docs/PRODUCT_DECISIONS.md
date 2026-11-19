@@ -25,7 +25,7 @@ Recorded so UI, rules, and docs stay aligned.
 | --- | --- | --- |
 | Student A/V publish | **Allowed** (camera + mic) when enrolled and session is live | Token mint uses `assertCanJoinSession` |
 | Screen share | **Host or school manager only** | Token `canPublishSources`; UI mirrors token |
-| LIVE badge | Fresh session **and** host participant still present | Host Leave / LiveKit host disconnect ends the room |
+| LIVE badge | Fresh session **and** host present or within the 3-min reconnect grace | Host Leave / End ends the room at once; a host network drop ends it only after the grace (learners see a countdown) |
 | Attendance | Provisional rows only after real `connected_at` (server/webhook) | Client cannot forge presence |
 | Client fallbacks | Infrastructure failures only | Authz denials never fall back to a weaker client write |
 
