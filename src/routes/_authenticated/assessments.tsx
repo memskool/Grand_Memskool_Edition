@@ -186,6 +186,8 @@ function TeacherView({ userId }: { userId?: string | undefined }) {
           <Panel title="Class performance" description="Average score per assessment.">
             {stats.isLoading ? (
               <ListSkeleton />
+            ) : stats.isError ? (
+              <p className="text-sm text-destructive">{authErrorMessage(stats.error)}</p>
             ) : stats.data?.length ? (
               <ul className="space-y-2">
                 {stats.data.map((s) => (
@@ -235,6 +237,8 @@ function StudentView({ userId }: { userId?: string | undefined }) {
         <Panel title="Available now" description="Timers start the moment you open a paper.">
           {available.isLoading ? (
             <ListSkeleton />
+          ) : available.isError ? (
+            <p className="text-sm text-destructive">{authErrorMessage(available.error)}</p>
           ) : available.data?.length ? (
             <ul className="space-y-2">
               {available.data.map((a) => {
@@ -281,6 +285,8 @@ function StudentView({ userId }: { userId?: string | undefined }) {
         <Panel title="My results">
           {attempts.isLoading ? (
             <ListSkeleton />
+          ) : attempts.isError ? (
+            <p className="text-sm text-destructive">{authErrorMessage(attempts.error)}</p>
           ) : attempts.data?.filter((a) => a.submitted_at).length ? (
             <ul className="space-y-2">
               {attempts.data

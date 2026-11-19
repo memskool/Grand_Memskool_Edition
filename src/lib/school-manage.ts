@@ -8,6 +8,7 @@ import {
   where,
   orderBy,
 } from "@/lib/firebase/repo";
+import { tenantScope } from "@/lib/firebase/hydrate";
 
 export function useSchoolClasses(schoolId: string | undefined) {
   return useQuery({
@@ -92,6 +93,7 @@ export function useClassEnrollments(classId: string | undefined) {
     enabled: !!classId,
     queryFn: async () => {
       const rows = await findMany<{ student_id: string }>(COLLECTIONS.classEnrollments, [
+        ...(await tenantScope()),
         where("class_id", "==", classId!),
       ]);
       return Promise.all(

@@ -1,5 +1,5 @@
 import { getFirebaseAuth } from "@/lib/firebase/client";
-import { COLLECTIONS, getById } from "@/lib/firebase/repo";
+import { COLLECTIONS, getById, where } from "@/lib/firebase/repo";
 
 type SubjectDoc = { name: string; code?: string };
 type UserDoc = { full_name: string; email?: string | null; avatar_url?: string | null };
@@ -13,6 +13,29 @@ export type ProfileLite = {
 
 export async function currentUid(): Promise<string | null> {
   return getFirebaseAuth().currentUser?.uid ?? null;
+}
+
+/**
+ * The caller's tenant, as the security rules see it: the token `schoolId` claim first,
+ * then the profile. Every tenant-scoped list query must pin `school_id` to this, because
+ * Firestore rules are not filters — a query the rules cannot prove is rejected outright.
+ */
+export async function mySchoolId(): Promise<string | null> {
+  const user = getFirebaseAuth().currentUser;
+  if (!user) return null;
+  try {
+    const claim = (await user.getIdTokenResult()).claims["schoolId"];
+    if (typeof claim === "string" && claim) return claim;
+  } catch {
+    // Fall through to the profile.
+  }
+  return userSchoolId(user.uid);
+}
+
+/** `[where("school_id", "==", mine)]`, or `[]` when the caller has no school (superadmin). */
+export async function tenantScope() {
+  const schoolId = await mySchoolId();
+  return schoolId ? [where("school_id", "==", schoolId)] : [];
 }
 
 export async function userSchoolId(userId?: string): Promise<string | null> {

@@ -9,7 +9,7 @@ import {
   where,
   orderBy,
 } from "@/lib/firebase/repo";
-import { userSchoolId } from "@/lib/firebase/hydrate";
+import { tenantScope, userSchoolId } from "@/lib/firebase/hydrate";
 import { classifyFirebase } from "@/lib/errors/app-error";
 import { PRODUCT_EVENTS, trackProductEvent } from "@/lib/analytics";
 import { fallbackWriteError, isInfrastructureFailure } from "@/lib/infra-failure";
@@ -67,7 +67,11 @@ export function useAcademicPeriods(schoolId: string | undefined, yearId?: string
     enabled: !!schoolId,
     queryFn: async () => {
       const constraints = yearId
-        ? [where("academic_year_id", "==", yearId), orderBy("starts_on", "asc")]
+        ? [
+            where("school_id", "==", schoolId!),
+            where("academic_year_id", "==", yearId),
+            orderBy("starts_on", "asc"),
+          ]
         : [where("school_id", "==", schoolId!), orderBy("starts_on", "asc")];
       return findMany<AcademicPeriod>(COLLECTIONS.academicPeriods, constraints);
     },
@@ -179,8 +183,9 @@ export function useCurriculumTopics(curriculumId: string | undefined) {
   return useQuery({
     queryKey: ["curriculum-topics", curriculumId],
     enabled: !!curriculumId,
-    queryFn: () =>
+    queryFn: async () =>
       findMany<CurriculumTopic>(COLLECTIONS.curriculumTopics, [
+        ...(await tenantScope()),
         where("curriculum_id", "==", curriculumId!),
         orderBy("sort_order"),
       ]),
@@ -220,10 +225,10 @@ export function useCurriculumLevels(curriculumId: string | undefined) {
   return useQuery({
     queryKey: ["curriculum-levels", curriculumId],
     enabled: !!curriculumId,
-    queryFn: () =>
+    queryFn: async () =>
       findMany<{ name: string; sort_order: number; curriculum_id: string }>(
         COLLECTIONS.curriculumLevels,
-        [where("curriculum_id", "==", curriculumId!)],
+        [...(await tenantScope()), where("curriculum_id", "==", curriculumId!)],
       ),
   });
 }
@@ -379,6 +384,7 @@ export function useClassRoster(classId: string | undefined) {
       }
       try {
         const rows = await findMany<ClassEnrollment>(COLLECTIONS.classEnrollments, [
+          ...(await tenantScope()),
           where("class_id", "==", classId!),
         ]);
         return Promise.all(
@@ -404,6 +410,7 @@ export function useClassTeachers(classId: string | undefined) {
     enabled: !!classId,
     queryFn: async () => {
       const rows = await findMany<ClassTeacherAssignment>(COLLECTIONS.classTeacherAssignments, [
+        ...(await tenantScope()),
         where("class_id", "==", classId!),
         where("status", "==", "active"),
       ]);
@@ -465,8 +472,9 @@ export function useLessonsForClass(classId: string | undefined) {
   return useQuery({
     queryKey: ["class-lessons", classId],
     enabled: !!classId,
-    queryFn: () =>
+    queryFn: async () =>
       findMany<Lesson>(COLLECTIONS.lessons, [
+        ...(await tenantScope()),
         where("class_id", "==", classId!),
         orderBy("starts_at", "asc"),
       ]),
@@ -477,8 +485,9 @@ export function useLessonMaterials(lessonId: string | undefined) {
   return useQuery({
     queryKey: ["lesson-materials", lessonId],
     enabled: !!lessonId,
-    queryFn: () =>
+    queryFn: async () =>
       findMany<LessonMaterial>(COLLECTIONS.lessonMaterials, [
+        ...(await tenantScope()),
         where("lesson_id", "==", lessonId!),
         orderBy("created_at", "asc"),
       ]),
@@ -615,7 +624,11 @@ export function useEnrollStudent() {
       try {
         const existing = await findMany<{ student_id: string; status?: string }>(
           COLLECTIONS.classEnrollments,
-          [where("class_id", "==", input.class_id), where("student_id", "==", input.student_id)],
+          [
+            where("school_id", "==", cls.school_id),
+            where("class_id", "==", input.class_id),
+            where("student_id", "==", input.student_id),
+          ],
         );
         const active = existing.find((row) => row.status !== "ended");
         if (active) return { id: active.id };
@@ -693,6 +706,7 @@ export function useAssignTeacher() {
           subject_id: string;
           status?: string;
         }>(COLLECTIONS.classTeacherAssignments, [
+          where("school_id", "==", cls.school_id),
           where("class_id", "==", input.class_id),
           where("teacher_id", "==", input.teacher_id),
           where("subject_id", "==", input.subject_id),

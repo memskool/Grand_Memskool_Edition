@@ -420,6 +420,7 @@ async function startSessionOnClient(input: {
     const assigned = await findMany<{ teacher_id: string; status?: string }>(
       COLLECTIONS.classTeacherAssignments,
       [
+        where("school_id", "==", cls.school_id),
         where("class_id", "==", input.classId),
         where("teacher_id", "==", input.hostId),
         where("status", "==", "active"),

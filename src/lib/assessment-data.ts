@@ -24,6 +24,7 @@ import {
   attachClassName,
   attachSubject,
   attachNamedUser,
+  mySchoolId,
   userSchoolId,
 } from "@/lib/firebase/hydrate";
 
@@ -119,11 +120,14 @@ export function useAvailableAssessments(studentId?: string) {
     queryKey: ["assessments", "available", studentId, [...classIds].sort().join(",")],
     enabled: !!studentId && !enrolled.isLoading,
     queryFn: async () => {
-      const schoolId = await userSchoolId(studentId);
+      const schoolId = (await mySchoolId()) ?? (await userSchoolId(studentId));
       if (!schoolId || classIds.size === 0) return [];
       const rows = await findMany<Assessment>(COLLECTIONS.assessments, [
         where("school_id", "==", schoolId),
         where("published", "==", true),
+        // The student read rule also requires status != 'draft'; published papers always
+        // carry status "published", and pinning it lets Firestore prove the rule.
+        where("status", "==", "published"),
         orderBy("created_at", "desc"),
       ]);
       const now = Date.now();
@@ -157,7 +161,7 @@ export function useAssessmentQuestions(assessmentId?: string) {
     queryKey: ["assessment-questions", assessmentId],
     enabled: !!assessmentId,
     queryFn: async () => {
-      const schoolId = await userSchoolId();
+      const schoolId = await mySchoolId();
       if (!schoolId) return [];
       const rows = await findMany<AssessmentQuestion>(COLLECTIONS.assessmentQuestions, [
         where("school_id", "==", schoolId),
@@ -214,7 +218,7 @@ export function useAssessmentResults(assessmentId?: string) {
     queryKey: ["assessment-submissions", "assessment", assessmentId],
     enabled: !!assessmentId,
     queryFn: async () => {
-      const schoolId = await userSchoolId();
+      const schoolId = await mySchoolId();
       if (!schoolId) return [];
       const rows = await findMany<AssessmentSubmission>(COLLECTIONS.assessmentSubmissions, [
         where("school_id", "==", schoolId),
