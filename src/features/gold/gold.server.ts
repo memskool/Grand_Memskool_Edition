@@ -684,11 +684,31 @@ export async function endGoldLesson(input: { userId: string; lessonId: string })
   const now = new Date().toISOString();
   await adminUpdate(COLLECTIONS.goldLessons, lesson.id, { status: "ended", updated_at: now });
   if (lesson.classroom_session_id) {
+    const session = await adminGetById<{
+      id?: string;
+      provider_room?: string | null;
+      school_id?: string;
+      class_id?: string;
+      host_id?: string;
+      kind?: string;
+    }>(COLLECTIONS.classroomSessions, lesson.classroom_session_id);
     await adminUpdate(COLLECTIONS.classroomSessions, lesson.classroom_session_id, {
       status: "ended",
       is_active: false,
       ended_at: now,
     });
+    if (session) {
+      const { teardownProviderRoom } = await import("@/features/live-classroom/session.server");
+      const room = session.provider_room ?? undefined;
+      void teardownProviderRoom({
+        id: lesson.classroom_session_id,
+        host_id: session.host_id ?? input.userId,
+        class_id: session.class_id ?? lesson.class_id,
+        school_id: session.school_id ?? `gold_${input.userId}`,
+        ...(room ? { provider_room: room } : {}),
+        ...(session.kind ? { kind: session.kind } : {}),
+      });
+    }
   }
 }
 

@@ -23,6 +23,7 @@ import {
   useLeaveRoom,
   useReportPresence,
   useSendClassroomMessage,
+  useWatchLiveSession,
   type ClassroomSession,
 } from "@/lib/classroom-data";
 import { getById, COLLECTIONS } from "@/lib/firebase/repo";
@@ -47,6 +48,18 @@ export function GoldLiveRoom({ sessionId, onLeave }: { sessionId: string; onLeav
   const presence = useReportPresence();
   const chat = useClassroomChat(sessionId);
   const send = useSendClassroomMessage();
+  const endedHereRef = useRef(false);
+
+  useWatchLiveSession(session, (latest) => {
+    if (endedHereRef.current) return;
+    media.stop();
+    toast.info(
+      latest.status === "cancelled"
+        ? "This Gold lesson was cancelled."
+        : "The Gold lesson has ended.",
+    );
+    onLeave();
+  });
 
   useEffect(() => {
     media.videoRef.current = localRef.current;
@@ -101,6 +114,7 @@ export function GoldLiveRoom({ sessionId, onLeave }: { sessionId: string; onLeav
   const handleLeave = () => {
     media.stop();
     if (isHost && session) {
+      endedHereRef.current = true;
       endSession.mutate(session, {
         onSuccess: () => {
           toast.success("Gold lesson ended.");

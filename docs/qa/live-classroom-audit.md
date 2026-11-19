@@ -49,6 +49,7 @@ before this is declared fully verified.
   but host-disconnect clean-up relies on the client `liveRoomState` heal.
 - Chat and DM windows are the latest 80 rows; no history paging.
 - No cloud recording, captions, or parent live view.
+- Gold lessons use the same session watcher as school classes: when the tutor ends the lesson, learners leave the room and the LiveKit room is deleted. Ending a Gold session updates `gold_lessons`, not the school `lessons` collection.
 
 ## 4. Manual verification matrix (run on production after deploy)
 

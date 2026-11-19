@@ -343,7 +343,14 @@ export async function endLiveSessionHandler({
     attendance_finalized_at: now,
   });
   void teardownProviderRoom(session);
-  if (session.lesson_id) {
+  if (session.kind === "gold") {
+    if (session.lesson_id) {
+      await adminUpdate(COLLECTIONS.goldLessons, session.lesson_id, {
+        status: "ended",
+        updated_at: now,
+      });
+    }
+  } else if (session.lesson_id) {
     await adminUpdate(COLLECTIONS.lessons, session.lesson_id, {
       status: "completed",
       updated_at: now,
