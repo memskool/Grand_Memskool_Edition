@@ -1,4 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { subscribeLive } from "@/lib/firebase/live-subscribe";
 import {
   COLLECTIONS,
   countDocs,
@@ -12,6 +14,7 @@ import { userSchoolId } from "@/lib/firebase/hydrate";
 import {
   listMyEnrolledClasses,
   listMyTeachingClasses,
+  listPendingGrading,
 } from "@/features/academic/academic.functions";
 
 export type ClassRow = {
@@ -187,6 +190,14 @@ export function useUpcomingSlots(userId?: string) {
 }
 
 export function useMyAssignments(userId?: string) {
+  const qc = useQueryClient();
+  // Marks and "returned for changes" appear the moment the teacher saves them.
+  useEffect(() => {
+    if (!userId) return;
+    return subscribeLive(COLLECTIONS.submissions, [where("student_id", "==", userId)], () =>
+      qc.invalidateQueries({ queryKey: ["my-assignments", userId] }),
+    );
+  }, [userId, qc]);
   return useQuery({
     queryKey: ["my-assignments", userId],
     enabled: !!userId,
@@ -217,6 +228,11 @@ export function useMyAssignments(userId?: string) {
         status: string;
         grade: number | null;
         student_id: string;
+        feedback?: string | null;
+        graded_at?: string | null;
+        returned_at?: string | null;
+        submitted_at?: string | null;
+        late?: boolean;
       }>(COLLECTIONS.submissions, [
         where("student_id", "==", userId),
         where("school_id", "==", schoolId),
@@ -338,60 +354,28 @@ export function useTeacherTimetable(userId?: string) {
   });
 }
 
+export type PendingGradingRow = {
+  id: string;
+  assignment_id: string;
+  student_id: string;
+  status: string;
+  late: boolean;
+  submitted_at: string | null;
+  student: { full_name: string } | null;
+  assignment: { title: string; class: { name: string } | null } | null;
+};
+
+/**
+ * Work waiting for this teacher's mark, oldest first, across every class they teach.
+ * Server-side: the old client query read the whole school's ungraded submissions (40 cap)
+ * and filtered afterwards, so busy schools silently hid most of a teacher's queue.
+ */
 export function usePendingGrading(userId?: string) {
   return useQuery({
     queryKey: ["pending-grading", userId],
     enabled: !!userId,
-    queryFn: async () => {
-      const schoolId = await userSchoolId(userId);
-      if (!schoolId) return [];
-      const teachingRows = await clientTeachingClasses(userId!).catch(() => [] as ClassRow[]);
-      const classIds = teachingRows.map((row) => row.id);
-      if (classIds.length === 0) return [];
-      const rows = await findMany<{
-        id: string;
-        status: string;
-        submitted_at: string | null;
-        student_id: string;
-        assignment_id: string;
-        grade: number | null;
-        class_id?: string | null;
-      }>(COLLECTIONS.submissions, [
-        where("school_id", "==", schoolId),
-        where("grade", "==", null),
-        orderBy("submitted_at", "asc"),
-        limit(40),
-      ]);
-      // Phase 7: only real submissions waiting for a mark (not draft/pending autosaves).
-      const mine = rows.filter(
-        (s) =>
-          s.status !== "pending" &&
-          s.status !== "draft" &&
-          (!s.class_id || classIds.includes(s.class_id)),
-      );
-      return Promise.all(
-        mine.slice(0, 20).map(async (s) => {
-          const student = await getById<{ full_name: string }>(
-            COLLECTIONS.users,
-            s.student_id,
-          ).catch(() => null);
-          const assignment = await getById<{ title: string; class_id: string | null }>(
-            COLLECTIONS.assignments,
-            s.assignment_id,
-          ).catch(() => null);
-          const cls = assignment?.class_id
-            ? await getById<ClassDoc>(COLLECTIONS.classes, assignment.class_id).catch(() => null)
-            : null;
-          return {
-            ...s,
-            student: student ? { full_name: student.full_name } : null,
-            assignment: assignment
-              ? { title: assignment.title, class: cls ? { name: cls.name } : null }
-              : null,
-          };
-        }),
-      );
-    },
+    queryFn: async (): Promise<PendingGradingRow[]> =>
+      (await listPendingGrading()) as PendingGradingRow[],
   });
 }
 

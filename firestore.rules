@@ -393,17 +393,10 @@ service cloud.firestore {
         || tenantWrite(resource.data.school_id)
         || isLinkedParent(resource.data.student_id)
       );
-      allow create: if isOwner(request.resource.data.student_id)
-        && sameSchool(request.resource.data.school_id);
-      allow update: if schoolIdUnchanged() && (
-          tenantWrite(resource.data.school_id)
-          || (
-            isOwner(resource.data.student_id)
-            && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['text_body', 'storage_paths', 'status', 'updated_at', 'late', 'submitted_at'])
-            && request.resource.data.status in ['submitted', 'late']
-          )
-        );
+      // Submissions are server-only (submitAssignmentWork / markSubmission). A client write
+      // let students backdate submitted_at or clear `late`, and let marks be set without
+      // the class-teacher check or the student notification.
+      allow create, update: if false;
       allow delete: if isSchoolAdmin() && sameSchool(resource.data.school_id);
     }
     match /assessments/{id} {

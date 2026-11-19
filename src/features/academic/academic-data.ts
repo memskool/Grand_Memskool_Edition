@@ -40,6 +40,8 @@ import {
   assignMissedWork,
   updateMissedWorkStatus,
   listClassRoster,
+  listAssignmentSubmissions,
+  markSubmission,
 } from "./academic.functions";
 import { listSchoolApplications } from "@/lib/applications.functions";
 
@@ -773,6 +775,74 @@ export function useSubmitAssignment() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-assignments"] });
       qc.invalidateQueries({ queryKey: ["pending-grading"] });
+    },
+  });
+}
+
+export type AssignmentSubmissionRow = {
+  student_id: string;
+  student_name: string;
+  submission: {
+    id: string;
+    status: string;
+    text_body: string | null;
+    storage_paths: string[];
+    submitted_at: string | null;
+    late: boolean;
+    grade: number | null;
+    feedback: string | null;
+    graded_at: string | null;
+    returned_at: string | null;
+  } | null;
+};
+
+export type AssignmentSubmissions = {
+  assignment: {
+    id: string;
+    title: string;
+    points: number;
+    due_at: string | null;
+    class_id: string;
+  };
+  rows: AssignmentSubmissionRow[];
+};
+
+/** Class roster for one assignment with each student's submission (teacher / manager). */
+export function useAssignmentSubmissions(assignmentId: string | undefined) {
+  return useQuery({
+    queryKey: ["assignment-submissions", assignmentId],
+    enabled: !!assignmentId,
+    queryFn: async (): Promise<AssignmentSubmissions> => {
+      try {
+        return (await listAssignmentSubmissions({
+          data: { assignment_id: assignmentId! },
+        })) as AssignmentSubmissions;
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
+    },
+  });
+}
+
+export type MarkSubmissionInput =
+  | { action: "grade"; submission_id: string; grade: number; feedback: string | null }
+  | { action: "return"; submission_id: string; feedback: string };
+
+/** Server-only: mark a submission or return it for changes (notifies the student). */
+export function useMarkSubmission() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: MarkSubmissionInput & { assignment_id: string }) => {
+      const { assignment_id: _assignmentId, ...data } = input;
+      try {
+        return await markSubmission({ data });
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
+    },
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: ["assignment-submissions", v.assignment_id] });
+      void qc.invalidateQueries({ queryKey: ["pending-grading"] });
     },
   });
 }

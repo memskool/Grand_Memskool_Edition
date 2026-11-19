@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ClipboardList, Plus, Trash2 } from "lucide-react";
+import { ClipboardCheck, ClipboardList, Plus, Trash2 } from "lucide-react";
+import { SubmissionReviewDialog } from "@/components/app/SubmissionReviewDialog";
 import { toast } from "sonner";
 import { Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ export function TeacherAssignmentPanel({
   const [due, setDue] = useState("");
   const [points, setPoints] = useState("100");
   const [description, setDescription] = useState("");
+  const [reviewId, setReviewId] = useState<string | null>(null);
 
   if (classes.length === 0) {
     return (
@@ -145,10 +147,22 @@ export function TeacherAssignmentPanel({
                   </p>
                 </div>
                 <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={() => setReviewId(a.id)}
+                >
+                  <ClipboardCheck className="size-4" /> Mark work
+                </Button>
+                <Button
                   variant="ghost"
                   size="icon"
                   aria-label="Delete assignment"
-                  onClick={() => remove.mutate(a.id)}
+                  onClick={() => {
+                    if (window.confirm(`Delete "${a.title}"? Students will no longer see it.`)) {
+                      remove.mutate(a.id);
+                    }
+                  }}
                 >
                   <Trash2 className="size-4" />
                 </Button>
@@ -159,6 +173,13 @@ export function TeacherAssignmentPanel({
           <EmptyState icon={ClipboardList} title="No assignments yet" />
         )}
       </div>
+      <SubmissionReviewDialog
+        assignmentId={reviewId}
+        open={reviewId !== null}
+        onOpenChange={(next) => {
+          if (!next) setReviewId(null);
+        }}
+      />
     </Panel>
   );
 }

@@ -17,6 +17,7 @@ import {
   requireSchoolStaffContext,
 } from "@/lib/firebase/school-context.server";
 import { classEnrollmentId, classTeacherAssignmentId } from "./ids";
+import { canSubmit, formatMark, needsMarking, validateGrade } from "./grading-policy";
 
 // Handlers receive already-validated payloads from thin createServerFn facades.
 type Ctx = { context: AuthedContext };
@@ -503,16 +504,263 @@ export async function submitAssignmentWorkHandler({
     updated_at: submittedAt,
   };
 
-  const existing = prior[0];
+  const existing = prior[0] as ((typeof prior)[number] & { status?: string }) | undefined;
   if (existing) {
-    if (assignment.allow_resubmit === false) {
-      throw new Error("Resubmission is not allowed for this assignment.");
-    }
-    await adminUpdate(COLLECTIONS.submissions, existing.id, payload);
+    const allowed = canSubmit(existing, assignment.allow_resubmit);
+    if (!allowed.ok) throw new Error(allowed.reason);
+    await adminUpdate(COLLECTIONS.submissions, existing.id, {
+      ...payload,
+      graded_at: null,
+      graded_by: null,
+      returned_at: null,
+      resubmitted_at: submittedAt,
+    });
     return { id: existing.id, status, late };
   }
   const id = await adminCreate(COLLECTIONS.submissions, payload);
   return { id, status, late };
+}
+
+type AssignmentDoc = {
+  school_id: string;
+  class_id: string;
+  title?: string;
+  points?: number;
+  due_at?: string | null;
+  status?: string;
+  teacher_id?: string | null;
+};
+
+type SubmissionDoc = {
+  school_id: string;
+  assignment_id: string;
+  student_id: string;
+  class_id?: string | null;
+  status: string;
+  text_body?: string | null;
+  storage_paths?: string[];
+  submitted_at?: string | null;
+  late?: boolean;
+  grade?: number | null;
+  feedback?: string | null;
+  graded_at?: string | null;
+  returned_at?: string | null;
+};
+
+/** Teacher of the class (owner or active assignment) or a school manager of that school. */
+async function assertCanMarkClass(context: AuthedContext, classId: string): Promise<string> {
+  const schoolId = await requireStaff(context);
+  if (context.role === "teacher") {
+    const { isAssignedTeacher } = await import("@/features/live-classroom/authz");
+    if (!(await isAssignedTeacher(classId, context.userId))) {
+      throw new Error("You do not teach this class.");
+    }
+  }
+  return schoolId;
+}
+
+async function loadAssignmentForMarking(context: AuthedContext, assignmentId: string) {
+  const assignment = await adminGetById<AssignmentDoc>(COLLECTIONS.assignments, assignmentId);
+  if (!assignment) throw new Error("That assignment was not found.");
+  const schoolId = await assertCanMarkClass(context, assignment.class_id);
+  if (assignment.school_id !== schoolId) throw new Error("That assignment is not in your school.");
+  return assignment;
+}
+
+/** Every enrolled student with their submission (or none) for one assignment. */
+export async function listAssignmentSubmissionsHandler({
+  data,
+  context,
+}: DataCtx<{ assignment_id: string }>) {
+  const assignment = await loadAssignmentForMarking(context, data.assignment_id);
+  const [enrollments, submissions] = await Promise.all([
+    adminWhere<{ student_id: string; status?: string }>(
+      COLLECTIONS.classEnrollments,
+      "class_id",
+      "==",
+      assignment.class_id,
+    ),
+    adminWhere<SubmissionDoc>(COLLECTIONS.submissions, "assignment_id", "==", assignment.id),
+  ]);
+  const bySubmitter = new Map(submissions.map((s) => [s.student_id, s]));
+  const studentIds = [
+    ...new Set([
+      ...enrollments.filter((e) => e.status !== "ended").map((e) => e.student_id),
+      // Keep work from students who have since left the class visible to the teacher.
+      ...submissions.map((s) => s.student_id),
+    ]),
+  ];
+  const rows = await Promise.all(
+    studentIds.map(async (studentId) => {
+      const user = await adminGetById<{ full_name?: string }>(COLLECTIONS.users, studentId);
+      const sub = bySubmitter.get(studentId) ?? null;
+      return {
+        student_id: studentId,
+        student_name: user?.full_name ?? "Student",
+        submission: sub
+          ? {
+              id: sub.id,
+              status: sub.status,
+              text_body: sub.text_body ?? null,
+              storage_paths: sub.storage_paths ?? [],
+              submitted_at: sub.submitted_at ?? null,
+              late: Boolean(sub.late),
+              grade: typeof sub.grade === "number" ? sub.grade : null,
+              feedback: sub.feedback ?? null,
+              graded_at: sub.graded_at ?? null,
+              returned_at: sub.returned_at ?? null,
+            }
+          : null,
+      };
+    }),
+  );
+  rows.sort((a, b) => a.student_name.localeCompare(b.student_name));
+  return toClientJson({
+    assignment: {
+      id: assignment.id,
+      title: assignment.title ?? "Assignment",
+      points: assignment.points ?? 100,
+      due_at: assignment.due_at ?? null,
+      class_id: assignment.class_id,
+    },
+    rows,
+  });
+}
+
+/** Mark (grade + optional feedback) or return for changes. Server-only write. */
+export async function markSubmissionHandler({
+  data,
+  context,
+}: DataCtx<
+  | { action: "grade"; submission_id: string; grade: number; feedback: string | null }
+  | { action: "return"; submission_id: string; feedback: string }
+>) {
+  const submission = await adminGetById<SubmissionDoc>(COLLECTIONS.submissions, data.submission_id);
+  if (!submission) throw new Error("That submission was not found.");
+  const assignment = await loadAssignmentForMarking(context, submission.assignment_id);
+  if (submission.school_id !== assignment.school_id) {
+    throw new Error("That submission is not in your school.");
+  }
+  const now = new Date().toISOString();
+  const title = assignment.title ?? "your assignment";
+
+  if (data.action === "grade") {
+    const points = assignment.points ?? 100;
+    const problem = validateGrade(data.grade, points);
+    if (problem) throw new Error(problem);
+    await adminUpdate(COLLECTIONS.submissions, submission.id, {
+      status: "graded",
+      grade: data.grade,
+      feedback: data.feedback?.trim() || null,
+      graded_at: now,
+      graded_by: context.userId,
+      returned_at: null,
+      updated_at: now,
+    });
+    await notifyUser({
+      userId: submission.student_id,
+      schoolId: assignment.school_id,
+      title: "Your work was marked",
+      body: `${title}: ${formatMark(data.grade, points)}${data.feedback?.trim() ? " — feedback added" : ""}.`,
+      link: "/dashboard",
+    });
+    return { ok: true as const, status: "graded" as const };
+  }
+
+  await adminUpdate(COLLECTIONS.submissions, submission.id, {
+    status: "returned",
+    grade: null,
+    feedback: data.feedback.trim(),
+    graded_at: null,
+    graded_by: context.userId,
+    returned_at: now,
+    updated_at: now,
+  });
+  await notifyUser({
+    userId: submission.student_id,
+    schoolId: assignment.school_id,
+    title: "Your work was returned for changes",
+    body: `${title}: your teacher left feedback. Update your work and submit again.`,
+    link: "/dashboard",
+  });
+  return { ok: true as const, status: "returned" as const };
+}
+
+/** Work waiting for this teacher's decision, oldest first, across every class they teach. */
+export async function listPendingGradingHandler({ context }: Ctx) {
+  const schoolId = await requireStaff(context);
+  let classIds: string[];
+  if (context.role === "teacher") {
+    const owned = await adminWhere<ClassDoc>(
+      COLLECTIONS.classes,
+      "teacher_id",
+      "==",
+      context.userId,
+    );
+    const assigned = await adminWhere<{ class_id: string; school_id?: string }>(
+      COLLECTIONS.classTeacherAssignments,
+      "teacher_id",
+      "==",
+      context.userId,
+      [["status", "==", "active"]],
+    );
+    classIds = [
+      ...owned.filter((c) => c.school_id === schoolId && c.status !== "archived").map((c) => c.id),
+      ...assigned.filter((a) => !a.school_id || a.school_id === schoolId).map((a) => a.class_id),
+    ];
+  } else {
+    const classes = await adminWhere<ClassDoc>(COLLECTIONS.classes, "school_id", "==", schoolId);
+    classIds = classes.filter((c) => c.status !== "archived").map((c) => c.id);
+  }
+  classIds = [...new Set(classIds)];
+  if (classIds.length === 0) return toClientJson([]);
+
+  const perClass = await Promise.all(
+    classIds.map((classId) =>
+      adminWhere<SubmissionDoc>(COLLECTIONS.submissions, "class_id", "==", classId),
+    ),
+  );
+  const pending = perClass
+    .flat()
+    .filter((s) => s.school_id === schoolId && needsMarking(s.status, s.grade))
+    .sort((a, b) => String(a.submitted_at ?? "").localeCompare(String(b.submitted_at ?? "")))
+    .slice(0, 50);
+
+  const assignmentCache = new Map<string, Promise<(AssignmentDoc & { id: string }) | null>>();
+  const classCache = new Map<string, Promise<{ name?: string } | null>>();
+  const rows = await Promise.all(
+    pending.map(async (s) => {
+      if (!assignmentCache.has(s.assignment_id)) {
+        assignmentCache.set(
+          s.assignment_id,
+          adminGetById<AssignmentDoc>(COLLECTIONS.assignments, s.assignment_id),
+        );
+      }
+      const assignment = await assignmentCache.get(s.assignment_id)!;
+      const classId = assignment?.class_id ?? s.class_id ?? null;
+      if (classId && !classCache.has(classId)) {
+        classCache.set(classId, adminGetById<{ name?: string }>(COLLECTIONS.classes, classId));
+      }
+      const cls = classId ? await classCache.get(classId)! : null;
+      const student = await adminGetById<{ full_name?: string }>(COLLECTIONS.users, s.student_id);
+      return {
+        id: s.id,
+        assignment_id: s.assignment_id,
+        student_id: s.student_id,
+        status: s.status,
+        late: Boolean(s.late),
+        submitted_at: s.submitted_at ?? null,
+        student: { full_name: student?.full_name ?? "Student" },
+        assignment: assignment
+          ? {
+              title: assignment.title ?? "Assignment",
+              class: cls ? { name: cls.name ?? "" } : null,
+            }
+          : null,
+      };
+    }),
+  );
+  return toClientJson(rows);
 }
 
 export async function recordLessonAttendanceHandler({

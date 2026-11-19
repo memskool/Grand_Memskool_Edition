@@ -11,7 +11,39 @@ import { useSubmitAssignment } from "@/features/academic/academic-data";
 import { useMyAssignments } from "@/lib/school-data";
 import { useAccess } from "@/lib/access";
 import { buildObjectPath, uploadSchoolObject } from "@/lib/storage";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
+import { canSubmit, formatMark } from "@/features/academic/grading-policy";
+
+type MySubmission = {
+  student_id: string;
+  status: string;
+  grade: number | null;
+  feedback?: string | null;
+  graded_at?: string | null;
+  returned_at?: string | null;
+  submitted_at?: string | null;
+  late?: boolean;
+};
+
+function SubmissionBadge({ mine, points }: { mine: MySubmission; points: number }) {
+  if (mine.status === "graded" && mine.grade !== null) {
+    return (
+      <Badge className="ml-2 bg-leaf text-leaf-foreground">{formatMark(mine.grade, points)}</Badge>
+    );
+  }
+  if (mine.status === "returned") {
+    return (
+      <Badge variant="destructive" className="ml-2">
+        Returned — needs changes
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="ml-2">
+      {mine.late ? "Handed in late · awaiting mark" : "Handed in · awaiting mark"}
+    </Badge>
+  );
+}
 
 export function AssignmentWorkPanel({ studentId }: { studentId: string }) {
   const assignments = useMyAssignments(studentId);
@@ -31,19 +63,33 @@ export function AssignmentWorkPanel({ studentId }: { studentId: string }) {
       ) : assignments.data?.length ? (
         <ul className="space-y-2">
           {assignments.data.map((a) => {
-            const mine = (a.submissions ?? []).find((s) => s.student_id === studentId);
+            const mine = (a.submissions ?? []).find((s) => s.student_id === studentId) as
+              MySubmission | undefined;
             const late = Boolean(a.due_at && new Date(a.due_at).getTime() < Date.now() && !mine);
+            const allowed = canSubmit(
+              mine ?? null,
+              (a as { allow_resubmit?: boolean }).allow_resubmit,
+            );
             return (
               <li key={a.id} className="rounded-2xl bg-secondary/50 px-4 py-3">
-                <button type="button" className="w-full text-left" onClick={() => setOpenId(a.id)}>
+                <button
+                  type="button"
+                  className="w-full text-left"
+                  onClick={() => {
+                    if (openId !== a.id) {
+                      // Each assignment starts with an empty draft.
+                      setText("");
+                      setPaths([]);
+                    }
+                    setOpenId(openId === a.id ? null : a.id);
+                  }}
+                >
                   <p className="text-sm font-medium">{a.title}</p>
                   <p className="text-xs text-muted-foreground">
                     {a.class?.name} · {a.due_at ? `due ${formatDate(a.due_at)}` : "no due date"} ·{" "}
                     {a.points} pts
                     {mine ? (
-                      <Badge variant="outline" className="ml-2 capitalize">
-                        {mine.status}
-                      </Badge>
+                      <SubmissionBadge mine={mine} points={a.points} />
                     ) : late ? (
                       <Badge variant="destructive" className="ml-2">
                         Late if you submit now
@@ -60,19 +106,53 @@ export function AssignmentWorkPanel({ studentId }: { studentId: string }) {
                     {a.description ? (
                       <p className="text-sm text-muted-foreground">{a.description}</p>
                     ) : null}
+                    {mine && (mine.status === "graded" || mine.status === "returned") ? (
+                      <div
+                        className={
+                          mine.status === "graded"
+                            ? "rounded-2xl border border-leaf/40 bg-leaf/10 p-3"
+                            : "rounded-2xl border border-destructive/40 bg-destructive/10 p-3"
+                        }
+                      >
+                        <p className="text-sm font-medium">
+                          {mine.status === "graded" && mine.grade !== null
+                            ? `Your mark: ${formatMark(mine.grade, a.points)}`
+                            : "Your teacher returned this for changes"}
+                        </p>
+                        {mine.feedback ? (
+                          <p className="mt-1 whitespace-pre-wrap text-sm">{mine.feedback}</p>
+                        ) : null}
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {mine.status === "graded" && mine.graded_at
+                            ? `Marked ${formatDateTime(mine.graded_at)}`
+                            : mine.returned_at
+                              ? `Returned ${formatDateTime(mine.returned_at)} — update your work and submit again`
+                              : ""}
+                        </p>
+                      </div>
+                    ) : mine ? (
+                      <p className="text-xs text-muted-foreground">
+                        Handed in {formatDateTime(mine.submitted_at ?? null)}
+                        {mine.late ? " (late)" : ""}. Your teacher has not marked it yet.
+                      </p>
+                    ) : null}
                     <AskAiButton
                       assignmentId={a.id}
                       intent="ASSIGNMENT_HELP"
                       label="Ask AI about this assignment"
                     />
+                    {!allowed.ok ? (
+                      <p className="text-xs text-muted-foreground">{allowed.reason}</p>
+                    ) : null}
                     <Textarea
                       rows={3}
+                      disabled={!allowed.ok}
                       value={text}
                       onChange={(e) => setText(e.target.value)}
                       placeholder="Write your answer or notes"
                     />
                     <InputFile
-                      disabled={!schoolId}
+                      disabled={!schoolId || !allowed.ok}
                       onFile={async (file) => {
                         if (!schoolId) return;
                         const path = `schools/${schoolId}/submissions/${studentId}/${a.id}/${buildObjectPath("", file.name).replace(/^\//, "")}`;
@@ -86,7 +166,7 @@ export function AssignmentWorkPanel({ studentId }: { studentId: string }) {
                     ) : null}
                     <Button
                       className="rounded-full"
-                      disabled={submit.isPending}
+                      disabled={submit.isPending || !allowed.ok}
                       onClick={() =>
                         submit.mutate(
                           {
@@ -111,7 +191,7 @@ export function AssignmentWorkPanel({ studentId }: { studentId: string }) {
                         )
                       }
                     >
-                      Submit work
+                      {mine ? "Submit again" : "Submit work"}
                     </Button>
                   </div>
                 ) : null}

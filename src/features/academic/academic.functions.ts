@@ -7,6 +7,8 @@ import {
   TeacherAssignSchema,
   SlotSchema,
   SubmitSchema,
+  AssignmentIdSchema,
+  MarkSubmissionSchema,
   AttendanceSchema,
   MissedWorkAssignSchema,
   MissedWorkProgressSchema,
@@ -88,6 +90,29 @@ export const submitAssignmentWork = createServerFn({ method: "POST" })
   .handler(async (opts) => {
     const { submitAssignmentWorkHandler } = await import("./academic.server");
     return submitAssignmentWorkHandler(opts);
+  });
+
+export const listAssignmentSubmissions = createServerFn({ method: "POST" })
+  .middleware([requireFirebaseAuth])
+  .inputValidator((data: unknown) => AssignmentIdSchema.parse(data))
+  .handler(async (opts) => {
+    const { listAssignmentSubmissionsHandler } = await import("./academic.server");
+    return listAssignmentSubmissionsHandler(opts);
+  });
+
+export const markSubmission = createServerFn({ method: "POST" })
+  .middleware([requireFirebaseAuth])
+  .inputValidator((data: unknown) => MarkSubmissionSchema.parse(data))
+  .handler(async (opts) => {
+    const { markSubmissionHandler } = await import("./academic.server");
+    return markSubmissionHandler(opts);
+  });
+
+export const listPendingGrading = createServerFn({ method: "POST" })
+  .middleware([requireFirebaseAuth])
+  .handler(async (opts) => {
+    const { listPendingGradingHandler } = await import("./academic.server");
+    return listPendingGradingHandler(opts);
   });
 
 export const recordLessonAttendance = createServerFn({ method: "POST" })

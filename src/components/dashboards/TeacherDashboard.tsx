@@ -8,7 +8,8 @@ import { CalendarClock, ClipboardCheck, BookOpen, Clock, BellRing } from "lucide
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { SubmissionReviewDialog } from "@/components/app/SubmissionReviewDialog";
 import { useAccess } from "@/lib/access";
 import { useRemindSchool } from "@/lib/school-membership";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
@@ -31,6 +32,7 @@ export function TeacherDashboard({ user }: { user: AuthUser }) {
   const today = useTeacherTimetable(user.id);
   const grading = usePendingGrading(user.id);
   const claimsRefreshed = useRef(false);
+  const [review, setReview] = useState<{ assignmentId: string; studentId: string } | null>(null);
 
   useEffect(() => {
     if (claimsRefreshed.current || pendingApproval || !hasSchool) return;
@@ -170,17 +172,38 @@ export function TeacherDashboard({ user }: { user: AuthUser }) {
             />
           </Panel>
 
-          <Panel title="Pending grading" description="Submissions waiting for your feedback">
+          <Panel
+            title="Pending grading"
+            description={
+              grading.data?.length
+                ? `${grading.data.length} submission${grading.data.length === 1 ? "" : "s"} waiting for your mark — oldest first`
+                : "Submissions waiting for your feedback"
+            }
+          >
             {grading.isLoading ? (
               <ListSkeleton />
+            ) : grading.isError ? (
+              <p className="text-sm text-destructive">{authErrorMessage(grading.error)}</p>
             ) : grading.data?.length ? (
               <ul className="space-y-2">
-                {grading.data.slice(0, 6).map((s) => (
-                  <li key={s.id} className="rounded-2xl bg-secondary/60 px-4 py-3">
-                    <p className="truncate text-sm font-medium">{s.assignment?.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {s.student?.full_name || "Student"} · {formatDateTime(s.submitted_at)}
-                    </p>
+                {grading.data.slice(0, 8).map((s) => (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setReview({ assignmentId: s.assignment_id, studentId: s.student_id })
+                      }
+                      className="w-full rounded-2xl bg-secondary/60 px-4 py-3 text-left transition hover:bg-secondary"
+                    >
+                      <p className="truncate text-sm font-medium">
+                        {s.assignment?.title ?? "Assignment"}
+                        {s.assignment?.class?.name ? ` · ${s.assignment.class.name}` : ""}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {s.student?.full_name || "Student"} · {formatDateTime(s.submitted_at)}
+                        {s.late ? " · late" : ""}
+                      </p>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -188,6 +211,14 @@ export function TeacherDashboard({ user }: { user: AuthUser }) {
               <EmptyState icon={ClipboardCheck} title="No submissions to grade" />
             )}
           </Panel>
+          <SubmissionReviewDialog
+            assignmentId={review?.assignmentId ?? null}
+            focusStudentId={review?.studentId ?? null}
+            open={review !== null}
+            onOpenChange={(next) => {
+              if (!next) setReview(null);
+            }}
+          />
         </div>
 
         <ScheduleRail

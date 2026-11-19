@@ -108,6 +108,24 @@ export const SubmitSchema = z.object({
   storage_paths: z.array(z.string().max(1024)).max(8),
 });
 
+export const AssignmentIdSchema = z.object({
+  assignment_id: z.string().min(1),
+});
+
+export const MarkSubmissionSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("grade"),
+    submission_id: z.string().min(1),
+    grade: z.number().finite(),
+    feedback: z.string().trim().max(4000).nullable(),
+  }),
+  z.object({
+    action: z.literal("return"),
+    submission_id: z.string().min(1),
+    feedback: z.string().trim().min(1, "Tell the student what to change.").max(4000),
+  }),
+]);
+
 export const AttendanceSchema = z.object({
   lesson_id: z.string().min(1),
   marks: z
