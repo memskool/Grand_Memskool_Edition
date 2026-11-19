@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { MessageSquare, Plus, Ban, BellOff, Search, Users, Stethoscope } from "lucide-react";
 import { toast } from "sonner";
@@ -48,6 +48,9 @@ export const Route = createFileRoute("/_authenticated/messages")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  // ?c=<conversationId> opens that chat (links from notifications and web push).
+  validateSearch: (search: Record<string, unknown>): { c?: string } =>
+    typeof search["c"] === "string" && search["c"] ? { c: search["c"] } : {},
   component: MessagesPage,
 });
 
@@ -70,7 +73,11 @@ function MessagesPage() {
   const setRelation = useSetRelation();
   const { suspension } = useSuspensionStatus(userId);
 
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const { c: linkedConversation } = Route.useSearch();
+  const [activeId, setActiveId] = useState<string | null>(linkedConversation ?? null);
+  useEffect(() => {
+    if (linkedConversation) setActiveId(linkedConversation);
+  }, [linkedConversation]);
   const [filter, setFilter] = useState<"all" | ConversationKind>("all");
 
   const blocked = useMemo(

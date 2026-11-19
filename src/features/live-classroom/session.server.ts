@@ -84,24 +84,16 @@ async function notifyClass(input: {
         .filter((row) => row.status !== "ended" && row.student_id !== input.skipUserId)
         .map((row) => row.student_id),
     ),
-  ].slice(0, 80);
-  const now = new Date().toISOString();
-  const { createAndQueueNotification, dispatchNotifications } =
-    await import("@/lib/notifications.server");
-  await Promise.all(
-    ids.map((userId) =>
-      createAndQueueNotification({
-        userId,
-        title: input.title,
-        body: input.body,
-        kind: input.kind,
-        link: "/virtual-classroom",
-        schoolId: input.schoolId,
-        createdAt: now,
-      }),
-    ),
-  );
-  void dispatchNotifications();
+  ];
+  // Every enrolled learner, in batches (no 80-person cap), plus one batched web push.
+  const { notifyUsers } = await import("@/lib/notifications.server");
+  await notifyUsers(ids, {
+    title: input.title,
+    body: input.body,
+    kind: input.kind,
+    link: "/virtual-classroom",
+    schoolId: input.schoolId,
+  });
 }
 
 type Args<T> = { data: T; context: AuthedContext };

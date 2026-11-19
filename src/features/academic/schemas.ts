@@ -112,6 +112,14 @@ export const AssignmentIdSchema = z.object({
   assignment_id: z.string().min(1),
 });
 
+export const CreateAssignmentSchema = z.object({
+  class_id: z.string().min(1),
+  title: z.string().trim().min(1, "Give the assignment a title.").max(200),
+  description: z.string().trim().max(8000).nullable(),
+  due_at: z.string().datetime({ offset: true }).nullable(),
+  points: z.number().int().min(1).max(1000),
+});
+
 export const MarkSubmissionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("grade"),

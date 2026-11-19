@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import type { AuthedContext } from "@/lib/firebase/require-auth";
 import {
   adminCreate,
+  adminDelete,
   adminGetById,
   adminSet,
   adminUpdate,
@@ -565,6 +566,93 @@ async function loadAssignmentForMarking(context: AuthedContext, assignmentId: st
   const schoolId = await assertCanMarkClass(context, assignment.class_id);
   if (assignment.school_id !== schoolId) throw new Error("That assignment is not in your school.");
   return assignment;
+}
+
+/**
+ * Teacher (or manager) posts an assignment to a class. Server-side so the class-teacher
+ * check holds and every enrolled learner is notified (in-app, email, web push).
+ */
+export async function createAssignmentHandler({
+  data,
+  context,
+}: DataCtx<{
+  class_id: string;
+  title: string;
+  description: string | null;
+  due_at: string | null;
+  points: number;
+}>) {
+  const schoolId = await assertCanMarkClass(context, data.class_id);
+  const cls = await adminGetById<{ school_id: string; name?: string; status?: string }>(
+    COLLECTIONS.classes,
+    data.class_id,
+  );
+  if (!cls || cls.school_id !== schoolId) throw new Error("That class is not in your school.");
+  if (cls.status === "archived") throw new Error("That class is archived.");
+  const now = new Date().toISOString();
+  const id = await adminCreate(COLLECTIONS.assignments, {
+    class_id: data.class_id,
+    title: data.title,
+    description: data.description || null,
+    due_at: data.due_at,
+    points: data.points,
+    created_by: context.userId,
+    teacher_id: context.userId,
+    school_id: schoolId,
+    status: "published",
+    allow_resubmit: true,
+    created_at: now,
+    updated_at: now,
+  });
+
+  const enrollments = await adminWhere<{ student_id: string; status?: string }>(
+    COLLECTIONS.classEnrollments,
+    "class_id",
+    "==",
+    data.class_id,
+  );
+  const studentIds = enrollments
+    .filter((row) => row.status !== "ended")
+    .map((row) => row.student_id);
+  try {
+    const { notifyUsers } = await import("@/lib/notifications.server");
+    const due = data.due_at
+      ? ` Due ${new Date(data.due_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}.`
+      : "";
+    await notifyUsers(studentIds, {
+      title: "New assignment",
+      body: `${data.title}${cls.name ? ` · ${cls.name}` : ""}.${due}`,
+      kind: "academic",
+      link: "/dashboard",
+      schoolId,
+      createdAt: now,
+    });
+  } catch (error) {
+    // The assignment is saved; a notification outage must not report a failure.
+    console.error("[academic] assignment notify failed:", error);
+  }
+  return { id, notified: studentIds.length };
+}
+
+/** Deletes an assignment nobody has handed in yet. Work already submitted is never lost. */
+export async function deleteAssignmentHandler({
+  data,
+  context,
+}: DataCtx<{ assignment_id: string }>) {
+  const assignment = await loadAssignmentForMarking(context, data.assignment_id);
+  const submissions = await adminWhere<{ id: string }>(
+    COLLECTIONS.submissions,
+    "assignment_id",
+    "==",
+    assignment.id,
+  );
+  if (submissions.length) {
+    throw new Error(
+      `${submissions.length} student${submissions.length === 1 ? " has" : "s have"} already handed in work, so this assignment cannot be deleted.`,
+    );
+  }
+  await adminDelete(COLLECTIONS.assignments, assignment.id);
+  return { ok: true as const };
 }
 
 /** Every enrolled student with their submission (or none) for one assignment. */

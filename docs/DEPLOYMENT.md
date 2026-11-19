@@ -52,6 +52,14 @@ Set `CRANE5_API_URL` and `CRANE5_API_KEY` on the host only. Restart the server. 
 - `RESEND_FROM` must use that domain.
 - Password reset and verification must be tested on the production origin, not only localhost.
 
+## 6b. Web push (device alerts)
+
+Push is sent by the app server with the Admin SDK (`sendPushToUsers` in `src/lib/notifications.server.ts`), so it works on the Spark plan — no Cloud Functions needed. Do not also deploy `functions/` `onNotificationCreated` on Blaze, or every alert is pushed twice.
+
+1. Firebase Console → Project settings → **Cloud Messaging** → **Web Push certificates** → **Generate key pair**.
+2. Copy the public key into Vercel as `VITE_FIREBASE_VAPID_KEY` (it is a public key, safe in `VITE_*`) and redeploy.
+3. Users turn alerts on per device from the bell menu ("Turn on alerts for this device"). Without the key the button stays hidden and in-app notifications still work.
+
 ## 7. Mobile / stores
 
 The web app is responsive. Play/App Store packaging, signing, and store listings are human release tasks. Deep links should use the same production origin.

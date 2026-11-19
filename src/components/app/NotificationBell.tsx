@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
-import { Bell } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bell, BellRing } from "lucide-react";
+import { pushState, registerFcmToken, type PushState } from "@/lib/firebase/fcm";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useSession } from "@/hooks/useAuth";
@@ -10,10 +11,50 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+/** Notification links may carry a query (`/messages?c=…`); the router wants path + search. */
+function splitLink(link: string | null): { to: string; search: Record<string, string> } {
+  const [path, query] = (link || "/dashboard").split("?", 2);
+  return {
+    to: path || "/dashboard",
+    search: query ? Object.fromEntries(new URLSearchParams(query)) : {},
+  };
+}
+
 export function NotificationBell() {
   const { user } = useSession();
   const notifications = useNotifications(user?.id);
   const markRead = useMarkNotificationRead(user?.id);
+
+  // Web push: refresh this browser's token silently when alerts are already allowed;
+  // otherwise offer a "Turn on alerts" button (never prompt on page load).
+  const [push, setPush] = useState<PushState>("unsupported");
+  const [enabling, setEnabling] = useState(false);
+  useEffect(() => {
+    if (!user?.id) return;
+    let alive = true;
+    void pushState().then((state) => {
+      if (!alive) return;
+      setPush(state);
+      if (state === "granted") void registerFcmToken().catch(() => undefined);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [user?.id]);
+  const enablePush = async () => {
+    setEnabling(true);
+    try {
+      const state = await registerFcmToken({ prompt: true });
+      setPush(state);
+      if (state === "granted") toast.success("Alerts are on for this device");
+      else if (state === "denied")
+        toast.error("Alerts are blocked. Allow notifications for memskool.com in your browser.");
+    } catch {
+      toast.error("Could not turn on alerts on this device. Try again later.");
+    } finally {
+      setEnabling(false);
+    }
+  };
 
   const items = notifications.data ?? [];
   const unread = items.filter((n) => !n.read).length;
@@ -62,6 +103,18 @@ export function NotificationBell() {
           <p className="text-xs text-muted-foreground">
             {unread ? `${unread} unread` : "You're all caught up"}
           </p>
+          {push === "default" ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-2 h-8 w-full rounded-full text-xs"
+              disabled={enabling}
+              onClick={() => void enablePush()}
+            >
+              <BellRing className="mr-1.5 size-3.5" />
+              {enabling ? "Turning on…" : "Turn on alerts for this device"}
+            </Button>
+          ) : null}
         </div>
         <ScrollArea className="max-h-80">
           {notifications.isLoading ? (
@@ -75,7 +128,7 @@ export function NotificationBell() {
               {items.map((n) => (
                 <li key={n.id}>
                   <Link
-                    to={n.link ?? "/dashboard"}
+                    {...(splitLink(n.link) as { to: string })}
                     onClick={() => !n.read && markRead.mutate(n.id)}
                     className={cn(
                       "block px-4 py-3 text-left transition hover:bg-secondary",

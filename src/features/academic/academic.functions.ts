@@ -8,6 +8,7 @@ import {
   SlotSchema,
   SubmitSchema,
   AssignmentIdSchema,
+  CreateAssignmentSchema,
   MarkSubmissionSchema,
   AttendanceSchema,
   MissedWorkAssignSchema,
@@ -90,6 +91,22 @@ export const submitAssignmentWork = createServerFn({ method: "POST" })
   .handler(async (opts) => {
     const { submitAssignmentWorkHandler } = await import("./academic.server");
     return submitAssignmentWorkHandler(opts);
+  });
+
+export const createAssignment = createServerFn({ method: "POST" })
+  .middleware([requireFirebaseAuth])
+  .inputValidator((data: unknown) => CreateAssignmentSchema.parse(data))
+  .handler(async (opts) => {
+    const { createAssignmentHandler } = await import("./academic.server");
+    return createAssignmentHandler(opts);
+  });
+
+export const deleteAssignment = createServerFn({ method: "POST" })
+  .middleware([requireFirebaseAuth])
+  .inputValidator((data: unknown) => AssignmentIdSchema.parse(data))
+  .handler(async (opts) => {
+    const { deleteAssignmentHandler } = await import("./academic.server");
+    return deleteAssignmentHandler(opts);
   });
 
 export const listAssignmentSubmissions = createServerFn({ method: "POST" })

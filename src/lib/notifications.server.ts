@@ -72,6 +72,7 @@ const KIND_LABEL: Record<string, string> = {
   live_class: "Live class",
   missed_work: "Missed work",
   gold: "Gold class",
+  message: "New message",
 };
 
 function escapeHtml(value: string): string {
@@ -322,7 +323,7 @@ export async function queueEmailForUser(notificationId: string, userId: string) 
   });
 }
 
-export async function createAndQueueNotification(input: {
+export type NotificationInput = {
   userId: string;
   title: string;
   body: string | null;
@@ -330,10 +331,19 @@ export async function createAndQueueNotification(input: {
   link: string | null;
   schoolId?: string | null;
   createdAt?: string;
-}): Promise<string> {
+  /** false skips the email channel (chatty kinds such as direct messages). */
+  email?: boolean;
+  /** false skips the web push (the caller sends one batched push itself). */
+  push?: boolean;
+  /** Extra fields stored on the notification row (e.g. dm_conversation_id). */
+  extra?: Record<string, unknown>;
+};
+
+export async function createAndQueueNotification(input: NotificationInput): Promise<string> {
   const { adminCreate } = await import("@/lib/firebase/admin-repo");
   const { COLLECTIONS } = await import("@/lib/firebase/repo");
   const id = await adminCreate(COLLECTIONS.notifications, {
+    ...(input.extra ?? {}),
     user_id: input.userId,
     title: input.title,
     body: input.body,
@@ -343,8 +353,136 @@ export async function createAndQueueNotification(input: {
     school_id: input.schoolId ?? null,
     created_at: input.createdAt ?? new Date().toISOString(),
   });
-  await queueEmailForUser(id, input.userId);
+  if (input.email !== false) await queueEmailForUser(id, input.userId);
+  if (input.push !== false) {
+    await sendPushToUsers([input.userId], {
+      title: input.title,
+      body: input.body,
+      link: input.link,
+    });
+  }
   return id;
+}
+
+/* ------------------------------------------------------------------ */
+/* Web push (FCM)                                                      */
+/* ------------------------------------------------------------------ */
+
+const PUSH_TOKEN_QUERY_CHUNK = 30; // Firestore `in` limit
+const PUSH_MULTICAST_CHUNK = 500; // FCM multicast limit
+const DEAD_TOKEN_CODES = new Set([
+  "messaging/registration-token-not-registered",
+  "messaging/invalid-registration-token",
+  "messaging/invalid-argument",
+]);
+
+/**
+ * Sends a web push to every registered browser of `userIds`. Runs on the app server
+ * with the Admin SDK, so it works on the Spark plan (no Cloud Functions). Never throws:
+ * push is best-effort on top of the in-app notification, which stays the source of truth.
+ * Tokens FCM reports as dead are deleted so they are not retried forever.
+ */
+export async function sendPushToUsers(
+  userIds: string[],
+  message: { title: string; body: string | null; link: string | null },
+): Promise<{ sent: number; failed: number }> {
+  const result = { sent: 0, failed: 0 };
+  const unique = [...new Set(userIds.filter(Boolean))];
+  if (!unique.length) return result;
+  try {
+    const { adminDb, adminMessaging } = await import("@/lib/firebase/admin.server");
+    const { COLLECTIONS } = await import("@/lib/firebase/repo");
+    const db = adminDb();
+    const tokenDocs: Array<{ id: string; token: string }> = [];
+    for (let i = 0; i < unique.length; i += PUSH_TOKEN_QUERY_CHUNK) {
+      const snap = await db
+        .collection(COLLECTIONS.fcmTokens)
+        .where("user_id", "in", unique.slice(i, i + PUSH_TOKEN_QUERY_CHUNK))
+        .get();
+      for (const doc of snap.docs) {
+        const token = doc.get("token");
+        if (typeof token === "string" && token) tokenDocs.push({ id: doc.id, token });
+      }
+    }
+    if (!tokenDocs.length) return result;
+
+    const link = `${appOrigin()}${message.link ?? "/dashboard"}`;
+    for (let i = 0; i < tokenDocs.length; i += PUSH_MULTICAST_CHUNK) {
+      const chunk = tokenDocs.slice(i, i + PUSH_MULTICAST_CHUNK);
+      const response = await adminMessaging().sendEachForMulticast({
+        tokens: chunk.map((t) => t.token),
+        notification: { title: message.title, ...(message.body ? { body: message.body } : {}) },
+        data: { link },
+        webpush: {
+          notification: { icon: `${appOrigin()}/favicon.png`, badge: `${appOrigin()}/favicon.png` },
+          fcmOptions: { link },
+        },
+      });
+      result.sent += response.successCount;
+      result.failed += response.failureCount;
+      const dead = response.responses
+        .map((r, idx) => (!r.success && DEAD_TOKEN_CODES.has(r.error?.code ?? "") ? idx : -1))
+        .filter((idx) => idx >= 0);
+      await Promise.all(
+        dead.map((idx) =>
+          db
+            .collection(COLLECTIONS.fcmTokens)
+            .doc(chunk[idx]!.id)
+            .delete()
+            .catch(() => undefined),
+        ),
+      );
+    }
+  } catch (error) {
+    console.error(
+      "[notifications] push failed:",
+      error instanceof Error ? error.message.slice(0, 200) : "unknown error",
+    );
+  }
+  return result;
+}
+
+/* ------------------------------------------------------------------ */
+/* Fan-out                                                             */
+/* ------------------------------------------------------------------ */
+
+const FANOUT_CONCURRENCY = 25;
+/** Hard ceiling so a runaway caller cannot spam a whole tenant; well above any class size. */
+const FANOUT_MAX_RECIPIENTS = 5000;
+
+/**
+ * Notifies every recipient (no 80-person cap): in-app row + email for each, then one
+ * batched web push for the whole group, then a delivery drain. Recipients are de-duplicated
+ * and processed in bounded parallel chunks. Returns how many rows were written.
+ */
+export async function notifyUsers(
+  userIds: string[],
+  input: Omit<NotificationInput, "userId" | "push">,
+): Promise<number> {
+  const unique = [...new Set(userIds.filter(Boolean))].slice(0, FANOUT_MAX_RECIPIENTS);
+  if (!unique.length) return 0;
+  const createdAt = input.createdAt ?? new Date().toISOString();
+  let written = 0;
+  for (let i = 0; i < unique.length; i += FANOUT_CONCURRENCY) {
+    const chunk = unique.slice(i, i + FANOUT_CONCURRENCY);
+    const settled = await Promise.allSettled(
+      chunk.map((userId) =>
+        createAndQueueNotification({ ...input, userId, createdAt, push: false }),
+      ),
+    );
+    written += settled.filter((r) => r.status === "fulfilled").length;
+    for (const r of settled) {
+      if (r.status === "rejected") {
+        console.error(
+          "[notifications] fan-out row failed:",
+          r.reason instanceof Error ? r.reason.message.slice(0, 200) : "unknown error",
+        );
+      }
+    }
+  }
+  await sendPushToUsers(unique, { title: input.title, body: input.body, link: input.link });
+  void dispatchNotifications(unique.length);
+  return written;
 }
 
 /**

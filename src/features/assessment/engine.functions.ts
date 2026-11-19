@@ -294,25 +294,18 @@ export const publishAssessment = createServerFn({ method: "POST" })
         "==",
         assessment.class_id,
       );
-      const { createAndQueueNotification, dispatchNotifications } =
-        await import("@/lib/notifications.server");
-      await Promise.all(
-        enrolled
-          .filter((row) => row.status !== "ended")
-          .slice(0, 80)
-          .map((row) =>
-            createAndQueueNotification({
-              userId: row.student_id,
-              title: "New assessment available",
-              body: `${assessment.title} is ready. Open Assessments to start.`,
-              kind: "assessment",
-              link: "/assessments",
-              schoolId: assessment.school_id,
-              createdAt: now,
-            }),
-          ),
+      const { notifyUsers } = await import("@/lib/notifications.server");
+      await notifyUsers(
+        enrolled.filter((row) => row.status !== "ended").map((row) => row.student_id),
+        {
+          title: "New assessment available",
+          body: `${assessment.title} is ready. Open Assessments to start.`,
+          kind: "assessment",
+          link: "/assessments",
+          schoolId: assessment.school_id,
+          createdAt: now,
+        },
       );
-      void dispatchNotifications();
     }
     return { ok: true as const };
   });
@@ -356,9 +349,8 @@ export const releaseAssessmentResults = createServerFn({ method: "POST" })
       "==",
       assessment.id,
     );
-    const { createAndQueueNotification, dispatchNotifications } =
-      await import("@/lib/notifications.server");
-    for (const row of attempts.filter((item) => item.submitted_at).slice(0, 80)) {
+    const submitted = attempts.filter((item) => item.submitted_at);
+    for (const row of submitted) {
       const priv = await adminGetById<PrivateResult>(COLLECTIONS.assessmentResultPrivate, row.id);
       if (priv) {
         await adminUpdate(COLLECTIONS.assessmentSubmissions, row.id, {
@@ -387,17 +379,20 @@ export const releaseAssessmentResults = createServerFn({ method: "POST" })
           updated_at: now,
         });
       }
-      await createAndQueueNotification({
-        userId: row.student_id,
+    }
+    // Every learner who sat the paper (no 80-person cap), one batched push.
+    const { notifyUsers } = await import("@/lib/notifications.server");
+    await notifyUsers(
+      submitted.map((row) => row.student_id),
+      {
         title: "Results released",
         body: `Results for ${assessment.title} are now available.`,
         kind: "assessment",
         link: "/assessments",
         schoolId: assessment.school_id,
         createdAt: now,
-      });
-    }
-    void dispatchNotifications();
+      },
+    );
     return { ok: true as const };
   });
 

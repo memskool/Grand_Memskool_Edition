@@ -16,6 +16,7 @@ import {
 } from "@/lib/firebase/repo";
 import { attachNamedUser, profileLite } from "@/lib/firebase/hydrate";
 import { subscribeLive } from "@/lib/firebase/live-subscribe";
+import { notifyMessageSent } from "@/lib/messaging.functions";
 
 export type ConversationKind = "direct" | "group" | "clinic";
 
@@ -147,7 +148,7 @@ export function useSendMessage() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { conversationId: string; senderId: string; body: string }) => {
-      await createDoc(COLLECTIONS.messages, {
+      const messageId = await createDoc(COLLECTIONS.messages, {
         conversation_id: input.conversationId,
         sender_id: input.senderId,
         body: input.body,
@@ -156,6 +157,8 @@ export function useSendMessage() {
       await patchById(COLLECTIONS.conversations, input.conversationId, {
         updated_at: new Date().toISOString(),
       });
+      // Tell the other members (bell + web push). Best-effort: the message is already sent.
+      void notifyMessageSent({ data: { message_id: messageId } }).catch(() => undefined);
     },
     // Optimistic: the sender's bubble appears instantly; the snapshot replaces it.
     onMutate: async (input) => {

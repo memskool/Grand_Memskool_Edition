@@ -13,12 +13,10 @@ import { IdentityGate } from "@/components/app/IdentityGate";
 import { IdentityBanners } from "@/components/app/IdentityBanners";
 import { AppErrorBoundary } from "@/components/app/AppErrorBoundary";
 import { NetworkBanner } from "@/components/app/NetworkBanner";
-import { registerFcmToken } from "@/lib/firebase/fcm";
 import { PRODUCT_EVENTS, trackProductEvent } from "@/lib/analytics";
 
 export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
-    void registerFcmToken().catch(() => undefined);
     void trackProductEvent(PRODUCT_EVENTS.workspaceOpen);
   }, []);
   return (

@@ -1,14 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  COLLECTIONS,
-  createDoc,
-  findMany,
-  getById,
-  removeById,
-  where,
-  orderBy,
-} from "@/lib/firebase/repo";
+import { COLLECTIONS, findMany, getById, where, orderBy } from "@/lib/firebase/repo";
 import { userSchoolId } from "@/lib/firebase/hydrate";
+import { classifyFirebase } from "@/lib/errors/app-error";
+import { createAssignment, deleteAssignment } from "@/features/academic/academic.functions";
 
 export function useTeacherAssignments(classIds: string[]) {
   const key = [...classIds].sort().join(",");
@@ -39,10 +33,11 @@ export function useTeacherAssignments(classIds: string[]) {
   });
 }
 
-export function useCreateAssignment(teacherId: string | undefined, classIds: string[]) {
+export function useCreateAssignment(_teacherId: string | undefined, classIds: string[]) {
   const qc = useQueryClient();
   const key = [...classIds].sort().join(",");
   return useMutation({
+    // Server-side: enforces the class-teacher check and notifies every enrolled learner.
     mutationFn: async (values: {
       class_id: string;
       title: string;
@@ -50,19 +45,16 @@ export function useCreateAssignment(teacherId: string | undefined, classIds: str
       due_at: string | null;
       points: number;
     }) => {
-      const cls = await getById<{ school_id: string }>(COLLECTIONS.classes, values.class_id);
-      await createDoc(COLLECTIONS.assignments, {
-        ...values,
-        created_by: teacherId ?? null,
-        teacher_id: teacherId ?? null,
-        school_id: cls?.school_id ?? null,
-        status: "published",
-        allow_resubmit: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
+      try {
+        return await createAssignment({ data: values });
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["teacher-assignments", key] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["teacher-assignments", key] });
+      void qc.invalidateQueries({ queryKey: ["my-assignments"] });
+    },
   });
 }
 
@@ -71,7 +63,11 @@ export function useDeleteAssignment(classIds: string[]) {
   const key = [...classIds].sort().join(",");
   return useMutation({
     mutationFn: async (id: string) => {
-      await removeById(COLLECTIONS.assignments, id);
+      try {
+        await deleteAssignment({ data: { assignment_id: id } });
+      } catch (error) {
+        throw classifyFirebase(error);
+      }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["teacher-assignments", key] }),
   });

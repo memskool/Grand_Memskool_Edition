@@ -20,6 +20,7 @@ import {
   useDeleteAssignment,
 } from "@/lib/assignments-data";
 import { formatDateTime } from "@/lib/format";
+import { authErrorMessage } from "@/lib/errors/auth-errors";
 
 type ClassOption = { id: string; name: string };
 
@@ -60,18 +61,22 @@ export function TeacherAssignmentPanel({
       return;
     }
     try {
-      await create.mutateAsync({
+      const res = await create.mutateAsync({
         class_id: classId,
         title: title.trim(),
         description: description.trim() || null,
         due_at: due ? new Date(due).toISOString() : null,
-        points: Number(points) || 0,
+        points: Math.max(1, Math.round(Number(points) || 0)),
       });
       setTitle("");
       setDescription("");
-      toast.success("Assignment posted to your class");
+      toast.success(
+        res.notified
+          ? `Assignment posted. ${res.notified} student${res.notified === 1 ? "" : "s"} notified.`
+          : "Assignment posted. No students are enrolled in that class yet.",
+      );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not post assignment");
+      toast.error(authErrorMessage(err));
     }
   };
 
@@ -160,7 +165,10 @@ export function TeacherAssignmentPanel({
                   aria-label="Delete assignment"
                   onClick={() => {
                     if (window.confirm(`Delete "${a.title}"? Students will no longer see it.`)) {
-                      remove.mutate(a.id);
+                      remove.mutate(a.id, {
+                        onSuccess: () => toast.success("Assignment deleted"),
+                        onError: (e) => toast.error(authErrorMessage(e)),
+                      });
                     }
                   }}
                 >
