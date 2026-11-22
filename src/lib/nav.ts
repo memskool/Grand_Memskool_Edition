@@ -15,6 +15,7 @@ import {
   Award,
   House,
   Clapperboard,
+  GraduationCap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
@@ -116,6 +117,13 @@ const ITEM = {
     short: "Tests",
     group: "school",
   },
+  grades: {
+    title: "Grades",
+    url: "/grades",
+    icon: GraduationCap,
+    short: "Grades",
+    group: "school",
+  },
   dream: {
     title: "Dream School",
     url: "/dream-school",
@@ -193,6 +201,7 @@ const teacherTeaching = {
 };
 const teacherDash = { ...ITEM.dashboard, group: "teaching" as const };
 const teacherAssess = { ...ITEM.assessments, group: "teaching" as const };
+const teacherGrades = { ...ITEM.grades, title: "Gradebook", group: "teaching" as const };
 const teacherTime = { ...ITEM.timetable, group: "teaching" as const };
 const teacherLib = { ...ITEM.library, group: "teaching" as const };
 const teacherMsg = { ...ITEM.messages, group: "teaching" as const };
@@ -201,11 +210,13 @@ const teacherGold = { ...ITEM.gold, group: "publish" as const };
 const parentDash = { ...ITEM.dashboard, group: "family" as const };
 const parentTime = { ...ITEM.timetable, group: "family" as const };
 const parentAssess = { ...ITEM.assessments, group: "family" as const };
+const parentGrades = { ...ITEM.grades, title: "Report cards", group: "family" as const };
 const parentMsg = { ...ITEM.messages, group: "family" as const };
 
 const opsDash = { ...ITEM.dashboard, group: "operations" as const };
 const opsClass = { ...ITEM.classroom, group: "operations" as const };
 const opsMsg = { ...ITEM.messages, group: "operations" as const };
+const opsGrades = { ...ITEM.grades, title: "Gradebook", group: "operations" as const };
 
 /**
  * Each role gets only the tools for that job. Students learn, teachers teach,
@@ -216,6 +227,7 @@ const BY_ROLE: Record<AppRole, NavItem[]> = {
     ITEM.dashboard,
     ITEM.classroom,
     ITEM.assessments,
+    ITEM.grades,
     ITEM.messages,
     ITEM.timetable,
     ITEM.missed,
@@ -232,6 +244,7 @@ const BY_ROLE: Record<AppRole, NavItem[]> = {
     teacherDash,
     teacherTeaching,
     teacherAssess,
+    teacherGrades,
     teacherMsg,
     teacherTime,
     teacherLib,
@@ -239,9 +252,17 @@ const BY_ROLE: Record<AppRole, NavItem[]> = {
     ITEM.homeStudio,
     ITEM.settings,
   ],
-  parent: [parentDash, parentTime, parentAssess, parentMsg, ITEM.settings],
-  institution: [opsDash, ITEM.schoolAdmin, opsClass, opsMsg, ITEM.homeStudio, ITEM.settings],
-  admin: [opsDash, ITEM.schoolAdmin, opsClass, opsMsg, ITEM.homeStudio, ITEM.settings],
+  parent: [parentDash, parentTime, parentAssess, parentGrades, parentMsg, ITEM.settings],
+  institution: [
+    opsDash,
+    ITEM.schoolAdmin,
+    opsGrades,
+    opsClass,
+    opsMsg,
+    ITEM.homeStudio,
+    ITEM.settings,
+  ],
+  admin: [opsDash, ITEM.schoolAdmin, opsGrades, opsClass, opsMsg, ITEM.homeStudio, ITEM.settings],
   superadmin: [
     { ...ITEM.dashboard, group: "platform" },
     ITEM.homeAdmin,
@@ -251,7 +272,13 @@ const BY_ROLE: Record<AppRole, NavItem[]> = {
 };
 
 /** School teaching tools that stay locked until the school approves a teacher. */
-export const PENDING_SCHOOL_LOCK = ["/virtual-classroom", "/assessments", "/timetable", "/library"];
+export const PENDING_SCHOOL_LOCK = [
+  "/virtual-classroom",
+  "/assessments",
+  "/grades",
+  "/timetable",
+  "/library",
+];
 /** @deprecated Use PENDING_SCHOOL_LOCK. Kept so older imports keep compiling. */
 export const PENDING_ALLOWED = ["/dashboard", "/gold", "/home-studio", "/messages", "/settings"];
 

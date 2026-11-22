@@ -20,6 +20,7 @@ import {
   EnrolmentPanel,
 } from "@/components/app/AcademicAdminPanel";
 import { FamilyLinkPanel } from "@/components/app/FamilyLinkPanel";
+import { BulkImportPanel } from "@/components/app/BulkImportPanel";
 import { useCreateSlotSafe } from "@/features/academic/academic-data";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import {
@@ -195,6 +196,7 @@ function SchoolAdminWorkspace({
         </TabsContent>
         <TabsContent value="people" className="space-y-8">
           <AdmissionsSection schoolId={resolvedSchoolId} />
+          <BulkImportPanel />
           <StaffSection schoolId={resolvedSchoolId} />
           <FamilyLinkPanel schoolId={resolvedSchoolId} />
         </TabsContent>

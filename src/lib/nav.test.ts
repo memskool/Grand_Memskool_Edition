@@ -17,6 +17,7 @@ assert(!student.includes("/school-admin"), "students cannot run a school");
 
 const teacher = urls("teacher");
 assert(teacher.includes("/virtual-classroom"), "teachers run live class");
+assert(teacher.includes("/grades"), "teachers keep a gradebook");
 assert(teacher.includes("/home-studio"), "teachers can publish Home clips");
 assert(teacher.includes("/gold"), "teachers can use Gold");
 assert(!teacher.includes("/locker"), "teachers do not use the student locker");
@@ -27,6 +28,7 @@ assert(!teacher.includes("/marketplace"), "teachers sell tutoring on Gold, not t
 const parent = urls("parent");
 assert(parent.includes("/dashboard"), "parents have a family dashboard");
 assert(parent.includes("/assessments"), "parents see released results");
+assert(parent.includes("/grades"), "parents open their child's report card");
 assert(!parent.includes("/gold"), "parents do not use Gold");
 assert(!parent.includes("/locker"), "parents do not have a locker");
 assert(!parent.includes("/virtual-classroom"), "parents do not join live class");

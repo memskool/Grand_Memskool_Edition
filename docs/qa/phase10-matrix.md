@@ -23,6 +23,10 @@ Manual + automated sign-off for production readiness. Mark each row after checki
 | 17 | Assignments / submissions / assessments are server-only | Client creates and student self-grading denied | `test:rules` | ☐ | |
 | 18 | Notifications & push tokens are per-user | Cannot read others' alerts or register tokens for them | `test:rules` | ☐ | |
 | 19 | Uploads with Storage off | Honest "uploads are not switched on" message; written work still submits | app-error unit | ☐ | |
+| 20 | Gradebook: only the class teacher or a school manager | Others denied; CSV export opens safely in Excel | report-policy unit (CSV) | ☐ | |
+| 21 | Report card: student, linked parent, or same-school staff only | Unreleased test scores hidden; term filter correct | report-policy unit (terms, grades) | ☐ | |
+| 22 | Bulk import never takes over an existing account | Existing users outside the school are skipped with "ask them to apply" | — | ☐ | |
+| 23 | Bulk import students without email | Sign-in + temporary password shown once; student can sign in | report-policy unit (parsing) | ☐ | |
 
 ## How to run automated checks
 

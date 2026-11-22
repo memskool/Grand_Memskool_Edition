@@ -24,6 +24,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedDreamSchoolRouteImport } from './routes/_authenticated/dream-school'
 import { Route as AuthenticatedGoldRouteImport } from './routes/_authenticated/gold'
 import { Route as AuthenticatedGoldAdminRouteImport } from './routes/_authenticated/gold-admin'
+import { Route as AuthenticatedGradesRouteImport } from './routes/_authenticated/grades'
 import { Route as AuthenticatedHomeAdminRouteImport } from './routes/_authenticated/home-admin'
 import { Route as AuthenticatedHomeStudioRouteImport } from './routes/_authenticated/home-studio'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
@@ -121,6 +122,11 @@ const AuthenticatedGoldRoute = AuthenticatedGoldRouteImport.update({
 const AuthenticatedGoldAdminRoute = AuthenticatedGoldAdminRouteImport.update({
   id: '/gold-admin',
   path: '/gold-admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedGradesRoute = AuthenticatedGradesRouteImport.update({
+  id: '/grades',
+  path: '/grades',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedHomeAdminRoute = AuthenticatedHomeAdminRouteImport.update({
@@ -258,6 +264,7 @@ export interface FileRoutesByFullPath {
   '/dream-school': typeof AuthenticatedDreamSchoolRoute
   '/gold': typeof AuthenticatedGoldRouteWithChildren
   '/gold-admin': typeof AuthenticatedGoldAdminRoute
+  '/grades': typeof AuthenticatedGradesRoute
   '/home-admin': typeof AuthenticatedHomeAdminRoute
   '/home-studio': typeof AuthenticatedHomeStudioRoute
   '/library': typeof AuthenticatedLibraryRoute
@@ -296,6 +303,7 @@ export interface FileRoutesByTo {
   '/dream-school': typeof AuthenticatedDreamSchoolRoute
   '/gold': typeof AuthenticatedGoldRouteWithChildren
   '/gold-admin': typeof AuthenticatedGoldAdminRoute
+  '/grades': typeof AuthenticatedGradesRoute
   '/home-admin': typeof AuthenticatedHomeAdminRoute
   '/home-studio': typeof AuthenticatedHomeStudioRoute
   '/library': typeof AuthenticatedLibraryRoute
@@ -336,6 +344,7 @@ export interface FileRoutesById {
   '/_authenticated/dream-school': typeof AuthenticatedDreamSchoolRoute
   '/_authenticated/gold': typeof AuthenticatedGoldRouteWithChildren
   '/_authenticated/gold-admin': typeof AuthenticatedGoldAdminRoute
+  '/_authenticated/grades': typeof AuthenticatedGradesRoute
   '/_authenticated/home-admin': typeof AuthenticatedHomeAdminRoute
   '/_authenticated/home-studio': typeof AuthenticatedHomeStudioRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRoute
@@ -376,6 +385,7 @@ export interface FileRouteTypes {
     | '/dream-school'
     | '/gold'
     | '/gold-admin'
+    | '/grades'
     | '/home-admin'
     | '/home-studio'
     | '/library'
@@ -414,6 +424,7 @@ export interface FileRouteTypes {
     | '/dream-school'
     | '/gold'
     | '/gold-admin'
+    | '/grades'
     | '/home-admin'
     | '/home-studio'
     | '/library'
@@ -453,6 +464,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dream-school'
     | '/_authenticated/gold'
     | '/_authenticated/gold-admin'
+    | '/_authenticated/grades'
     | '/_authenticated/home-admin'
     | '/_authenticated/home-studio'
     | '/_authenticated/library'
@@ -599,6 +611,13 @@ declare module '@tanstack/react-router' {
       path: '/gold-admin'
       fullPath: '/gold-admin'
       preLoaderRoute: typeof AuthenticatedGoldAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/grades': {
+      id: '/_authenticated/grades'
+      path: '/grades'
+      fullPath: '/grades'
+      preLoaderRoute: typeof AuthenticatedGradesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/home-admin': {
@@ -778,6 +797,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDreamSchoolRoute: typeof AuthenticatedDreamSchoolRoute
   AuthenticatedGoldRoute: typeof AuthenticatedGoldRouteWithChildren
   AuthenticatedGoldAdminRoute: typeof AuthenticatedGoldAdminRoute
+  AuthenticatedGradesRoute: typeof AuthenticatedGradesRoute
   AuthenticatedHomeAdminRoute: typeof AuthenticatedHomeAdminRoute
   AuthenticatedHomeStudioRoute: typeof AuthenticatedHomeStudioRoute
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
@@ -799,6 +819,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDreamSchoolRoute: AuthenticatedDreamSchoolRoute,
   AuthenticatedGoldRoute: AuthenticatedGoldRouteWithChildren,
   AuthenticatedGoldAdminRoute: AuthenticatedGoldAdminRoute,
+  AuthenticatedGradesRoute: AuthenticatedGradesRoute,
   AuthenticatedHomeAdminRoute: AuthenticatedHomeAdminRoute,
   AuthenticatedHomeStudioRoute: AuthenticatedHomeStudioRoute,
   AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,

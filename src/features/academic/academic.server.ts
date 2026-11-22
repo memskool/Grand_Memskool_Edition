@@ -549,7 +549,7 @@ type SubmissionDoc = {
 };
 
 /** Teacher of the class (owner or active assignment) or a school manager of that school. */
-async function assertCanMarkClass(context: AuthedContext, classId: string): Promise<string> {
+export async function assertCanMarkClass(context: AuthedContext, classId: string): Promise<string> {
   const schoolId = await requireStaff(context);
   if (context.role === "teacher") {
     const { isAssignedTeacher } = await import("@/features/live-classroom/authz");

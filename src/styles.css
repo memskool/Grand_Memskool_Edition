@@ -462,3 +462,20 @@
 @utility stagger-6 {
   animation-delay: 240ms;
 }
+
+/* Report cards and gradebooks print without the app chrome (Phase 5). */
+@media print {
+  [data-print-hide],
+  [data-sidebar="sidebar"],
+  [data-slot="sidebar"],
+  .peer[data-state][data-variant] {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  main#main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+}
