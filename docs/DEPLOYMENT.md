@@ -52,6 +52,17 @@ Set `CRANE5_API_URL` and `CRANE5_API_KEY` on the host only. Restart the server. 
 - `RESEND_FROM` must use that domain.
 - Password reset and verification must be tested on the production origin, not only localhost.
 
+## 6a. File storage (Blaze plan required)
+
+Since 3 Feb 2026 Cloud Storage for Firebase needs the **Blaze** (pay-as-you-go) plan; Spark projects get 402/403 on every Storage call. Blaze keeps a no-cost tier, and a budget alert in Google Cloud Billing caps surprises.
+
+1. Firebase Console → upgrade the project to Blaze (set a budget alert).
+2. Console → **Storage** → **Get started** (bucket `memskool-4e193.firebasestorage.app`, or the existing default bucket).
+3. Make sure Vercel's `VITE_FIREBASE_STORAGE_BUCKET` matches that bucket name, then redeploy.
+4. `firebase deploy --only storage` to publish `storage.rules`.
+
+Until then the app shows "File uploads are not switched on for Memskool yet" and written submissions still work.
+
 ## 6b. Web push (device alerts)
 
 Push is sent by the app server with the Admin SDK (`sendPushToUsers` in `src/lib/notifications.server.ts`), so it works on the Spark plan — no Cloud Functions needed. Do not also deploy `functions/` `onNotificationCreated` on Blaze, or every alert is pushed twice.

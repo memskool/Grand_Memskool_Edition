@@ -11,6 +11,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { toast } from "sonner";
+import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { useSession, useRole } from "@/hooks/useAuth";
 import {
   CLASS_LEVELS,
@@ -109,7 +110,7 @@ function LibraryPage() {
       await downloadObject("library-files", book.file_path, book.file_name);
       toast.success("Download started");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Download failed");
+      toast.error(authErrorMessage(error));
     } finally {
       setDownloading(null);
     }
@@ -270,7 +271,7 @@ function LibraryPage() {
                       void deleteBook
                         .mutateAsync({ id: target.id, file_path: target.file_path })
                         .then(() => toast.success("Removed from library"))
-                        .catch((e: Error) => toast.error(e.message));
+                        .catch((e: unknown) => toast.error(authErrorMessage(e)));
                     }}
                   >
                     <Trash2 className="size-4" /> Remove
@@ -349,7 +350,7 @@ function UploadBookDialog({ userId }: { userId: string | undefined }) {
       setOpen(false);
       toast.success("Published to the library");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Upload failed");
+      toast.error(authErrorMessage(error));
     } finally {
       setBusy(false);
     }

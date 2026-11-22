@@ -58,3 +58,4 @@ firebase-debug.*.log*
 # Local scratch (PDF exports, one-off scripts)
 /tmp/
 /output/
+firestore-debug.log*

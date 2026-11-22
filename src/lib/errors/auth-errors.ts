@@ -3,6 +3,7 @@ import {
   classifyFirebase,
   firebaseAuthCode,
   looksLikeHtmlError,
+  storageErrorMessage,
   unwrapErrorMessage,
   toUserMessage,
 } from "@/lib/errors/app-error";
@@ -13,6 +14,10 @@ import {
 export function authErrorMessage(error: unknown): string {
   if (error instanceof AppError) return error.message;
   const unwrapped = unwrapErrorMessage(error);
+  const storageMessage = storageErrorMessage(
+    `${unwrapped} ${(error as { code?: string } | null)?.code ?? ""}`,
+  );
+  if (storageMessage) return storageMessage;
   const direct = unwrapped.split(/\r?\n/)[0]?.trim() ?? "";
   if (looksLikeHtmlError(unwrapped) || looksLikeHtmlError(direct)) {
     return "The server hit an error while saving. Refresh the page and try again.";

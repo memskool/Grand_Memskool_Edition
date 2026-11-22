@@ -15,6 +15,7 @@ import {
   Link2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { useSession } from "@/hooks/useAuth";
 import {
   CLASS_LEVELS,
@@ -119,7 +120,7 @@ function LockerPage() {
       await deleteItem.mutateAsync({ id: item.id, file_path: item.file_path });
       toast.success("Item removed");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not remove that item");
+      toast.error(authErrorMessage(error));
     }
   };
 
@@ -131,7 +132,7 @@ function LockerPage() {
       }
       if (item.url) window.open(item.url, "_blank", "noopener,noreferrer");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Download failed");
+      toast.error(authErrorMessage(error));
     }
   };
 
@@ -233,7 +234,7 @@ function LockerPage() {
                       void deleteFolder
                         .mutateAsync(folder.id)
                         .then(() => toast.success("Folder deleted"))
-                        .catch((e: Error) => toast.error(e.message));
+                        .catch((e: unknown) => toast.error(authErrorMessage(e)));
                     }}
                   >
                     <Trash2 className="size-4" />
@@ -378,7 +379,7 @@ function NewFolderDialog({ userId }: { userId: string | undefined }) {
       setOpen(false);
       toast.success("Folder created");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not create folder");
+      toast.error(authErrorMessage(error));
     }
   };
 
@@ -511,7 +512,7 @@ function UploadDialog({
       setOpen(false);
       toast.success("Saved to your locker");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Upload failed");
+      toast.error(authErrorMessage(error));
     } finally {
       setBusy(false);
     }

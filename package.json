@@ -22,7 +22,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "check:no-admin-client": "node scripts/check-no-admin-in-client.mjs",
-    "check:server-bundle": "node scripts/check-server-bundle.mjs"
+    "check:server-bundle": "node scripts/check-server-bundle.mjs",
+    "test:rules": "npx firebase emulators:exec --only firestore --config firebase.rules-test.json --project demo-memskool-rules \"npx --yes tsx tests/rules/firestore.rules.test.ts\""
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -91,6 +92,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@lovable.dev/vite-tanstack-config": "2.13.1",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",

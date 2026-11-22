@@ -1,4 +1,4 @@
-import { mapFirebaseMessage } from "./app-error";
+import { mapFirebaseMessage, STORAGE_OFF_MESSAGE, storageErrorMessage } from "./app-error";
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message);
@@ -77,6 +77,29 @@ assert(
     `<!doctype html>\n<html>auth/email-already-in-use ${"x".repeat(80)}</html>`,
   ).includes("already exists"),
   "html body is not treated as email-already-in-use",
+);
+
+// Storage (Phase 4): no bucket on Spark must read as "uploads are off", not a user error.
+assert(
+  mapFirebaseMessage(
+    "Firebase Storage: An unknown error occurred, please check the error payload for server response. (storage/unknown)",
+  ) === STORAGE_OFF_MESSAGE,
+  "storage unknown means uploads are off",
+);
+assert(
+  mapFirebaseMessage("Firebase Storage: No default bucket found. (storage/no-default-bucket)") ===
+    STORAGE_OFF_MESSAGE,
+  "no default bucket means uploads are off",
+);
+assert(
+  mapFirebaseMessage(
+    "Firebase Storage: User does not have permission. (storage/unauthorized)",
+  ).includes("File storage may still be switched off"),
+  "storage unauthorized is honest about both causes",
+);
+assert(
+  storageErrorMessage("Missing or insufficient permissions.") === null,
+  "firestore error is not storage",
 );
 
 console.log("error mapping unit checks passed");

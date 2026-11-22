@@ -104,7 +104,43 @@ export function toUserMessage(error: unknown): string {
   return mapFirebaseMessage(firebaseErrorText(error));
 }
 
+/** Firebase Storage needs the Blaze plan (since Feb 2026); without it every call 402/403s. */
+export const STORAGE_OFF_MESSAGE =
+  "File uploads are not switched on for Memskool yet. You can still submit written work without an attachment.";
+
+/**
+ * Honest messages for Cloud Storage failures, or null when the error is not a Storage one.
+ * The common production case is "no bucket" (Spark plan): unknown / bucket / project /
+ * quota / 402 errors all mean uploads are off, not that the user did something wrong.
+ */
+export function storageErrorMessage(raw: string): string | null {
+  const m = raw.toLowerCase();
+  if (!m.includes("storage/") && !m.includes("firebase storage")) return null;
+  if (m.includes("storage/canceled")) return "Upload cancelled.";
+  if (m.includes("storage/object-not-found")) return "That file could not be found.";
+  if (m.includes("storage/retry-limit-exceeded")) {
+    return "The upload kept failing. Check your connection and try again.";
+  }
+  if (m.includes("storage/unauthenticated")) return "You need to be signed in to upload files.";
+  if (m.includes("storage/unauthorized")) {
+    return "This file can't be uploaded or opened right now. File storage may still be switched off, or you don't have access to it.";
+  }
+  if (
+    m.includes("storage/unknown") ||
+    m.includes("storage/bucket-not-found") ||
+    m.includes("storage/project-not-found") ||
+    m.includes("storage/quota-exceeded") ||
+    m.includes("storage/no-default-bucket") ||
+    m.includes("402")
+  ) {
+    return STORAGE_OFF_MESSAGE;
+  }
+  return "The file could not be uploaded right now. Try again in a moment.";
+}
+
 export function mapFirebaseMessage(raw: string): string {
+  const storage = storageErrorMessage(raw);
+  if (storage) return storage;
   const first = firstErrorLine(raw);
   const m = raw.toLowerCase();
   const f = first.toLowerCase();
