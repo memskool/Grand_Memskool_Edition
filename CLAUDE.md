@@ -10,6 +10,7 @@ Production: `memskool.com` · Firebase project `memskool-4e193` · Firestore Ent
 - **Auth/data:** Firebase Auth custom claims + Firestore + Admin SDK on server
 - **Live:** LiveKit (server-minted tokens)
 - **Removed:** Supabase client, Data Connect, and the Genkit sample were deleted — do not revive (`supabase/config.toml` stays only as the Lovable project link)
+- **File storage switch:** `STORAGE_PROVIDER=supabase|firebase` (`src/lib/storage-provider.server.ts`). Supabase is used **for file bytes only**, server-side REST with the service key (never `VITE_*`, no supabase-js, no Supabase DB/Auth). Access is enforced by `authorizeStorage` (`src/lib/storage-policy.ts`), which must mirror `storage.rules`. Paths are provider-neutral; switching back = `scripts/copy-storage-to-firebase.mjs` + flip the env var.
 
 ## Architecture (non-negotiable)
 

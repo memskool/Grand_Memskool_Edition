@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
-import { getFirebaseAuth, getFirebaseStorage } from "@/lib/firebase/client";
+import { getFirebaseAuth } from "@/lib/firebase/client";
+import { getObjectUrl, uploadObject } from "@/lib/storage";
 import { AppError } from "@/lib/errors/app-error";
 import {
   createHomeDraft,
@@ -272,18 +272,10 @@ export async function uploadHomeFile(
   if (file.size > MAX_HOME_VIDEO_BYTES) {
     throw new AppError("validation", "That file is larger than the 80 MB Home limit.");
   }
-  const storageRef = ref(getFirebaseStorage(), objectPath);
-  await new Promise<void>((resolve, reject) => {
-    const task = uploadBytesResumable(storageRef, file, { contentType: file.type || undefined });
-    task.on(
-      "state_changed",
-      (snap) => {
-        if (snap.totalBytes > 0)
-          onProgress?.(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
-      },
-      reject,
-      () => resolve(),
-    );
+  // Provider-neutral (Firebase or Supabase, per STORAGE_PROVIDER).
+  await uploadObject(objectPath, file, {
+    ...(onProgress ? { onProgress } : {}),
+    contentType: objectPath.endsWith(".vtt") ? "text/vtt" : "application/octet-stream",
   });
 }
 
@@ -301,7 +293,7 @@ export function assertHomeCaption(file: File) {
 
 export async function probeHomeObject(path: string): Promise<string | null> {
   try {
-    return await getDownloadURL(ref(getFirebaseStorage(), path));
+    return await getObjectUrl(path);
   } catch {
     return null;
   }

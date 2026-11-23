@@ -1,23 +1,25 @@
 import "@tanstack/react-start/server-only";
 
 const TTL_MS = 10 * 60_000;
-let cached: { at: number; value: boolean } | null = null;
+let cached: { at: number; value: boolean; provider: string } | null = null;
 
 /**
- * Is Cloud Storage usable? On the Spark plan (since Feb 2026) there is no bucket and every
- * call returns 402/403, so upload controls should say so up front instead of failing after
- * the user picks a file. Cached for 10 minutes; any error counts as "not available".
+ * Is file storage usable right now, on whichever provider STORAGE_PROVIDER selects?
+ * Firebase needs the Blaze plan; Supabase needs SUPABASE_URL + service key. Cached for
+ * 10 minutes (per provider); any error counts as "not available".
  */
 export async function storageAvailable(): Promise<boolean> {
-  if (cached && Date.now() - cached.at < TTL_MS) return cached.value;
+  const { providerReachable, storageProvider } = await import("@/lib/storage-provider.server");
+  const provider = storageProvider();
+  if (cached && cached.provider === provider && Date.now() - cached.at < TTL_MS) {
+    return cached.value;
+  }
   let value = false;
   try {
-    const { adminStorage } = await import("@/lib/firebase/admin.server");
-    const [exists] = await adminStorage().bucket().exists();
-    value = exists;
+    value = await providerReachable();
   } catch {
     value = false;
   }
-  cached = { at: Date.now(), value };
+  cached = { at: Date.now(), value, provider };
   return value;
 }

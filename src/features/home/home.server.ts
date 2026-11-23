@@ -1,6 +1,6 @@
 import "@tanstack/react-start/server-only";
 import { FieldValue } from "firebase-admin/firestore";
-import { adminDb, adminStorage } from "@/lib/firebase/admin.server";
+import { adminDb } from "@/lib/firebase/admin.server";
 import { adminCreate, adminGetById, adminSet, adminUpdate } from "@/lib/firebase/admin-repo";
 import { toClientJson } from "@/lib/firebase/plain-data";
 import { COLLECTIONS } from "@/lib/firebase/collections";
@@ -69,14 +69,9 @@ async function assertCanUpload(actor: Actor): Promise<void> {
 async function signedReadUrl(path: string | null): Promise<string | null> {
   if (!path) return null;
   try {
-    const file = adminStorage().bucket().file(path);
-    const [exists] = await file.exists();
-    if (!exists) return null;
-    const [url] = await file.getSignedUrl({
-      action: "read",
-      expires: Date.now() + 60 * 60 * 1000,
-    });
-    return url;
+    // Provider-neutral (Firebase Storage or Supabase Storage, per STORAGE_PROVIDER).
+    const { createReadUrl } = await import("@/lib/storage-provider.server");
+    return await createReadUrl(path, 60 * 60);
   } catch {
     return null;
   }
@@ -396,15 +391,10 @@ export async function submitHomeDraft(input: {
   if (video.creator_id !== input.actor.userId)
     throw new Error("Only the uploader can submit this video.");
 
-  const file = adminStorage().bucket().file(video.storage_path);
-  const [exists] = await file.exists();
-  let bytes = 0;
-  let mime = "";
-  if (exists) {
-    const [meta] = await file.getMetadata();
-    bytes = Number(meta.size ?? 0);
-    mime = String(meta.contentType ?? "");
-  }
+  const { objectMetadata } = await import("@/lib/storage-provider.server");
+  const meta = await objectMetadata(video.storage_path);
+  const bytes = meta?.size ?? 0;
+  const mime = meta?.contentType ?? "";
   const gate = canSubmitHomeVideo({
     status: video.status,
     ownerId: video.creator_id,
@@ -413,7 +403,7 @@ export async function submitHomeDraft(input: {
     description: input.description,
     rightsConfirmed: input.rightsConfirmed,
     noIdentifiableStudents: input.noIdentifiableStudents,
-    hasVideoFile: exists,
+    hasVideoFile: meta !== null,
     bytes,
     mimeType: mime,
     durationSeconds: input.durationSeconds,

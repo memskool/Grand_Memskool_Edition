@@ -1,6 +1,8 @@
 import { getDownloadURL, ref, uploadBytesResumable, getBlob, deleteObject } from "firebase/storage";
 import { getFirebaseAuth, getFirebaseStorage } from "@/lib/firebase/client";
 import { AppError } from "@/lib/errors/app-error";
+import { getPlatformCapabilities } from "@/lib/capabilities.functions";
+import { deleteStoredFile, getStoredFileUrl, prepareUpload } from "@/lib/storage.functions";
 
 export const MAX_FILE_BYTES = 50 * 1024 * 1024;
 export type FileCategory = "note" | "video" | "audio";
@@ -57,32 +59,120 @@ export function storageObjectPath(bucket: string, path: string): string {
   return path;
 }
 
+/* ------------------------------------------------------------------ */
+/* Provider switch (Firebase Storage ⇄ Supabase Storage)                 */
+/* ------------------------------------------------------------------ */
+
+type Provider = "firebase" | "supabase";
+let providerPromise: Promise<Provider> | null = null;
+
+/** Which backend holds files, as the server reports it (STORAGE_PROVIDER). Cached per load. */
+function activeProvider(): Promise<Provider> {
+  providerPromise ??= getPlatformCapabilities()
+    .then((c) => (c.storageProvider === "supabase" ? "supabase" : "firebase") as Provider)
+    .catch(() => {
+      providerPromise = null;
+      return "firebase" as Provider;
+    });
+  return providerPromise;
+}
+
+/** Browser → Supabase signed upload URL, with progress (same form as supabase-js). */
+function putToSignedUrl(url: string, file: File, onProgress?: (percent: number) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const form = new FormData();
+    form.append("cacheControl", "3600");
+    form.append("", file);
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.setRequestHeader("x-upsert", "true");
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && e.total > 0) onProgress?.(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(new AppError("network", "The upload did not finish. Try again."));
+    xhr.onerror = () =>
+      reject(new AppError("network", "The upload was interrupted. Check your connection."));
+    xhr.send(form);
+  });
+}
+
+function requireUser(message: string) {
+  const user = getFirebaseAuth().currentUser;
+  if (!user) throw new AppError("auth", message);
+  return user;
+}
+
+/**
+ * Uploads bytes to `objectPath` on the active provider. Returns the public URL for
+ * public objects (avatars on Supabase), otherwise null. Paths are provider-neutral.
+ */
+export async function uploadObject(
+  objectPath: string,
+  file: File,
+  opts: { onProgress?: (percent: number) => void; contentType?: string } = {},
+): Promise<string | null> {
+  requireUser("You need to be signed in to upload files.");
+  const contentType = file.type || opts.contentType || "application/octet-stream";
+  if ((await activeProvider()) === "supabase") {
+    const target = await prepareUpload({
+      data: { path: objectPath, size: file.size, contentType },
+    });
+    if (target.provider === "supabase") {
+      await putToSignedUrl(target.uploadUrl, file, opts.onProgress);
+      opts.onProgress?.(100);
+      return target.publicUrl;
+    }
+  }
+  const storageRef = ref(getFirebaseStorage(), objectPath);
+  await new Promise<void>((resolve, reject) => {
+    const task = uploadBytesResumable(storageRef, file, { contentType });
+    task.on(
+      "state_changed",
+      (snap) => {
+        if (snap.totalBytes > 0) {
+          opts.onProgress?.(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
+        }
+      },
+      (error) => reject(error),
+      () => {
+        opts.onProgress?.(100);
+        resolve();
+      },
+    );
+  });
+  return null;
+}
+
+/** A link that opens the file (short-lived on Supabase / signed on Firebase). */
+export async function getObjectUrl(objectPath: string): Promise<string> {
+  if ((await activeProvider()) === "supabase") {
+    return (await getStoredFileUrl({ data: { path: objectPath } })).url;
+  }
+  return getDownloadURL(ref(getFirebaseStorage(), objectPath));
+}
+
+export async function deleteStoredObject(objectPath: string): Promise<void> {
+  if ((await activeProvider()) === "supabase") {
+    await deleteStoredFile({ data: { path: objectPath } });
+    return;
+  }
+  await deleteObject(ref(getFirebaseStorage(), objectPath));
+}
+
+/* ------------------------------------------------------------------ */
+/* Existing call-site API (unchanged signatures)                        */
+/* ------------------------------------------------------------------ */
+
 export async function uploadWithProgress(
   bucket: string,
   path: string,
   file: File,
   onProgress?: (percent: number) => void,
 ): Promise<void> {
-  const user = getFirebaseAuth().currentUser;
-  if (!user) throw new AppError("auth", "You need to be signed in to upload files.");
-  const objectPath = storageObjectPath(bucket, path);
-  const storageRef = ref(getFirebaseStorage(), objectPath);
-  await new Promise<void>((resolve, reject) => {
-    const task = uploadBytesResumable(storageRef, file, { contentType: file.type || undefined });
-    task.on(
-      "state_changed",
-      (snap) => {
-        if (snap.totalBytes > 0) {
-          onProgress?.(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
-        }
-      },
-      (error) => reject(error),
-      () => {
-        onProgress?.(100);
-        resolve();
-      },
-    );
-  });
+  await uploadObject(storageObjectPath(bucket, path), file, onProgress ? { onProgress } : {});
 }
 
 export async function getSignedUrl(
@@ -91,11 +181,18 @@ export async function getSignedUrl(
   _expiresIn = 3600,
 ): Promise<string> {
   void _expiresIn;
-  return getDownloadURL(ref(getFirebaseStorage(), storageObjectPath(bucket, path)));
+  return getObjectUrl(storageObjectPath(bucket, path));
 }
 
 export async function downloadObject(bucket: string, path: string, fileName?: string | null) {
-  const blob = await getBlob(ref(getFirebaseStorage(), storageObjectPath(bucket, path)));
+  const objectPath = storageObjectPath(bucket, path);
+  const blob =
+    (await activeProvider()) === "supabase"
+      ? await fetch(await getObjectUrl(objectPath)).then((r) => {
+          if (!r.ok) throw new AppError("not_found", "That file could not be found.");
+          return r.blob();
+        })
+      : await getBlob(ref(getFirebaseStorage(), objectPath));
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -107,37 +204,30 @@ export async function downloadObject(bucket: string, path: string, fileName?: st
 }
 
 export async function removeObject(bucket: string, path: string) {
-  await deleteObject(ref(getFirebaseStorage(), storageObjectPath(bucket, path)));
+  await deleteStoredObject(storageObjectPath(bucket, path));
 }
 
 const AVATAR_MAX = 5 * 1024 * 1024;
 
 export async function getSchoolObjectUrl(objectPath: string): Promise<string> {
-  return getDownloadURL(ref(getFirebaseStorage(), objectPath));
+  return getObjectUrl(objectPath);
 }
 
 export async function uploadSchoolObject(objectPath: string, file: File): Promise<string> {
-  const user = getFirebaseAuth().currentUser;
-  if (!user) throw new AppError("auth", "You need to be signed in to upload files.");
+  requireUser("You need to be signed in to upload files.");
   const err = validateFile(file);
   if (err) throw new AppError("validation", err);
-  const storageRef = ref(getFirebaseStorage(), objectPath);
-  await new Promise<void>((resolve, reject) => {
-    const task = uploadBytesResumable(storageRef, file, { contentType: file.type || undefined });
-    task.on("state_changed", undefined, reject, () => resolve());
-  });
+  await uploadObject(objectPath, file);
   return objectPath;
 }
 
 export async function uploadAvatar(file: File): Promise<string> {
-  const user = getFirebaseAuth().currentUser;
-  if (!user) throw new AppError("auth", "You need to be signed in to update your photo.");
+  const user = requireUser("You need to be signed in to update your photo.");
   if (!file.type.startsWith("image/")) throw new AppError("validation", "Choose an image file.");
   if (file.size > AVATAR_MAX) throw new AppError("validation", "Photos must be 5 MB or smaller.");
-  const storageRef = ref(getFirebaseStorage(), `avatars/${user.uid}/profile`);
-  await new Promise<void>((resolve, reject) => {
-    const task = uploadBytesResumable(storageRef, file, { contentType: file.type || "image/jpeg" });
-    task.on("state_changed", undefined, reject, () => resolve());
-  });
-  return getDownloadURL(storageRef);
+  const path = `avatars/${user.uid}/profile`;
+  const publicUrl = await uploadObject(path, file, { contentType: "image/jpeg" });
+  // Supabase avatars live in a public bucket; ?v= busts caches after a new photo.
+  if (publicUrl) return `${publicUrl}?v=${Date.now()}`;
+  return getDownloadURL(ref(getFirebaseStorage(), path));
 }

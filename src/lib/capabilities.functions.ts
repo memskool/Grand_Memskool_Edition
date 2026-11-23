@@ -6,13 +6,16 @@ export type PlatformCapabilities = {
   payments: boolean;
   email: boolean;
   insights: boolean;
-  /** Cloud Storage bucket reachable (needs the Blaze plan). Gates every upload control. */
+  /** File storage reachable (Firebase on Blaze, or Supabase). Gates every upload control. */
   storage: boolean;
+  /** Which backend holds files; the browser picks its upload path from this. */
+  storageProvider: "firebase" | "supabase";
 };
 
 export const getPlatformCapabilities = createServerFn({ method: "POST" }).handler(
   async (): Promise<PlatformCapabilities> => {
     const { storageAvailable } = await import("@/lib/storage-health.server");
+    const { storageProvider } = await import("@/lib/storage-provider.server");
     return {
       liveVideo: Boolean(
         process.env["LIVEKIT_URL"] &&
@@ -26,6 +29,7 @@ export const getPlatformCapabilities = createServerFn({ method: "POST" }).handle
       email: Boolean(process.env["RESEND_API_KEY"]?.trim()),
       insights: Boolean(process.env["LOVABLE_API_KEY"]?.trim()),
       storage: await storageAvailable(),
+      storageProvider: storageProvider(),
     };
   },
 );

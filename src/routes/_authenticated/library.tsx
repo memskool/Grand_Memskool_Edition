@@ -11,6 +11,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAccess } from "@/lib/access";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { useSession, useRole } from "@/hooks/useAuth";
 import {
@@ -302,6 +303,7 @@ function LibraryPage() {
 
 function UploadBookDialog({ userId }: { userId: string | undefined }) {
   const subjects = useSubjects();
+  const { schoolId } = useAccess();
   const createBook = useCreateLibraryBook(userId);
 
   const [open, setOpen] = useState(false);
@@ -330,7 +332,10 @@ function UploadBookDialog({ userId }: { userId: string | undefined }) {
     try {
       let filePath: string | null = null;
       if (file) {
-        filePath = buildObjectPath(category, file.name);
+        // Must sit under schools/{schoolId}/resources/ — the storage rules allow nothing else
+        // (the old "{category}/…" path was always denied).
+        if (!schoolId) throw new Error("Join a school before uploading to its library.");
+        filePath = `schools/${schoolId}/resources/${buildObjectPath(category, file.name)}`;
         setProgress(0);
         await uploadWithProgress("library-files", filePath, file, setProgress);
       }
