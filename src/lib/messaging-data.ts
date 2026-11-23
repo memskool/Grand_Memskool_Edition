@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   COLLECTIONS,
@@ -26,6 +26,8 @@ export type Conversation = {
   title: string | null;
   created_by: string | null;
   created_at: string;
+  updated_at?: string | null;
+  member_ids?: string[];
   members: { user_id: string; profile: { full_name: string; avatar_url: string | null } | null }[];
 };
 
@@ -50,21 +52,40 @@ export function useMyConversations(userId?: string) {
         COLLECTIONS.conversationMembers,
         [where("user_id", "==", userId!)],
       );
-      const ids = memberships.map((m) => m.conversation_id);
+      const ids = [...new Set(memberships.map((m) => m.conversation_id))];
       if (!ids.length) return [];
-      const rows = await findMany<Conversation>(COLLECTIONS.conversations, [
-        where(documentId(), "in", ids.slice(0, 30)),
-      ]);
-      rows.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+      // Firestore `in` takes 30 ids: fetch every chunk (people with 30+ chats lost the rest).
+      const chunks: string[][] = [];
+      for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
+      const rows = (
+        await Promise.all(
+          chunks.map((chunk) =>
+            findMany<Conversation>(COLLECTIONS.conversations, [where(documentId(), "in", chunk)]),
+          ),
+        )
+      ).flat();
+      // Most recent activity first (updated_at moves on every message).
+      rows.sort((a, b) =>
+        (b.updated_at ?? b.created_at ?? "").localeCompare(a.updated_at ?? a.created_at ?? ""),
+      );
       return Promise.all(
         rows.map(async (row) => {
-          const members = await findMany<{ user_id: string }>(COLLECTIONS.conversationMembers, [
-            where("conversation_id", "==", row.id),
-          ]);
+          const memberIds = row.member_ids?.length
+            ? row.member_ids
+            : (
+                await findMany<{ user_id: string }>(COLLECTIONS.conversationMembers, [
+                  where("conversation_id", "==", row.id),
+                ])
+              ).map((m) => m.user_id);
           const hydrated = await Promise.all(
-            members.map(async (m) => {
-              const withProfile = await attachNamedUser(m, m.user_id, "profile");
-              return { user_id: m.user_id, profile: withProfile.profile };
+            [...new Set(memberIds)].map(async (memberId) => {
+              const profile = await profileLite(memberId);
+              return {
+                user_id: memberId,
+                profile: profile
+                  ? { full_name: profile.full_name, avatar_url: profile.avatar_url }
+                  : null,
+              };
             }),
           );
           return { ...row, members: hydrated };
@@ -117,9 +138,14 @@ export function useMessages(conversationId?: string) {
     let cancelled = false;
     let seq = 0;
     // Snapshot → cache directly (cached sender profiles); listener re-arms on errors.
+    // Only the latest window is live; older pages load on demand (useOlderMessages).
     const unsub = subscribeLive<Omit<Message, "sender">>(
       COLLECTIONS.messages,
-      [where("conversation_id", "==", conversationId)],
+      [
+        where("conversation_id", "==", conversationId),
+        orderBy("created_at", "desc"),
+        limit(MESSAGE_WINDOW),
+      ],
       (rows) => {
         const mine = ++seq;
         void hydrateMessages(rows).then((hydrated) => {
@@ -142,6 +168,51 @@ export function useMessages(conversationId?: string) {
   }, [conversationId, qc]);
 
   return query;
+}
+
+/** "Load older messages": pages back from the oldest message currently shown. */
+export function useOlderMessages(conversationId: string | undefined, latestCount: number) {
+  const [items, setItems] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [exhausted, setExhausted] = useState(false);
+  useEffect(() => {
+    setItems([]);
+    setExhausted(false);
+  }, [conversationId]);
+
+  const loadMore = useCallback(
+    async (oldestShown: string | null) => {
+      if (!conversationId || !oldestShown || loading) return;
+      setLoading(true);
+      try {
+        const rows = await findMany<Omit<Message, "sender">>(COLLECTIONS.messages, [
+          where("conversation_id", "==", conversationId),
+          where("created_at", "<", oldestShown),
+          orderBy("created_at", "desc"),
+          limit(MESSAGE_WINDOW),
+        ]);
+        const page = await Promise.all(
+          rows
+            .slice()
+            .reverse()
+            .map(async (row) => ({ ...row, sender: await profileLite(row.sender_id) })),
+        );
+        setItems((prev) => [...page, ...prev]);
+        if (rows.length < MESSAGE_WINDOW) setExhausted(true);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [conversationId, loading],
+  );
+
+  return {
+    items,
+    loading,
+    // Older history can exist only once the live window is full.
+    hasMore: !exhausted && latestCount >= MESSAGE_WINDOW,
+    loadMore,
+  };
 }
 
 export function useSendMessage() {

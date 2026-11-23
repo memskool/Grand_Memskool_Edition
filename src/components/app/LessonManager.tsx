@@ -25,6 +25,8 @@ import {
 import { useAccess } from "@/lib/access";
 import { AskAiButton } from "@/components/app/AskAiButton";
 import { buildObjectPath, uploadSchoolObject } from "@/lib/storage";
+import { UploadsOffNote } from "@/components/app/UploadsOffNote";
+import { useUploadsReady } from "@/hooks/useUploadsReady";
 
 type ClassOption = { id: string; name: string };
 
@@ -186,6 +188,7 @@ function MaterialRow({
   const add = useAddLessonMaterial(teacherId);
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
+  const uploadsReady = useUploadsReady();
 
   return (
     <div className="mt-3 space-y-2 border-t border-border pt-3">
@@ -226,8 +229,10 @@ function MaterialRow({
         >
           Add link
         </Button>
+        {!uploadsReady ? <UploadsOffNote what="File uploads (links still work)" /> : null}
         <Input
           type="file"
+          disabled={!uploadsReady}
           onChange={async (e) => {
             const file = e.target.files?.[0];
             e.target.value = "";

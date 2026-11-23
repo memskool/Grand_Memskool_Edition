@@ -13,6 +13,8 @@ import { useAccess } from "@/lib/access";
 import { buildObjectPath, uploadSchoolObject } from "@/lib/storage";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { canSubmit, formatMark } from "@/features/academic/grading-policy";
+import { UploadsOffNote } from "@/components/app/UploadsOffNote";
+import { useUploadsReady } from "@/hooks/useUploadsReady";
 
 type MySubmission = {
   student_id: string;
@@ -52,6 +54,7 @@ export function AssignmentWorkPanel({ studentId }: { studentId: string }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [paths, setPaths] = useState<string[]>([]);
+  const uploadsReady = useUploadsReady();
 
   return (
     <Panel
@@ -151,8 +154,9 @@ export function AssignmentWorkPanel({ studentId }: { studentId: string }) {
                       onChange={(e) => setText(e.target.value)}
                       placeholder="Write your answer or notes"
                     />
+                    {!uploadsReady ? <UploadsOffNote what="File attachments" /> : null}
                     <InputFile
-                      disabled={!schoolId || !allowed.ok}
+                      disabled={!schoolId || !allowed.ok || !uploadsReady}
                       onFile={async (file) => {
                         if (!schoolId) return;
                         const path = `schools/${schoolId}/submissions/${studentId}/${a.id}/${buildObjectPath("", file.name).replace(/^\//, "")}`;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { MessageSquare, Plus, Ban, BellOff, Search, Users, Stethoscope } from "lucide-react";
 import { toast } from "sonner";
@@ -7,6 +7,7 @@ import {
   useCreateConversation,
   useDirectory,
   useMessages,
+  useOlderMessages,
   useMyConversations,
   useSendMessage,
   useSetRelation,
@@ -240,10 +241,19 @@ function ChatPane({
   onRelation: (targetId: string, relation: "mute" | "block", enabled: boolean) => void;
 }) {
   const messages = useMessages(conversation.id);
+  const older = useOlderMessages(conversation.id, messages.data?.length ?? 0);
   const send = useSendMessage();
   const [draft, setDraft] = useState("");
 
-  const visible = (messages.data ?? []).filter((m) => !blocked.has(m.sender_id));
+  const visible = [...older.items, ...(messages.data ?? [])].filter(
+    (m) => !blocked.has(m.sender_id),
+  );
+  // Keep the newest message in view when one arrives (not when older history is prepended).
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const newestId = messages.data?.at(-1)?.id;
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ block: "end" });
+  }, [newestId, conversation.id]);
   const others = conversation.members.filter((m) => m.user_id !== userId);
 
   return (
@@ -298,6 +308,19 @@ function ChatPane({
           </div>
         ) : visible.length ? (
           <ul className="space-y-3">
+            {older.hasMore ? (
+              <li className="flex justify-center">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="rounded-full text-xs"
+                  disabled={older.loading}
+                  onClick={() => void older.loadMore(visible[0]?.created_at ?? null)}
+                >
+                  {older.loading ? "Loading…" : "Load older messages"}
+                </Button>
+              </li>
+            ) : null}
             {visible.map((m) => {
               const mine = m.sender_id === userId;
               return (
@@ -330,6 +353,7 @@ function ChatPane({
             hint="Say hello to get the conversation going."
           />
         )}
+        <div ref={bottomRef} />
       </ScrollArea>
 
       <form

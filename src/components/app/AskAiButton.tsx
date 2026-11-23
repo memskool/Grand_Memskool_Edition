@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { usePlatformCapabilities } from "@/hooks/usePlatformCapabilities";
 
 export function AskAiButton({
   lessonId,
@@ -17,6 +18,9 @@ export function AskAiButton({
   intent?: string;
   label?: string;
 }) {
+  const { data: capabilities } = usePlatformCapabilities();
+  // Polish: hide the shortcut while the tutor has no AI provider configured.
+  if (capabilities && !capabilities.tutor) return null;
   return (
     <Button asChild size="sm" variant="outline" className="rounded-full">
       <Link

@@ -3,6 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Clapperboard } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState, PageHeader, Panel, ListSkeleton } from "@/components/app/primitives";
+import { UploadsOffNote } from "@/components/app/UploadsOffNote";
+import { useUploadsReady } from "@/hooks/useUploadsReady";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -54,6 +56,7 @@ function HomeStudioPage() {
   const [asSchool, setAsSchool] = useState(false);
   const [rights, setRights] = useState(false);
   const [noStudents, setNoStudents] = useState(false);
+  const uploadsReady = useUploadsReady();
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -131,6 +134,11 @@ function HomeStudioPage() {
         subtitle="Educational short videos. Clips stay private until a platform operator approves them."
       />
       <Panel title="Upload" description="MP4, WebM or QuickTime · 5 seconds–3 minutes · 80 MB max">
+        {!uploadsReady ? (
+          <div className="mb-4 rounded-2xl border border-border bg-secondary/40 p-3">
+            <UploadsOffNote what="Video uploads" />
+          </div>
+        ) : null}
         <form className="space-y-4" onSubmit={(event) => void onSubmit(event)}>
           <div>
             <Label htmlFor="title">Title</Label>
@@ -228,7 +236,7 @@ function HomeStudioPage() {
             This clip does not show identifiable student footage
           </label>
           {progress > 0 ? <Progress value={progress} /> : null}
-          <Button type="submit" disabled={create.isPending || submit.isPending}>
+          <Button type="submit" disabled={create.isPending || submit.isPending || !uploadsReady}>
             Submit for review
           </Button>
         </form>

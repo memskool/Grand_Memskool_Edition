@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { UploadsOffNote } from "@/components/app/UploadsOffNote";
+import { useUploadsReady } from "@/hooks/useUploadsReady";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { COLLECTIONS, patchById } from "@/lib/firebase/repo";
@@ -53,6 +55,7 @@ function SettingsPage() {
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const uploadsReady = useUploadsReady();
   const orders = useMyOrders(user?.id);
 
   useEffect(() => {
@@ -103,12 +106,13 @@ function SettingsPage() {
                 <Label htmlFor="st-avatar" className="text-sm font-medium">
                   Photo
                 </Label>
+                {!uploadsReady ? <UploadsOffNote what="Photo uploads" /> : null}
                 <Input
                   id="st-avatar"
                   type="file"
                   accept="image/*"
                   className="mt-1"
-                  disabled={uploading}
+                  disabled={uploading || !uploadsReady}
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
                     e.target.value = "";

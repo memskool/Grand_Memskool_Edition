@@ -89,9 +89,9 @@ function AiTutorPage() {
       </header>
       {capabilities && !capabilities.tutor ? (
         <ServiceNotice title="Tutor not connected yet">
-          The AI Tutor waits for Crane5 credentials. Your classes, locker, assessments and live
-          lessons still work. Ask AI buttons stay visible so the path is ready when Crane5 is
-          connected.
+          The AI Tutor is coming soon. Your classes, locker, assessments and live lessons all work
+          in the meantime, and the Ask AI shortcuts appear on lessons and assignments as soon as the
+          tutor is switched on.
         </ServiceNotice>
       ) : null}
       <AiTutorChat launch={launch} enabled={capabilities?.tutor === true} />

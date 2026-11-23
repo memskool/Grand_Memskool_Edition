@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { formatBytes, inferCategory, validateFile, MAX_FILE_BYTES } from "@/lib/storage";
+import { UploadsOffNote } from "@/components/app/UploadsOffNote";
+import { useUploadsReady } from "@/hooks/useUploadsReady";
 
 const ICONS = { note: FileText, video: Film, audio: AudioLines } as const;
 
@@ -26,6 +28,7 @@ export function FileDropzone({
 }) {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const uploadsReady = useUploadsReady();
 
   const accept_ = useCallback(
     (next: File | undefined) => {
@@ -39,6 +42,14 @@ export function FileDropzone({
     },
     [onFile, onError],
   );
+
+  if (!uploadsReady && !file) {
+    return (
+      <div className="flex flex-col items-center rounded-xl border border-dashed border-border px-6 py-8 text-center">
+        <UploadsOffNote what="File uploads" />
+      </div>
+    );
+  }
 
   if (file) {
     const Icon = ICONS[inferCategory(file)];

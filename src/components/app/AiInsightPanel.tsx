@@ -30,6 +30,9 @@ export function AiInsightPanel({
 
   const items = insights.data ?? [];
 
+  // Polish: no AI provider configured on the server → no dead card on every dashboard.
+  if (capabilities && !capabilities.insights && items.length === 0) return null;
+
   return (
     <section className="relative overflow-hidden rounded-3xl border border-white/15 bg-card/60 p-5 backdrop-blur-xl">
       <div

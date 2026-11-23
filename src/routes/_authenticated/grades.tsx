@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Download, GraduationCap, Printer } from "lucide-react";
 import { useSession, useRole } from "@/hooks/useAuth";
 import { useAccess } from "@/lib/access";
@@ -59,7 +59,20 @@ function GradesPage() {
   if (!user || !role) return <ListSkeleton rows={4} />;
   if (role === "student") return <ReportCardScreen studentId={user.id} />;
   if (role === "parent") return <ParentReports />;
-  if (student) return <ReportCardScreen studentId={student} />;
+  if (student) {
+    return (
+      <>
+        <Link
+          to="/grades"
+          className="mb-3 inline-block text-sm font-medium text-primary hover:underline"
+          data-print-hide
+        >
+          ← Back to gradebook
+        </Link>
+        <ReportCardScreen studentId={student} />
+      </>
+    );
+  }
   return <GradebookScreen userId={user.id} role={role} />;
 }
 
@@ -278,12 +291,13 @@ function GradebookTable({ data }: { data: GradebookData }) {
                 <td className="px-2 py-2 font-semibold tabular-nums">{pct(r.average)}</td>
                 <td className="px-2 py-2 font-semibold">{r.grade ?? "—"}</td>
                 <td className="px-2 py-2" data-print-hide>
-                  <a
+                  <Link
+                    to="/grades"
+                    search={{ student: r.student_id }}
                     className="text-xs font-medium text-primary underline-offset-2 hover:underline"
-                    href={`/grades?student=${encodeURIComponent(r.student_id)}`}
                   >
                     Report card
-                  </a>
+                  </Link>
                 </td>
               </tr>
             ))}
