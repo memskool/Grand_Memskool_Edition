@@ -1,9 +1,26 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, BookOpen, MapPin } from "lucide-react";
+import { ArrowUpRight, BookOpen, MapPin, Video } from "lucide-react";
+import { LeafCluster, WaveLines } from "@/components/app/art";
 import type { ClassRow } from "@/lib/school-data";
 import { EmptyState } from "@/components/app/primitives";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+
+/** Stable colour per class so each one is recognisable at a glance. */
+const THUMBS = [
+  "bg-[linear-gradient(135deg,oklch(0.3_0.07_262),oklch(0.45_0.1_255))]",
+  "bg-[linear-gradient(135deg,oklch(0.45_0.1_160),oklch(0.6_0.12_150))]",
+  "bg-[linear-gradient(135deg,oklch(0.55_0.12_75),oklch(0.72_0.13_88))]",
+  "bg-[linear-gradient(135deg,oklch(0.45_0.11_230),oklch(0.62_0.1_220))]",
+  "bg-[linear-gradient(135deg,oklch(0.45_0.14_290),oklch(0.6_0.13_300))]",
+  "bg-[linear-gradient(135deg,oklch(0.5_0.16_20),oklch(0.65_0.15_35))]",
+];
+
+function thumbFor(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return THUMBS[h % THUMBS.length]!;
+}
 
 export function ClassCard({
   klass,
@@ -20,41 +37,34 @@ export function ClassCard({
       to="/virtual-classroom"
       search={{ class: klass.id }}
       className={cn(
-        "group relative flex min-h-[148px] flex-col justify-between overflow-hidden rounded-xl bg-ink p-5 text-ink-foreground transition-transform duration-200 ease-out hover:-translate-y-0.5",
+        "group flex flex-col overflow-hidden rounded-[1.4rem] border border-border bg-card shadow-[var(--shadow-soft)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]",
         className,
       )}
     >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-sky/20"
-      />
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -bottom-12 -left-8 size-28 rounded-full bg-leaf/15"
-      />
-      <span
-        aria-hidden
-        className="accent-rail pointer-events-none absolute inset-x-0 top-0 h-0.5"
-      />
-      <div className="flex items-start justify-between gap-3">
-        <span className="flex size-10 items-center justify-center rounded-lg bg-ink-foreground/10">
-          <BookOpen className="size-[18px]" />
-        </span>
-        <ArrowUpRight className="size-4 opacity-40 transition-opacity group-hover:opacity-100" />
-      </div>
-      <div className="min-w-0">
-        <p className="truncate text-[11px] font-medium uppercase tracking-[0.16em] text-ink-muted">
+      <div className={cn("relative h-24 overflow-hidden", thumbFor(klass.id))}>
+        <WaveLines className="absolute inset-0 h-full w-full" />
+        <LeafCluster className="absolute -bottom-6 -right-4 h-24 w-32 opacity-60" />
+        <span className="absolute left-4 top-4 rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
           {klass.subject?.name ?? "General"}
-        </p>
-        <p className="mt-1 truncate font-display text-lg font-bold leading-tight">{klass.name}</p>
-        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-ink-muted">
+        </span>
+        <span className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-full bg-white text-[oklch(0.225_0.054_262)] opacity-90 transition-opacity group-hover:opacity-100">
+          <ArrowUpRight className="size-4" />
+        </span>
+      </div>
+      <div className="min-w-0 p-4">
+        <p className="truncate font-display text-lg font-bold leading-tight">{klass.name}</p>
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
           {klass.room ? (
             <>
               <MapPin className="size-3.5" />
               {klass.room}
             </>
-          ) : null}
-          {meta ? <span className="truncate">{meta}</span> : null}
+          ) : (
+            <>
+              <Video className="size-3.5" /> Tap to open the live room
+            </>
+          )}
+          {meta ? <span className="truncate">· {meta}</span> : null}
         </p>
       </div>
     </Link>
@@ -74,7 +84,7 @@ export function ClassCardGrid({
     return (
       <div className="grid gap-4 sm:grid-cols-2">
         {[0, 1].map((i) => (
-          <Skeleton key={i} className="h-[148px] rounded-xl" />
+          <Skeleton key={i} className="h-[168px] rounded-[1.4rem]" />
         ))}
       </div>
     );

@@ -121,7 +121,7 @@ export function AiTutorChat({
 
   return (
     <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)_14rem]">
-      <aside className="rounded-3xl border border-white/15 bg-card/60 p-3 backdrop-blur-xl">
+      <aside className="surface-card p-3">
         <div className="mb-2 flex items-center justify-between">
           <p className="text-xs font-medium">Conversations</p>
           <Button
@@ -175,7 +175,7 @@ export function AiTutorChat({
         )}
       </aside>
 
-      <section className="flex min-h-[70vh] flex-col overflow-hidden rounded-3xl border border-white/15 bg-card/60 backdrop-blur-xl">
+      <section className="flex min-h-[70vh] flex-col overflow-hidden surface-card">
         <header className="border-b border-white/10 px-4 py-3">
           <div className="flex flex-wrap items-center gap-2">
             <Badge className="rounded-full bg-primary/12 text-primary hover:bg-primary/12">
@@ -313,7 +313,7 @@ export function AiTutorChat({
         </form>
       </section>
 
-      <aside className="rounded-3xl border border-white/15 bg-card/60 p-3 backdrop-blur-xl">
+      <aside className="surface-card p-3">
         <p className="mb-2 text-xs font-medium">Learning memory</p>
         <p className="mb-3 text-[11px] text-muted-foreground">
           Short notes the tutor may use. Separate from chat history.

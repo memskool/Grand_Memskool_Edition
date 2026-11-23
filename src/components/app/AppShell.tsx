@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app/AppSidebar";
 import { UserMenu } from "@/components/app/UserMenu";
@@ -14,11 +14,20 @@ import { IdentityBanners } from "@/components/app/IdentityBanners";
 import { AppErrorBoundary } from "@/components/app/AppErrorBoundary";
 import { NetworkBanner } from "@/components/app/NetworkBanner";
 import { PRODUCT_EVENTS, trackProductEvent } from "@/lib/analytics";
+import { AppsLauncher } from "@/components/app/AppsLauncher";
+import { CommandPalette, SearchPill } from "@/components/app/CommandPalette";
+import { usePaletteShortcut } from "@/hooks/usePaletteShortcut";
 
 export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     void trackProductEvent(PRODUCT_EVENTS.workspaceOpen);
   }, []);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const togglePalette = useCallback(
+    (fn: (open: boolean) => boolean) => setPaletteOpen((o) => fn(o)),
+    [],
+  );
+  usePaletteShortcut(togglePalette);
   return (
     <SidebarProvider>
       <a
@@ -28,26 +37,25 @@ export function AppShell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <AppSidebar />
-      <SidebarInset className="canvas-mesh min-w-0 overflow-x-clip">
+      <SidebarInset className="min-w-0 overflow-x-clip bg-background">
         <NetworkBanner />
         <header
           data-print-hide
-          className="relative sticky top-0 z-10 flex min-h-14 items-center gap-2 border-b border-border/80 bg-background/88 px-3 pt-[env(safe-area-inset-top)] backdrop-blur-md sm:gap-3 sm:px-6"
+          className="sticky top-0 z-10 flex min-h-16 items-center gap-2 bg-background/95 px-3 pt-[env(safe-area-inset-top)] sm:gap-3 sm:px-6"
         >
-          <SidebarTrigger className="hidden rounded-lg md:inline-flex" />
-          <BrandMark size={32} priority />
-          <span className="hidden font-display text-sm font-semibold tracking-tight text-foreground sm:inline">
-            Memskool
+          <SidebarTrigger className="hidden size-10 rounded-full md:inline-flex" />
+          <span className="md:hidden">
+            <BrandMark size={32} priority />
           </span>
-          <div className="flex-1" />
-          <ThemeToggle />
-          <NotificationBell />
-          <UserMenu />
-          <span
-            aria-hidden
-            className="accent-rail pointer-events-none absolute inset-x-0 bottom-0 h-0.5"
-          />
+          <SearchPill onOpen={() => setPaletteOpen(true)} />
+          <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
+            <AppsLauncher />
+            <ThemeToggle />
+            <NotificationBell />
+            <UserMenu />
+          </div>
         </header>
+        <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
 
         <main
           id="main"

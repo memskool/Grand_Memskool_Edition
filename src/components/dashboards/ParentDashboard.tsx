@@ -56,19 +56,23 @@ export function ParentDashboard({ user }: { user: AuthUser }) {
         </div>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         <StatCard
           label="Attendance rate"
           value={`${rate}%`}
           icon={CalendarCheck}
           tone="leaf"
           loading={attendance.isLoading}
+          highlight
+          hint="From your child's registers"
         />
         <StatCard
           label="Average grade"
           value={graded.length ? `${average}%` : "—"}
           icon={TrendingUp}
           loading={performance.isLoading}
+          to="/grades"
+          hint="Open the report card"
         />
         <StatCard
           label="Graded items"

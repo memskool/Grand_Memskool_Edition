@@ -2,18 +2,11 @@ import { useState } from "react";
 import { ClipboardCheck, ClipboardList, Plus, Trash2 } from "lucide-react";
 import { SubmissionReviewDialog } from "@/components/app/SubmissionReviewDialog";
 import { toast } from "sonner";
-import { Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
+import { ChipGroup, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   useTeacherAssignments,
   useCreateAssignment,
@@ -82,22 +75,20 @@ export function TeacherAssignmentPanel({
 
   return (
     <Panel title="Assignments" description="Set work for the classes you teach">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="space-y-1.5">
-          <Label>Class</Label>
-          <Select value={classId} onValueChange={setClassId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select class" />
-            </SelectTrigger>
-            <SelectContent>
-              {classes.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="mb-3 space-y-1.5">
+        <Label>Class</Label>
+        {classes.length ? (
+          <ChipGroup
+            label="Class"
+            value={classId || null}
+            onChange={setClassId}
+            options={classes.map((c) => ({ value: c.id, label: c.name }))}
+          />
+        ) : (
+          <p className="text-xs text-muted-foreground">No classes assigned to you yet.</p>
+        )}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
         <div className="space-y-1.5">
           <Label htmlFor="a-title">Title</Label>
           <Input id="a-title" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -120,7 +111,7 @@ export function TeacherAssignmentPanel({
             onChange={(e) => setPoints(e.target.value)}
           />
         </div>
-        <div className="space-y-1.5 sm:col-span-2 lg:col-span-4">
+        <div className="space-y-1.5 sm:col-span-3">
           <Label htmlFor="a-desc">Instructions</Label>
           <Textarea
             id="a-desc"

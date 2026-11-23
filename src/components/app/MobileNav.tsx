@@ -114,7 +114,7 @@ export function MobileNav() {
 
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-background/95 backdrop-blur-md md:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card md:hidden"
       >
         <ul className="mx-auto grid max-w-lg grid-cols-4 px-1 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom))]">
           {tabs.map((item) => {
@@ -131,8 +131,8 @@ export function MobileNav() {
                 >
                   <span
                     className={cn(
-                      "flex size-8 items-center justify-center rounded-full",
-                      active && "bg-primary/12",
+                      "flex h-8 w-12 items-center justify-center rounded-full transition-colors",
+                      active && "bg-primary text-primary-foreground",
                     )}
                   >
                     <item.icon className="size-[18px]" />
@@ -155,8 +155,8 @@ export function MobileNav() {
             >
               <span
                 className={cn(
-                  "flex size-8 items-center justify-center rounded-full",
-                  open && "bg-primary/12",
+                  "flex h-8 w-12 items-center justify-center rounded-full transition-colors",
+                  open && "bg-primary text-primary-foreground",
                 )}
               >
                 <Menu className="size-[18px]" />

@@ -1,4 +1,4 @@
-import { Award, Flame, Sparkles, Trophy } from "lucide-react";
+import { Award, Flame, Lock, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -92,7 +92,7 @@ export function RewardsWidget({
                     : "bg-muted text-muted-foreground",
                 )}
               >
-                {b.earned ? <Award className="size-4" /> : <Sparkles className="size-4" />}
+                {b.earned ? <Award className="size-4" /> : <Lock className="size-4" />}
               </span>
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{b.name}</p>

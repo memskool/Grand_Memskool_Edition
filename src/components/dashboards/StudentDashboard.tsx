@@ -53,12 +53,15 @@ export function StudentDashboard({ user }: { user: AuthUser }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         <StatCard
           label="Enrolled classes"
           value={classes.data?.length ?? 0}
           icon={BookOpen}
           loading={classes.isLoading}
+          highlight
+          hint="Tap to see your report card"
+          to="/grades"
         />
         <StatCard
           label="Pending assignments"
@@ -66,6 +69,7 @@ export function StudentDashboard({ user }: { user: AuthUser }) {
           icon={ClipboardList}
           tone="warning"
           loading={assignments.isLoading}
+          hint={pending.length ? "Open one below to hand it in" : "All caught up"}
         />
         <StatCard
           label="Locker items"
@@ -73,6 +77,7 @@ export function StudentDashboard({ user }: { user: AuthUser }) {
           icon={Archive}
           tone="sky"
           loading={locker.isLoading}
+          to="/locker"
         />
       </div>
 

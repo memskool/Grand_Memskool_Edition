@@ -1,17 +1,10 @@
 import { useMemo, useState } from "react";
 import { Download, Printer, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { Panel } from "@/components/app/primitives";
+import { ChipGroup, Panel } from "@/components/app/primitives";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { BOM, parseImportText, toCsv, type ImportRole } from "@/features/academic/report-policy";
 import { useBulkImport, type ImportResultRow } from "@/features/academic/reports-data";
@@ -94,22 +87,19 @@ export function BulkImportPanel() {
     >
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Select
+          <ChipGroup
+            label="Who are you importing?"
             value={role}
-            onValueChange={(v) => {
-              setRole(v as ImportRole);
+            onChange={(v) => {
+              setRole(v);
               setResults(null);
             }}
-          >
-            <SelectTrigger className="w-44" aria-label="Who are you importing?">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="student">Students</SelectItem>
-              <SelectItem value="teacher">Teachers</SelectItem>
-              <SelectItem value="parent">Parents</SelectItem>
-            </SelectContent>
-          </Select>
+            options={[
+              { value: "student", label: "Students" },
+              { value: "teacher", label: "Teachers" },
+              { value: "parent", label: "Parents" },
+            ]}
+          />
           <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm hover:bg-secondary">
             <Upload className="size-4" /> Open CSV
             <input

@@ -92,57 +92,15 @@ export function TeacherDashboard({ user }: { user: AuthUser }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Button
-          asChild
-          variant="outline"
-          className="h-auto w-full justify-start whitespace-normal rounded-2xl p-4 text-left"
-        >
-          <Link to="/virtual-classroom">
-            <span>
-              <span className="block text-sm font-semibold">Start live class</span>
-              <span className="block text-xs font-normal text-muted-foreground">
-                Open a lesson for a class you teach
-              </span>
-            </span>
-          </Link>
-        </Button>
-        <Button
-          asChild
-          variant="outline"
-          className="h-auto w-full justify-start whitespace-normal rounded-2xl p-4 text-left"
-        >
-          <Link to="/assessments">
-            <span>
-              <span className="block text-sm font-semibold">Mark work</span>
-              <span className="block text-xs font-normal text-muted-foreground">
-                Assessments waiting for you
-              </span>
-            </span>
-          </Link>
-        </Button>
-        <Button
-          asChild
-          variant="outline"
-          className="h-auto w-full justify-start whitespace-normal rounded-2xl p-4 text-left"
-        >
-          <Link to="/messages">
-            <span>
-              <span className="block text-sm font-semibold">Messages</span>
-              <span className="block text-xs font-normal text-muted-foreground">
-                Talk with your school
-              </span>
-            </span>
-          </Link>
-        </Button>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         <StatCard
           label="Active classes"
           value={classes.data?.length ?? 0}
           icon={BookOpen}
           loading={classes.isLoading}
+          highlight
+          hint="Classes you teach this term"
+          to="/grades"
         />
         <StatCard
           label="Sessions today"
@@ -157,6 +115,7 @@ export function TeacherDashboard({ user }: { user: AuthUser }) {
           icon={ClipboardCheck}
           tone="warning"
           loading={grading.isLoading}
+          hint="Oldest first in Pending grading"
         />
       </div>
 

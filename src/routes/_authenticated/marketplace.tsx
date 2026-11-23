@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { BookOpen, GraduationCap, Plus, ShoppingBag, Sparkles } from "lucide-react";
+import { BookOpen, FileText, GraduationCap, Plus, ShoppingBag } from "lucide-react";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { useSession, useRole } from "@/hooks/useAuth";
 import { usePlatformCapabilities } from "@/hooks/usePlatformCapabilities";
@@ -62,7 +62,7 @@ export const Route = createFileRoute("/_authenticated/marketplace")({
 
 const KIND_ICON = {
   book: BookOpen,
-  resource: Sparkles,
+  resource: FileText,
   tutoring: GraduationCap,
 } as const;
 

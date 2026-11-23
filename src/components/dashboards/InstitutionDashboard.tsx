@@ -219,8 +219,15 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Students" value={students.length} icon={GraduationCap} />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <StatCard
+          label="Students"
+          value={students.length}
+          icon={GraduationCap}
+          highlight
+          hint="Approved on your roll"
+          to="/grades"
+        />
         <StatCard label="Teachers" value={teachers.length} icon={Users} tone="success" />
         <StatCard
           label="Pending requests"
@@ -228,6 +235,7 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
           icon={ClipboardList}
           tone="warning"
           loading={members.isLoading}
+          hint={pending.length ? "Waiting for your approval" : "Nothing waiting"}
         />
         <StatCard
           label="Roster entries"

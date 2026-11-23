@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Building2, ExternalLink, Globe2, MapPin, Search, Sparkles, Trash2 } from "lucide-react";
+import { Building2, Compass, ExternalLink, Globe2, MapPin, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useSession, useProfile, useRole } from "@/hooks/useAuth";
 import {
@@ -230,7 +230,7 @@ function DreamSchoolPage() {
             </div>
           ) : (
             <EmptyState
-              icon={Sparkles}
+              icon={Compass}
               title={
                 (schools.data?.length ?? 0) === 0
                   ? "No schools listed yet"

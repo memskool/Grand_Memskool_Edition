@@ -18,16 +18,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { BOM, toCsv } from "@/features/academic/report-policy";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
-import { PageHeader, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
+import {
+  ChipGroup,
+  PageHeader,
+  Panel,
+  EmptyState,
+  ListSkeleton,
+} from "@/components/app/primitives";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { formatDate } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/grades")({
@@ -89,20 +88,21 @@ function TermSelect({
   value: string | null;
   onChange: (id: string | null) => void;
 }) {
+  // Chips, not a dropdown: every term is visible and one tap away.
   return (
-    <Select value={value ?? ALL_TIME} onValueChange={(v) => onChange(v === ALL_TIME ? null : v)}>
-      <SelectTrigger className="w-full sm:w-56" aria-label="Term">
-        <SelectValue placeholder="All work" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={ALL_TIME}>All work (no term filter)</SelectItem>
-        {periods.map((p) => (
-          <SelectItem key={p.id} value={p.id}>
-            {p.name} · {formatDate(p.starts_on)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <ChipGroup
+      label="Term"
+      value={value ?? ALL_TIME}
+      onChange={(v) => onChange(v === ALL_TIME ? null : v)}
+      options={[
+        { value: ALL_TIME, label: "All work" },
+        ...periods.map((p) => ({
+          value: p.id,
+          label: p.name,
+          hint: `${formatDate(p.starts_on)} – ${formatDate(p.ends_on)}`,
+        })),
+      ]}
+    />
   );
 }
 
@@ -137,25 +137,23 @@ function GradebookScreen({ userId, role }: { userId: string; role: string }) {
         title="Gradebook"
         subtitle="Every mark in a class, with averages, missing work and a report card per learner."
       />
-      <div className="mb-4 flex flex-wrap gap-2" data-print-hide>
-        <Select value={classId ?? ""} onValueChange={setClassId}>
-          <SelectTrigger className="w-full sm:w-64" aria-label="Class">
-            <SelectValue placeholder={loadingClasses ? "Loading classes…" : "Choose a class"} />
-          </SelectTrigger>
-          <SelectContent>
-            {classes.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <TermSelect periods={book.data?.periods ?? []} value={periodId} onChange={setPeriodId} />
-        {book.data?.rows.length ? (
-          <Button variant="outline" className="rounded-full" onClick={() => exportCsv(book.data!)}>
-            <Download className="mr-1.5 size-4" /> Export CSV
-          </Button>
+      <div className="mb-5 space-y-3" data-print-hide>
+        {classes.length ? (
+          <ChipGroup
+            label="Class"
+            value={classId}
+            onChange={setClassId}
+            options={classes.map((c) => ({ value: c.id, label: c.name }))}
+          />
         ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <TermSelect periods={book.data?.periods ?? []} value={periodId} onChange={setPeriodId} />
+          {book.data?.rows.length ? (
+            <Button variant="outline" onClick={() => exportCsv(book.data!)}>
+              <Download className="size-4" /> Export CSV
+            </Button>
+          ) : null}
+        </div>
       </div>
       {book.data?.can_set_weights ? <WeightsControl current={book.data.weights} /> : null}
 
@@ -335,18 +333,12 @@ function ParentReports() {
     <>
       {children.data.length > 1 ? (
         <div className="mb-3" data-print-hide>
-          <Select value={childId ?? ""} onValueChange={setChildId}>
-            <SelectTrigger className="w-full sm:w-64" aria-label="Child">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {children.data.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ChipGroup
+            label="Child"
+            value={childId}
+            onChange={setChildId}
+            options={children.data.map((c) => ({ value: c.id, label: c.name }))}
+          />
         </div>
       ) : null}
       {childId ? <ReportCardScreen studentId={childId} /> : null}

@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
-import { useSession, useProfile, useRole } from "@/hooks/useAuth";
-import { PageHeader, ListSkeleton } from "@/components/app/primitives";
+import { useSession, useRole } from "@/hooks/useAuth";
+import { ListSkeleton } from "@/components/app/primitives";
+import { QuickActions, WelcomeBanner } from "@/components/app/DashboardHero";
 import { isSchoolManager } from "@/types/roles";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -56,21 +57,18 @@ const SUBTITLES: Record<string, string> = {
 
 function DashboardPage() {
   const { user, loading } = useSession();
-  const { data: profile } = useProfile(user ?? null);
   const { data: role, isLoading: roleLoading } = useRole(user ?? null);
 
   if (loading || roleLoading || !user) {
     return <ListSkeleton rows={4} />;
   }
 
-  const firstName = profile?.full_name?.split(" ")[0];
-
   return (
     <>
-      <PageHeader
-        title={firstName ? `Welcome back, ${firstName}` : "Welcome back"}
-        subtitle={SUBTITLES[role ?? "student"] ?? ""}
-      />
+      <div className="mb-6 space-y-4">
+        <WelcomeBanner subtitle={SUBTITLES[role ?? "student"] ?? ""} />
+        <QuickActions />
+      </div>
       <Suspense fallback={<ListSkeleton rows={6} />}>
         {role === "teacher" ? (
           <TeacherDashboard user={user} />

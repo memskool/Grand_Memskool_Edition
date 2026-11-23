@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Sparkles, RefreshCw, X, Brain } from "lucide-react";
+import { Lightbulb, RefreshCw, X, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   useAiInsights,
@@ -34,15 +34,11 @@ export function AiInsightPanel({
   if (capabilities && !capabilities.insights && items.length === 0) return null;
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-white/15 bg-card/60 p-5 backdrop-blur-xl">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-16 -top-20 size-52 rounded-full bg-primary/20 blur-3xl"
-      />
+    <section className="surface-card relative overflow-hidden p-5">
       <header className="relative mb-4 flex items-start justify-between gap-3">
         <div>
           <Badge className="mb-2 rounded-full bg-primary/12 text-primary hover:bg-primary/12">
-            <Sparkles className="mr-1 size-3" /> Memskool AI
+            <Lightbulb className="mr-1 size-3" /> Insights
           </Badge>
           <h2 className="font-display text-lg font-semibold">
             {scope === "teacher" ? "Teaching insights" : "Your learning insights"}

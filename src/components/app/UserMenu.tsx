@@ -4,7 +4,6 @@ import { LogOut, Settings, User as UserIcon } from "lucide-react";
 import { signOut } from "@/features/auth/services/auth.service";
 import { useSession, useProfile, useRole } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,25 +38,23 @@ export function UserMenu() {
 
   return (
     <div className="flex items-center gap-2 sm:gap-3">
-      {role ? (
-        <Badge
-          variant="outline"
-          className="hidden rounded-full border-gold/40 bg-gold/10 capitalize text-foreground sm:inline-flex"
-        >
-          {role}
-        </Badge>
-      ) : null}
       <DropdownMenu>
         <DropdownMenuTrigger
           aria-label="Account menu"
-          className="rounded-full outline-none ring-ring focus-visible:ring-2"
+          className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-1 outline-none ring-ring transition-colors hover:bg-secondary focus-visible:ring-2 lg:pr-3"
         >
-          <Avatar className="size-11">
+          <Avatar className="size-10">
             {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt="" /> : null}
-            <AvatarFallback className="bg-primary/10 text-sm font-medium text-primary">
+            <AvatarFallback className="bg-gold/25 text-sm font-semibold text-foreground">
               {initials || <UserIcon className="size-4" />}
             </AvatarFallback>
           </Avatar>
+          <span className="hidden min-w-0 max-w-[11rem] flex-col text-left lg:flex">
+            <span className="truncate text-sm font-semibold leading-tight">{name}</span>
+            <span className="truncate text-xs capitalize text-muted-foreground">
+              {role === "institution" || role === "admin" ? "School admin" : (role ?? "")}
+            </span>
+          </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>

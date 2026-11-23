@@ -6,7 +6,7 @@ import {
   MessageSquare,
   BookOpen,
   ClipboardCheck,
-  Sparkles,
+  Compass,
   Settings,
   Bot,
   CalendarDays,
@@ -127,7 +127,7 @@ const ITEM = {
   dream: {
     title: "Dream School",
     url: "/dream-school",
-    icon: Sparkles,
+    icon: Compass,
     short: "Schools",
     group: "explore",
   },
