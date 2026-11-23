@@ -89,10 +89,16 @@ function putToSignedUrl(url: string, file: File, onProgress?: (percent: number) 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && e.total > 0) onProgress?.(Math.round((e.loaded / e.total) * 100));
     };
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300
-        ? resolve()
-        : reject(new AppError("network", "The upload did not finish. Try again."));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      const tooBig =
+        xhr.status === 413 || /exceeded the maximum allowed size/i.test(xhr.responseText);
+      reject(
+        tooBig
+          ? new AppError("validation", "That file is larger than the storage limit (50 MB).")
+          : new AppError("network", "The upload did not finish. Try again."),
+      );
+    };
     xhr.onerror = () =>
       reject(new AppError("network", "The upload was interrupted. Check your connection."));
     xhr.send(form);

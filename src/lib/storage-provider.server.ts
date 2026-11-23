@@ -67,6 +67,11 @@ async function sb(path: string, init: RequestInit & { json?: unknown } = {}) {
   return fetch(`${env.url}/storage/v1${path}`, { ...rest, headers, body });
 }
 
+function fileSizeLimitBytes() {
+  const mb = Number(process.env["SUPABASE_FILE_SIZE_LIMIT_MB"] ?? 50);
+  return Math.max(1, Number.isFinite(mb) ? mb : 50) * 1024 * 1024;
+}
+
 const ensured = new Set<string>();
 
 async function ensureBucket(id: string, isPublic: boolean) {
@@ -78,7 +83,8 @@ async function ensureBucket(id: string, isPublic: boolean) {
   }
   const created = await sb("/bucket", {
     method: "POST",
-    json: { id, name: id, public: isPublic, file_size_limit: 200 * 1024 * 1024 },
+    // The free Supabase plan caps objects at 50 MB; raise with SUPABASE_FILE_SIZE_LIMIT_MB on Pro.
+    json: { id, name: id, public: isPublic, file_size_limit: fileSizeLimitBytes() },
   });
   // 409 = someone else created it meanwhile.
   if (!created.ok && created.status !== 409) {
