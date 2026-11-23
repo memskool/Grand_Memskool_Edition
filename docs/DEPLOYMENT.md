@@ -68,7 +68,7 @@ Until then the app shows "File uploads are not switched on for Memskool yet" and
 Files can live in Supabase Storage while Firebase stays on Spark. Database, logins and roles stay on Firebase.
 
 1. Create a Supabase project (free plan is fine). Project Settings → API: copy the **Project URL** and the **service_role** key.
-2. On Vercel (server env, **not** `VITE_*`): `STORAGE_PROVIDER=supabase`, `SUPABASE_URL=<project url>`, `SUPABASE_SERVICE_ROLE_KEY=<service_role key>`. Optional: `SUPABASE_STORAGE_BUCKET` (default `memskool`, private) and `SUPABASE_PUBLIC_BUCKET` (default `memskool-public`, avatars only). Redeploy.
+2. On Vercel (server env, **not** `VITE_*`): `STORAGE_PROVIDER=supabase`, `SUPABASE_STORAGE_URL=<project url>` (or `SUPABASE_URL`), `SUPABASE_SERVICE_ROLE_KEY=<service_role key>`. Optional: `SUPABASE_STORAGE_BUCKET` (default `memskool`, private) and `SUPABASE_PUBLIC_BUCKET` (default `memskool-public`, avatars only). Redeploy.
 3. The buckets are created automatically on first use. Within ~10 minutes upload controls switch on.
 
 Every request is checked by `authorizeStorage` (same rules as `storage.rules`) before the server hands the browser a short-lived signed URL.

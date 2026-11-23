@@ -23,7 +23,7 @@ const args = new Set(process.argv.slice(2));
 const DRY = args.has("--dry-run");
 const FORCE = args.has("--force");
 
-const SB_URL = process.env.SUPABASE_URL?.replace(/\/+$/, "");
+const SB_URL = (process.env.SUPABASE_STORAGE_URL || process.env.SUPABASE_URL)?.replace(/\/+$/, "");
 const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const FB_BUCKET = process.env.FIREBASE_STORAGE_BUCKET;
 if (!SB_URL || !SB_KEY || !FB_BUCKET) {

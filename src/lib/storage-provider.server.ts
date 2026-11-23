@@ -20,7 +20,10 @@ const PRIVATE_BUCKET_DEFAULT = "memskool";
 const PUBLIC_BUCKET_DEFAULT = "memskool-public";
 
 function supabaseEnv() {
-  const url = process.env["SUPABASE_URL"]?.trim().replace(/\/+$/, "");
+  // SUPABASE_STORAGE_URL wins, so an old Lovable-era SUPABASE_URL on Vercel cannot misroute files.
+  const url = (process.env["SUPABASE_STORAGE_URL"] || process.env["SUPABASE_URL"])
+    ?.trim()
+    .replace(/\/+$/, "");
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"]?.trim();
   if (!url || !key) return null;
   return {
