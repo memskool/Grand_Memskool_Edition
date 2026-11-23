@@ -15,6 +15,7 @@ import {
   Link2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { CoverArt } from "@/components/app/covers";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { useSession } from "@/hooks/useAuth";
 import {
@@ -281,12 +282,28 @@ function LockerPage() {
               const Icon = CATEGORY_ICON[(item.category as FileCategory) ?? "note"] ?? FileText;
               return (
                 <li key={item.id} className="group flex gap-3 rounded-xl bg-secondary/50 p-4">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    {item.kind === "link" && !item.file_path ? (
-                      <Link2 className="size-4" />
-                    ) : (
-                      <Icon className="size-4" />
-                    )}
+                  <span className="relative size-14 shrink-0 overflow-hidden rounded-xl shadow-sm">
+                    <CoverArt
+                      kind={
+                        item.kind === "link" && !item.file_path
+                          ? "link"
+                          : item.category === "video"
+                            ? "video"
+                            : item.category === "audio"
+                              ? "audio"
+                              : "notes"
+                      }
+                      seed={item.id}
+                      art="center"
+                      className="absolute inset-0"
+                    />
+                    <span className="absolute bottom-1 right-1 flex size-5 items-center justify-center rounded-full bg-white/90 text-[oklch(0.225_0.054_262)] [&_svg]:!size-3">
+                      {item.kind === "link" && !item.file_path ? (
+                        <Link2 className="size-4" />
+                      ) : (
+                        <Icon className="size-4" />
+                      )}
+                    </span>
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{item.title}</p>

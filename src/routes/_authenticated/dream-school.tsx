@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Building2, Compass, ExternalLink, Globe2, MapPin, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { CoverArt } from "@/components/app/covers";
 import { useSession, useProfile, useRole } from "@/hooks/useAuth";
 import {
   useSchools,
@@ -154,22 +155,22 @@ function DreamSchoolPage() {
                   key={school.id}
                   className="surface-card flex flex-col gap-3 overflow-hidden p-0"
                 >
-                  <div className="relative flex items-end gap-3 bg-ink p-5 pt-10 text-ink-foreground">
-                    <span
-                      aria-hidden
-                      className="pointer-events-none absolute -right-8 -top-10 size-32 rounded-full bg-ink-foreground/5"
-                    />
-                    <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-ink-foreground/10">
-                      <Building2 className="size-5" />
-                    </span>
-                    <div className="min-w-0">
-                      <h2 className="truncate font-display text-base font-bold">{school.name}</h2>
-                      <p className="flex items-center gap-1 truncate text-xs text-ink-muted">
-                        <MapPin className="size-3" />
-                        {[school.city, school.country].filter(Boolean).join(", ")}
-                      </p>
+                  <CoverArt kind="school" seed={school.id} className="text-white">
+                    <div className="flex items-end gap-3 bg-gradient-to-t from-black/55 via-black/20 to-transparent p-5 pt-24">
+                      <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/20">
+                        <Building2 className="size-5" />
+                      </span>
+                      <div className="min-w-0 max-w-[52%]">
+                        <h2 className="line-clamp-2 font-display text-base font-bold leading-tight">
+                          {school.name}
+                        </h2>
+                        <p className="flex items-center gap-1 truncate text-xs text-white/80">
+                          <MapPin className="size-3" />
+                          {[school.city, school.country].filter(Boolean).join(", ")}
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  </CoverArt>
 
                   <div className="flex flex-wrap gap-1.5 px-5">
                     <Badge variant="secondary" className="capitalize">

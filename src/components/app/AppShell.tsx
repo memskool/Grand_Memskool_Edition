@@ -41,7 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <NetworkBanner />
         <header
           data-print-hide
-          className="sticky top-0 z-10 flex min-h-16 items-center gap-2 bg-background/95 px-3 pt-[env(safe-area-inset-top)] sm:gap-3 sm:px-6"
+          className="sticky top-0 z-20 flex min-h-16 items-center gap-2 border-b border-border/60 bg-background px-3 pt-[env(safe-area-inset-top)] sm:gap-3 sm:px-6"
         >
           <SidebarTrigger className="hidden size-10 rounded-full md:inline-flex" />
           <span className="md:hidden">

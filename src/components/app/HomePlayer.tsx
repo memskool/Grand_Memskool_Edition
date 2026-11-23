@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { CoverArt } from "@/components/app/covers";
 import { Link } from "@tanstack/react-router";
 import {
   Bookmark,
@@ -108,9 +109,11 @@ export function HomePlayer({ video, active }: { video: HomeVideoCard; active: bo
           ) : null}
         </video>
       ) : (
-        <div className="flex size-full items-center justify-center px-6 text-center text-sm text-white/80">
-          This clip is approved, but a playable file is not available on this server yet.
-        </div>
+        <CoverArt kind="video" seed={video.id} art="center" className="absolute inset-0">
+          <div className="flex size-full items-end justify-center px-6 pb-24 text-center text-sm text-white/90">
+            This clip is approved, but a playable file is not available on this server yet.
+          </div>
+        </CoverArt>
       )}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
 

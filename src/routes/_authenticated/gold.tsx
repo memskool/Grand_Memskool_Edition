@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { CoverArt } from "@/components/app/covers";
 import { useRole, useSession } from "@/hooks/useAuth";
 import { Award, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -111,7 +112,11 @@ function GoldPage() {
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2">
               {classes.map((row) => (
-                <li key={row.id} className="surface-card surface-lift space-y-2 p-5">
+                <li
+                  key={row.id}
+                  className="surface-card surface-lift space-y-2 overflow-hidden p-5"
+                >
+                  <CoverArt kind="tutor" seed={row.id} className="-mx-5 -mt-5 mb-3 h-28" />
                   <p className="font-display text-lg font-semibold">{row.title}</p>
                   <p className="text-sm text-muted-foreground">
                     {row.tutor_name} · {goldSubjectLabel(row.subject)} ·{" "}

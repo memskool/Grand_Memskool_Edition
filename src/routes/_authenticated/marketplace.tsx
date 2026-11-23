@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { CoverArt } from "@/components/app/covers";
 import { BookOpen, FileText, GraduationCap, Plus, ShoppingBag } from "lucide-react";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { useSession, useRole } from "@/hooks/useAuth";
@@ -160,7 +161,17 @@ function MarketplacePage() {
           {filtered.map((item) => {
             const Icon = KIND_ICON[item.kind as ItemKind] ?? BookOpen;
             return (
-              <article key={item.id} className="surface-card flex flex-col gap-3 p-5">
+              <article
+                key={item.id}
+                className="surface-card flex flex-col gap-3 overflow-hidden p-5"
+              >
+                <CoverArt
+                  kind={
+                    item.kind === "book" ? "book" : item.kind === "tutoring" ? "tutor" : "notes"
+                  }
+                  seed={item.id}
+                  className="-mx-5 -mt-5 mb-1 h-32"
+                />
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                   <div className="min-w-0">
                     <h2 className="truncate font-display text-base font-semibold">{item.title}</h2>

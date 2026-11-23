@@ -11,6 +11,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { toast } from "sonner";
+import { CoverArt, type CoverKind } from "@/components/app/covers";
 import { useAccess } from "@/lib/access";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { useSession, useRole } from "@/hooks/useAuth";
@@ -71,6 +72,11 @@ export const Route = createFileRoute("/_authenticated/library")({
 });
 
 const NONE = "__none__";
+const COVER_KIND: Record<string, CoverKind> = {
+  course_material: "course",
+  book: "book",
+  research: "research",
+};
 const CATEGORY_ICON: Record<string, typeof BookOpen> = {
   course_material: GraduationCap,
   book: BookOpen,
@@ -175,20 +181,23 @@ function LibraryPage() {
                     onClick={() => setActive(book)}
                     className="group w-full text-left"
                   >
-                    <span
-                      className="relative flex aspect-[3/4] w-full flex-col justify-between overflow-hidden rounded-2xl bg-ink p-4 text-ink-foreground transition-transform group-hover:-translate-y-1"
-                      style={{ boxShadow: "var(--shadow-soft)" }}
-                    >
-                      <span
-                        aria-hidden
-                        className="absolute inset-y-0 left-0 w-1.5 bg-ink-foreground/15"
+                    <span className="relative block aspect-[3/4] w-full overflow-hidden rounded-2xl shadow-[var(--shadow-soft)] transition-[transform,box-shadow] duration-200 group-hover:-translate-y-1 group-hover:shadow-[var(--shadow-lift)]">
+                      <CoverArt
+                        kind={COVER_KIND[book.category] ?? "book"}
+                        seed={book.id}
+                        art="top"
+                        className="absolute inset-0"
                       />
-                      <Icon className="size-5 opacity-70" />
-                      <span className="min-w-0">
+                      {/* spine */}
+                      <span aria-hidden className="absolute inset-y-0 left-0 w-2 bg-black/20" />
+                      <span className="absolute right-3 top-3 flex size-7 items-center justify-center rounded-full bg-white/90 text-[oklch(0.225_0.054_262)]">
+                        <Icon className="size-3.5" />
+                      </span>
+                      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/35 to-transparent p-4 pt-12 text-white">
                         <span className="line-clamp-3 block font-display text-sm font-bold leading-snug">
                           {book.title}
                         </span>
-                        <span className="mt-1 block truncate text-[11px] text-ink-muted">
+                        <span className="mt-1 block truncate text-[11px] text-white/75">
                           {book.author || book.subject?.name || "Memskool"}
                         </span>
                       </span>
@@ -226,11 +235,15 @@ function LibraryPage() {
                 <DialogTitle className="font-display text-xl">{active.title}</DialogTitle>
               </DialogHeader>
               <div className="flex gap-4">
-                <div
-                  className="flex aspect-[3/4] w-28 shrink-0 items-end rounded-2xl bg-ink p-3 text-ink-foreground"
-                  style={{ boxShadow: "var(--shadow-soft)" }}
-                >
-                  <span className="line-clamp-4 font-display text-xs font-bold leading-snug">
+                <div className="relative aspect-[3/4] w-28 shrink-0 overflow-hidden rounded-2xl shadow-[var(--shadow-soft)]">
+                  <CoverArt
+                    kind={COVER_KIND[active.category] ?? "book"}
+                    seed={active.id}
+                    art="top"
+                    className="absolute inset-0"
+                  />
+                  <span aria-hidden className="absolute inset-y-0 left-0 w-1.5 bg-black/20" />
+                  <span className="absolute inset-x-0 bottom-0 line-clamp-4 bg-gradient-to-t from-black/70 to-transparent p-3 pt-8 font-display text-xs font-bold leading-snug text-white">
                     {active.title}
                   </span>
                 </div>
