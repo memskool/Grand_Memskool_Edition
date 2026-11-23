@@ -44,3 +44,15 @@ Honest list of what the product does **not** do yet, or does only when a human c
 ## Legal
 
 - `/privacy` and `/terms` are product notices, not counsel-reviewed contracts.
+
+## Section C additions not built yet (Phase 6 decision, Nov 2026)
+
+These need infrastructure or credentials the project does not have yet:
+
+- Recording and replay linked to Missed Work: needs Cloud Storage (Blaze plan) and LiveKit Egress.
+- SMS / WhatsApp parent alerts: needs Africa's Talking or WhatsApp Business credentials (SMS is deferred in CLAUDE.md). Absence alerts go in-app, by email and by web push today.
+- Fees and mobile-money payments: needs Flutterwave keys and a fee-structure decision.
+- Class reminders 10 minutes before timetabled lessons: needs a scheduler (Vercel Cron on Pro, or Cloud Scheduler on Blaze).
+- Offline lesson materials and Luganda / Swahili interface: large standalone projects.
+- Live polls / whiteboard / waiting room, rubrics and voice feedback, end-of-term promotion, lesson planner: next candidates once the above are decided.
+

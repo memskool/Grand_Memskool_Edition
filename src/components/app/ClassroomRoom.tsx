@@ -18,6 +18,7 @@ import {
   MonitorUp,
   FileText,
   ExternalLink,
+  Signal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -374,7 +375,46 @@ export function ClassroomRoom({
             {session.lesson_id ? " · Lesson linked" : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div
+            className="flex items-center gap-1 rounded-full border border-border p-0.5"
+            role="group"
+            aria-label="Data saver"
+          >
+            <Signal
+              className={cn(
+                "ml-1.5 size-3.5",
+                media.connectionQuality === "poor" || media.connectionQuality === "lost"
+                  ? "text-destructive"
+                  : media.connectionQuality === "good"
+                    ? "text-warning"
+                    : "text-leaf",
+              )}
+              aria-label={`Connection ${media.connectionQuality}`}
+            />
+            {(
+              [
+                ["auto", "Auto"],
+                ["low", "Low data"],
+                ["audio", "Audio only"],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => media.setDataMode(mode)}
+                aria-pressed={media.dataMode === mode}
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-medium transition",
+                  media.dataMode === mode
+                    ? "bg-ink text-ink-foreground"
+                    : "text-muted-foreground hover:bg-secondary",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <Button
             size="sm"
             className={cn(controlBtnSoft, "lg:hidden")}
@@ -416,6 +456,26 @@ export function ClassroomRoom({
             ) : null}
           </AlertDescription>
         </Alert>
+      ) : null}
+
+      {(media.connectionQuality === "poor" || media.connectionQuality === "lost") &&
+      media.connected &&
+      media.dataMode !== "audio" ? (
+        <Alert>
+          <AlertTitle>Weak connection</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>Switch to audio only to keep hearing the class and save data.</span>
+            <Button size="sm" className="rounded-full" onClick={() => media.setDataMode("audio")}>
+              Audio only
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {media.dataMode === "audio" ? (
+        <p className="text-xs text-muted-foreground">
+          Audio only: camera video is paused to save data. Screen shares still show.
+        </p>
       ) : null}
 
       {hostReconnecting ? (

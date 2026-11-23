@@ -2,9 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { classifyFirebase } from "@/lib/errors/app-error";
 import {
   bulkImportPeople,
+  getSchoolInsights,
   getClassGradebook,
   getStudentReportCard,
   listMyChildrenForReports,
+  saveReportComment,
+  setGradingWeights,
 } from "./reports.functions";
 import type { ImportRole, ImportRow } from "./report-policy";
 
@@ -71,5 +74,42 @@ export function useBulkImport() {
       void qc.invalidateQueries({ queryKey: ["class-roster"] });
       void qc.invalidateQueries({ queryKey: ["school-overview"] });
     },
+  });
+}
+
+export function useSaveReportComment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      student_id: string;
+      period_id: string | null;
+      kind: "teacher" | "head";
+      text: string;
+    }) => call(() => saveReportComment({ data: input })),
+    onSuccess: (_res, input) =>
+      qc.invalidateQueries({ queryKey: ["report-card", input.student_id] }),
+  });
+}
+
+export function useSetGradingWeights() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { coursework: number; tests: number } | { clear: true }) =>
+      call(() => setGradingWeights({ data: input })),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["gradebook"] });
+      void qc.invalidateQueries({ queryKey: ["report-card"] });
+    },
+  });
+}
+
+export type SchoolInsights = Awaited<ReturnType<typeof getSchoolInsights>>;
+
+export function useSchoolInsights(enabled: boolean) {
+  return useQuery({
+    queryKey: ["school-insights"],
+    enabled,
+    staleTime: 5 * 60_000,
+    queryFn: () => call(() => getSchoolInsights()),
   });
 }

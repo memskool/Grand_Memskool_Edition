@@ -73,6 +73,7 @@ const KIND_LABEL: Record<string, string> = {
   missed_work: "Missed work",
   gold: "Gold class",
   message: "New message",
+  attendance: "Attendance",
 };
 
 function escapeHtml(value: string): string {

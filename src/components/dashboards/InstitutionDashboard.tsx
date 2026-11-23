@@ -12,6 +12,7 @@ import {
   useUpdateSchoolCode,
 } from "@/lib/school-membership";
 import { StatCard, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
+import { SchoolInsightsPanel } from "@/components/app/SchoolInsightsPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -235,6 +236,8 @@ export function InstitutionDashboard({ user }: { user: AuthUser }) {
           loading={roster.isLoading}
         />
       </div>
+
+      <SchoolInsightsPanel />
 
       <Panel title="Join requests" description="Approve the people who asked to join your school">
         {members.isLoading ? (

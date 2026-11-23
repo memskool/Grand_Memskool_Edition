@@ -8,9 +8,14 @@ import { useSchoolClasses } from "@/features/academic/academic-data";
 import {
   useClassGradebook,
   useMyChildrenForReports,
+  useSaveReportComment,
+  useSetGradingWeights,
   useStudentReportCard,
   type GradebookData,
 } from "@/features/academic/reports-data";
+import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { BOM, toCsv } from "@/features/academic/report-policy";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { PageHeader, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";
@@ -139,6 +144,7 @@ function GradebookScreen({ userId, role }: { userId: string; role: string }) {
           </Button>
         ) : null}
       </div>
+      {book.data?.can_set_weights ? <WeightsControl current={book.data.weights} /> : null}
 
       {!loadingClasses && !classes.length ? (
         <EmptyState
@@ -457,12 +463,171 @@ function ReportCardScreen({ studentId }: { studentId: string }) {
             ))}
           </section>
 
+          <section className="mt-6 grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
+            <CommentBox
+              title="Class teacher's comment"
+              text={r.comments.teacher}
+              by={r.comments.teacher_by}
+              canEdit={r.can_comment.teacher}
+              studentId={r.student.id}
+              periodId={periodId}
+              kind="teacher"
+            />
+            <CommentBox
+              title="Head teacher's comment"
+              text={r.comments.head}
+              by={r.comments.head_by}
+              canEdit={r.can_comment.head}
+              studentId={r.student.id}
+              periodId={periodId}
+              kind="head"
+            />
+          </section>
+
           <footer className="mt-6 border-t border-border pt-3 text-xs text-muted-foreground">
-            Grades: A 80%+ · B 70%+ · C 60%+ · D 50%+ · E below 50%. Averages count marked work
-            only. Generated {formatDate(r.generated_at)} on Memskool.
+            Grades: A 80%+ · B 70%+ · C 60%+ · D 50%+ · E below 50%.{" "}
+            {r.weights
+              ? `Overall = coursework ${r.weights.coursework}% + tests ${r.weights.tests}%.`
+              : "Overall = average of all marked work."}{" "}
+            Generated {formatDate(r.generated_at)} on Memskool.
           </footer>
         </article>
       ) : null}
     </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Comments and weighting (Phase 6)                                    */
+/* ------------------------------------------------------------------ */
+
+function CommentBox(props: {
+  title: string;
+  text: string | null;
+  by: string | null;
+  canEdit: boolean;
+  studentId: string;
+  periodId: string | null;
+  kind: "teacher" | "head";
+}) {
+  const save = useSaveReportComment();
+  const [draft, setDraft] = useState(props.text ?? "");
+  useEffect(() => setDraft(props.text ?? ""), [props.text]);
+  return (
+    <div>
+      <p className="text-xs font-medium text-muted-foreground">{props.title}</p>
+      {props.canEdit ? (
+        <div className="mt-1 space-y-2 print:hidden">
+          <Textarea
+            rows={3}
+            maxLength={1000}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Write a short comment for this learner and their family"
+          />
+          <Button
+            size="sm"
+            className="rounded-full"
+            disabled={save.isPending || draft === (props.text ?? "")}
+            onClick={() =>
+              save.mutate(
+                {
+                  student_id: props.studentId,
+                  period_id: props.periodId,
+                  kind: props.kind,
+                  text: draft,
+                },
+                {
+                  onSuccess: () => toast.success("Comment saved"),
+                  onError: (e) => toast.error(authErrorMessage(e)),
+                },
+              )
+            }
+          >
+            Save comment
+          </Button>
+        </div>
+      ) : null}
+      <p
+        className={
+          props.canEdit
+            ? "hidden whitespace-pre-wrap text-sm print:block"
+            : "mt-1 whitespace-pre-wrap text-sm"
+        }
+      >
+        {props.text || "—"}
+      </p>
+      {props.by && props.text ? (
+        <p className="mt-1 text-xs text-muted-foreground">— {props.by}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function WeightsControl({ current }: { current: { coursework: number; tests: number } | null }) {
+  const set = useSetGradingWeights();
+  const [coursework, setCoursework] = useState(String(current?.coursework ?? 40));
+  const c = Math.round(Number(coursework));
+  const valid = Number.isFinite(c) && c >= 0 && c <= 100;
+  return (
+    <div
+      className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-border px-3 py-2 text-sm"
+      data-print-hide
+    >
+      <span className="text-muted-foreground">School weighting:</span>
+      <span className="font-medium">
+        {current
+          ? `coursework ${current.coursework}% · tests ${current.tests}%`
+          : "plain average of all marked work"}
+      </span>
+      <span className="ml-auto flex items-center gap-1.5">
+        <span className="text-xs text-muted-foreground">Coursework %</span>
+        <Input
+          type="number"
+          min={0}
+          max={100}
+          value={coursework}
+          onChange={(e) => setCoursework(e.target.value)}
+          className="h-8 w-20"
+          aria-label="Coursework percent"
+        />
+        <span className="text-xs text-muted-foreground">tests {valid ? 100 - c : "—"}%</span>
+        <Button
+          size="sm"
+          className="rounded-full"
+          disabled={!valid || set.isPending}
+          onClick={() =>
+            set.mutate(
+              { coursework: c, tests: 100 - c },
+              {
+                onSuccess: () => toast.success("Weighting saved for the whole school"),
+                onError: (e) => toast.error(authErrorMessage(e)),
+              },
+            )
+          }
+        >
+          Save
+        </Button>
+        {current ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="rounded-full"
+            disabled={set.isPending}
+            onClick={() =>
+              set.mutate(
+                { clear: true },
+                {
+                  onSuccess: () => toast.success("Back to a plain average"),
+                  onError: (e) => toast.error(authErrorMessage(e)),
+                },
+              )
+            }
+          >
+            Use plain average
+          </Button>
+        ) : null}
+      </span>
+    </div>
   );
 }

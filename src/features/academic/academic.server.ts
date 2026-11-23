@@ -890,6 +890,17 @@ export async function recordLessonAttendanceHandler({
     if (row) await adminUpdate(COLLECTIONS.attendance, row.id, body);
     else await adminCreate(COLLECTIONS.attendance, body);
   }
+  const absentIds = data.marks.filter((m) => m.status === "absent").map((m) => m.student_id);
+  if (absentIds.length) {
+    const cls = await adminGetById<{ name?: string }>(COLLECTIONS.classes, lesson.class_id);
+    const { alertParentsOfAbsences } = await import("@/lib/absence-alerts.server");
+    await alertParentsOfAbsences({
+      schoolId,
+      studentIds: absentIds,
+      date,
+      where: cls?.name ?? "class",
+    });
+  }
   return { ok: true as const, count: data.marks.length };
 }
 

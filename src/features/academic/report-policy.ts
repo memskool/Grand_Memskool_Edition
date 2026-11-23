@@ -34,6 +34,35 @@ export function letterGrade(pct: number | null): { grade: string; label: string 
   return { grade: row.grade, label: row.label };
 }
 
+/** A school's coursework / test split (percent, summing to 100). null = plain average. */
+export type GradingWeights = { coursework: number; tests: number } | null;
+
+export function normaliseWeights(raw: unknown): GradingWeights {
+  if (!raw || typeof raw !== "object") return null;
+  const c = Number((raw as { coursework?: unknown }).coursework);
+  const t = Number((raw as { tests?: unknown }).tests);
+  if (!Number.isFinite(c) || !Number.isFinite(t) || c < 0 || t < 0 || c + t !== 100) return null;
+  return { coursework: c, tests: t };
+}
+
+/**
+ * Overall percent for one subject. With weights, coursework and tests are blended by the
+ * school's split (a missing side falls back to the other). Without weights, every marked
+ * item counts equally — the behaviour schools had before choosing a split.
+ */
+export function weightedOverall(input: {
+  courseworkPcts: Array<number | null>;
+  testPcts: Array<number | null>;
+  weights: GradingWeights;
+}): number | null {
+  if (!input.weights) return averageOf([...input.courseworkPcts, ...input.testPcts]);
+  const cw = averageOf(input.courseworkPcts);
+  const ts = averageOf(input.testPcts);
+  if (cw === null) return ts;
+  if (ts === null) return cw;
+  return (cw * input.weights.coursework + ts * input.weights.tests) / 100;
+}
+
 export type PeriodWindow = { starts_on: string; ends_on: string } | null;
 
 /** True when `iso` falls inside the term (inclusive of the whole end day); no term = all time. */

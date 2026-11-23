@@ -51,6 +51,8 @@ export const COLLECTIONS = {
   learningProfiles: "learning_profiles",
   signupRequests: "signup_requests",
   auditLogs: "audit_logs",
+  absenceAlerts: "absence_alerts",
+  reportComments: "report_comments",
   paymentEvents: "payment_events",
   academicYears: "academic_years",
   academicPeriods: "academic_periods",

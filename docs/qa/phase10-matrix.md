@@ -27,6 +27,10 @@ Manual + automated sign-off for production readiness. Mark each row after checki
 | 21 | Report card: student, linked parent, or same-school staff only | Unreleased test scores hidden; term filter correct | report-policy unit (terms, grades) | ☐ | |
 | 22 | Bulk import never takes over an existing account | Existing users outside the school are skipped with "ask them to apply" | — | ☐ | |
 | 23 | Bulk import students without email | Sign-in + temporary password shown once; student can sign in | report-policy unit (parsing) | ☐ | |
+| 24 | Absence alert to linked parents | One alert per child per day (register or live class); none when school turns alerts off | — | ☐ | |
+| 25 | Live class data saver | Audio only stops camera video; Low data caps quality; weak-signal prompt appears | — | ☐ | |
+| 26 | Report card weighting and comments | School split applied to overall; teacher of the class / head comment only; parents read-only | report-policy unit (weights) | ☐ | |
+| 27 | School insights | Managers only; attendance by week, learners needing attention, teacher activity | — | ☐ | |
 
 ## How to run automated checks
 

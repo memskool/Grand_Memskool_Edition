@@ -1,9 +1,12 @@
 import "@tanstack/react-start/server-only";
 import type { AuthedContext } from "@/lib/firebase/require-auth";
-import { adminGetById, adminWhere } from "@/lib/firebase/admin-repo";
+import { adminGetById, adminSet, adminUpdate, adminWhere } from "@/lib/firebase/admin-repo";
 import { COLLECTIONS } from "@/lib/firebase/repo";
 import { toClientJson } from "@/lib/firebase/plain-data";
-import { requireSchoolStaffContext } from "@/lib/firebase/school-context.server";
+import {
+  requireSchoolManagerContext,
+  requireSchoolStaffContext,
+} from "@/lib/firebase/school-context.server";
 import { parentLinkId } from "@/lib/parent-link";
 import { isSchoolManager } from "@/types/roles";
 import { assertCanMarkClass } from "./academic.server";
@@ -15,6 +18,9 @@ import {
   percentOf,
   roundPct,
   type PeriodWindow,
+  normaliseWeights,
+  weightedOverall,
+  type GradingWeights,
 } from "./report-policy";
 
 type DataCtx<T> = { data: T; context: AuthedContext };
@@ -76,6 +82,11 @@ export type GradeCell = {
   score: number | null;
   status: "marked" | "awaiting" | "missing" | "returned";
 };
+
+async function loadWeights(schoolId: string): Promise<GradingWeights> {
+  const school = await adminGetById<{ grading_weights?: unknown }>(COLLECTIONS.schools, schoolId);
+  return normaliseWeights(school?.grading_weights);
+}
 
 async function loadPeriod(schoolId: string, periodId: string | null | undefined) {
   if (!periodId) return null;
@@ -257,7 +268,7 @@ export async function classGradebookHandler({
         .map((e) => e.student_id),
     ),
   ];
-  const [grades, nameMap, periods] = await Promise.all([
+  const [grades, nameMap, periods, weights] = await Promise.all([
     computeClassGrades({
       schoolId,
       classId: data.class_id,
@@ -267,12 +278,23 @@ export async function classGradebookHandler({
     }),
     names(studentIds),
     listPeriods(schoolId),
+    loadWeights(schoolId),
   ]);
 
   const rows = studentIds
     .map((id) => {
       const cells = grades.cells.get(id) ?? {};
-      const avg = roundPct(averageOf(Object.values(cells).map((c) => c.percent)));
+      const pcts = (ids: Set<string>) =>
+        Object.entries(cells)
+          .filter(([colId]) => ids.has(colId))
+          .map(([, c]) => c.percent);
+      const avg = roundPct(
+        weightedOverall({
+          courseworkPcts: pcts(grades.assignmentIds),
+          testPcts: pcts(grades.assessmentIds),
+          weights,
+        }),
+      );
       return {
         student_id: id,
         student_name: nameMap.get(id) ?? "Student",
@@ -288,6 +310,8 @@ export async function classGradebookHandler({
     class: { id: data.class_id, name: cls.name ?? "Class" },
     period: period ? { id: data.period_id!, name: period.name ?? "Term" } : null,
     periods,
+    weights,
+    can_set_weights: isSchoolManager(context.role),
     columns: grades.columns,
     rows,
   });
@@ -327,10 +351,16 @@ export async function studentReportCardHandler({
 }: DataCtx<{ student_id: string; period_id: string | null }>) {
   const student = await assertCanViewStudent(context, data.student_id);
   const schoolId = student.school_id!;
-  const [period, school, periods] = await Promise.all([
+  const [period, school, periods, weights, comment, canComment] = await Promise.all([
     loadPeriod(schoolId, data.period_id),
     adminGetById<{ name?: string; logo_url?: string | null }>(COLLECTIONS.schools, schoolId),
     listPeriods(schoolId),
+    loadWeights(schoolId),
+    adminGetById<CommentDoc>(
+      COLLECTIONS.reportComments,
+      commentDocId(data.student_id, data.period_id),
+    ),
+    commentRights(context, data.student_id, schoolId),
   ]);
 
   const enrollments = (
@@ -369,7 +399,9 @@ export async function studentReportCardHandler({
             .map(([, c]) => c.percent);
         const asgPcts = pick(g.assignmentIds);
         const assPcts = pick(g.assessmentIds);
-        const overall = roundPct(averageOf([...asgPcts, ...assPcts]));
+        const overall = roundPct(
+          weightedOverall({ courseworkPcts: asgPcts, testPcts: assPcts, weights }),
+        );
         if (!g.columns.length) return null;
         return {
           class_id: classId,
@@ -436,8 +468,121 @@ export async function studentReportCardHandler({
     overall,
     grade: letterGrade(overall),
     attendance,
+    weights,
+    comments: {
+      teacher: comment?.teacher_comment ?? null,
+      teacher_by: comment?.teacher_by_name ?? null,
+      head: comment?.head_comment ?? null,
+      head_by: comment?.head_by_name ?? null,
+    },
+    can_comment: canComment,
     generated_at: new Date().toISOString(),
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* Report comments and weighting (Phase 6)                             */
+/* ------------------------------------------------------------------ */
+
+type CommentDoc = {
+  school_id: string;
+  student_id: string;
+  period_id: string | null;
+  teacher_comment?: string | null;
+  teacher_by?: string | null;
+  teacher_by_name?: string | null;
+  head_comment?: string | null;
+  head_by?: string | null;
+  head_by_name?: string | null;
+  updated_at?: string;
+};
+
+function commentDocId(studentId: string, periodId: string | null) {
+  return `${periodId ?? "all"}_${studentId}`;
+}
+
+/**
+ * Teacher comment: a teacher of one of the student's classes, or a school manager.
+ * Head comment: school managers only. Students and parents only read.
+ */
+async function commentRights(
+  context: AuthedContext,
+  studentId: string,
+  schoolId: string,
+): Promise<{ teacher: boolean; head: boolean }> {
+  const none = { teacher: false, head: false };
+  if (isSchoolManager(context.role)) {
+    try {
+      const managed = await requireSchoolManagerContext(context);
+      return managed === schoolId ? { teacher: true, head: true } : none;
+    } catch {
+      return none;
+    }
+  }
+  if (context.role !== "teacher" || !context.approved || context.schoolId !== schoolId) return none;
+  const enrollments = await adminWhere<{ class_id: string; status?: string }>(
+    COLLECTIONS.classEnrollments,
+    "student_id",
+    "==",
+    studentId,
+  );
+  const { isAssignedTeacher } = await import("@/features/live-classroom/authz");
+  for (const e of enrollments.filter((row) => row.status !== "ended")) {
+    if (await isAssignedTeacher(e.class_id, context.userId)) return { teacher: true, head: false };
+  }
+  return none;
+}
+
+export async function saveReportCommentHandler({
+  data,
+  context,
+}: DataCtx<{
+  student_id: string;
+  period_id: string | null;
+  kind: "teacher" | "head";
+  text: string;
+}>) {
+  const student = await adminGetById<{ school_id?: string | null }>(
+    COLLECTIONS.users,
+    data.student_id,
+  );
+  if (!student?.school_id) throw new Error("That student is not attached to a school yet.");
+  const rights = await commentRights(context, data.student_id, student.school_id);
+  if (!rights[data.kind]) {
+    throw new Error(
+      data.kind === "head"
+        ? "Only the school's administrators can write the head teacher's comment."
+        : "Only a teacher of this student can write the class teacher's comment.",
+    );
+  }
+  if (data.period_id) await loadPeriod(student.school_id, data.period_id);
+  const author = await adminGetById<{ full_name?: string }>(COLLECTIONS.users, context.userId);
+  const text = data.text.trim() || null;
+  await adminSet(COLLECTIONS.reportComments, commentDocId(data.student_id, data.period_id), {
+    school_id: student.school_id,
+    student_id: data.student_id,
+    period_id: data.period_id,
+    [`${data.kind}_comment`]: text,
+    [`${data.kind}_by`]: context.userId,
+    [`${data.kind}_by_name`]: author?.full_name?.trim() || null,
+    updated_at: new Date().toISOString(),
+  });
+  return { ok: true as const };
+}
+
+export async function setGradingWeightsHandler({
+  data,
+  context,
+}: DataCtx<{ coursework: number; tests: number } | { clear: true }>) {
+  const schoolId = await requireSchoolManagerContext(context);
+  if ("clear" in data) {
+    await adminUpdate(COLLECTIONS.schools, schoolId, { grading_weights: null });
+    return { ok: true as const, weights: null };
+  }
+  const weights = normaliseWeights(data);
+  if (!weights) throw new Error("Coursework and tests must add up to 100%.");
+  await adminUpdate(COLLECTIONS.schools, schoolId, { grading_weights: weights });
+  return { ok: true as const, weights };
 }
 
 /** Linked children for the parent report-card picker. */

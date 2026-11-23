@@ -57,6 +57,7 @@ export async function finalizeLiveAttendance(input: {
   const byUser = new Map(participants.map((row) => [row.user_id, row]));
 
   let absent = 0;
+  const absentIds: string[] = [];
   // Phase 6: write in pages — no hard 80-student drop.
   for (let i = 0; i < students.length; i += ENROLLMENT_PAGE) {
     const page = students.slice(i, i + ENROLLMENT_PAGE);
@@ -64,7 +65,10 @@ export async function finalizeLiveAttendance(input: {
       page.map(async (studentId) => {
         const part = byUser.get(studentId);
         const status = markFromParticipation(part, minSeconds, endedAt);
-        if (status === "absent") absent += 1;
+        if (status === "absent") {
+          absent += 1;
+          absentIds.push(studentId);
+        }
         const durationMs = part ? participationDurationMs(part, endedAt) : 0;
         const id = liveAttendanceDocId(session.id, studentId);
         const existing = await adminGetById<{ provisional?: boolean; session_id?: string }>(
@@ -93,6 +97,17 @@ export async function finalizeLiveAttendance(input: {
         });
       }),
     );
+  }
+
+  if (absentIds.length) {
+    const cls = await adminGetById<{ name?: string }>(COLLECTIONS.classes, session.class_id);
+    const { alertParentsOfAbsences } = await import("@/lib/absence-alerts.server");
+    await alertParentsOfAbsences({
+      schoolId: session.school_id,
+      studentIds: absentIds,
+      date,
+      where: `${cls?.name ?? "class"} (live class)`,
+    });
   }
 
   return { count: students.length, absent };

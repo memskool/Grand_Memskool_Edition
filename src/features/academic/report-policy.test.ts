@@ -1,5 +1,7 @@
 import {
   BOM,
+  normaliseWeights,
+  weightedOverall,
   averageOf,
   bestPercent,
   inPeriod,
@@ -79,6 +81,31 @@ const excel = parseImportText(`${BOM}Name,Email,Class\nAmooti Ivan,,S3`, "studen
 assert(
   excel.rows.length === 1 && excel.rows[0]!.class_name === "S3",
   "Excel BOM header is recognised",
+);
+
+// Weighting
+assert(normaliseWeights({ coursework: 40, tests: 60 })?.tests === 60, "valid split");
+assert(normaliseWeights({ coursework: 40, tests: 50 }) === null, "split must total 100");
+assert(normaliseWeights(null) === null, "no split");
+assert(
+  weightedOverall({
+    courseworkPcts: [80],
+    testPcts: [50],
+    weights: { coursework: 40, tests: 60 },
+  }) === 62,
+  "40/60 blend",
+);
+assert(
+  weightedOverall({ courseworkPcts: [80, 60], testPcts: [50], weights: null }) === 190 / 3,
+  "no weights = plain item average",
+);
+assert(
+  weightedOverall({
+    courseworkPcts: [null],
+    testPcts: [70],
+    weights: { coursework: 40, tests: 60 },
+  }) === 70,
+  "missing coursework falls back to tests",
 );
 
 console.log("report-policy unit checks passed");

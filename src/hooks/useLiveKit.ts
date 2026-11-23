@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ConnectionQuality,
   ConnectionState,
   DisconnectReason,
   Room,
   RoomEvent,
   Track,
+  VideoPresets,
+  VideoQuality,
+  type Participant,
   type RemoteParticipant,
   type RemoteTrack,
 } from "livekit-client";
@@ -15,6 +19,39 @@ export type MediaError = {
   kind: "permission" | "config" | "unsupported" | "unknown";
   message: string;
 };
+
+/**
+ * Phase 6 low-bandwidth mode. "auto" = adaptive video; "low" = lowest simulcast layer and a
+ * 180p own camera; "audio" = no camera video at all (screen share stays, at low quality).
+ */
+export type DataMode = "auto" | "low" | "audio";
+const DATA_MODE_KEY = "memskool.liveDataMode";
+
+function readDataMode(): DataMode {
+  try {
+    const v = window.localStorage.getItem(DATA_MODE_KEY);
+    return v === "low" || v === "audio" ? v : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+/** Applies the data mode to every remote track: what to receive, and at what quality. */
+function applyDataMode(room: Room, mode: DataMode) {
+  room.remoteParticipants.forEach((p) => {
+    p.trackPublications.forEach((pub) => {
+      if (pub.source === Track.Source.Camera) {
+        pub.setSubscribed(mode !== "audio");
+        if (mode !== "auto" && mode !== "audio") pub.setVideoQuality(VideoQuality.LOW);
+      } else {
+        pub.setSubscribed(true);
+        if (pub.source === Track.Source.ScreenShare && mode !== "auto") {
+          pub.setVideoQuality(VideoQuality.LOW);
+        }
+      }
+    });
+  });
+}
 
 export type ConnectionStatus =
   "idle" | "connecting" | "connected" | "reconnecting" | "disconnected";
@@ -109,6 +146,13 @@ export function useLiveKit(sessionId: string, enabled = true) {
   const [error, setError] = useState<MediaError | null>(null);
   const [remotes, setRemotes] = useState<Record<string, RemoteMedia>>({});
   const [canShareScreen, setCanShareScreen] = useState(false);
+  const [dataMode, setDataModeState] = useState<DataMode>(() =>
+    typeof window === "undefined" ? "auto" : readDataMode(),
+  );
+  const dataModeRef = useRef<DataMode>(dataMode);
+  const [connectionQuality, setConnectionQuality] = useState<ConnectionQuality>(
+    ConnectionQuality.Excellent,
+  );
   // Phase 3: auto-rejoin after a full drop so a host's network blip does not end the class.
   const [attempt, setAttempt] = useState(0);
   const retriesRef = useRef(0);
@@ -184,7 +228,9 @@ export function useLiveKit(sessionId: string, enabled = true) {
   useEffect(() => {
     if (!enabled || !sessionId) return;
     let cancelled = false;
-    const room = new Room({ adaptiveStream: true, dynacast: true });
+    const mode = dataModeRef.current;
+    // Adaptive stream overrides manual quality, so it is only on in "auto".
+    const room = new Room({ adaptiveStream: mode === "auto", dynacast: true });
 
     const connect = async () => {
       setConnecting(true);
@@ -194,7 +240,10 @@ export function useLiveKit(sessionId: string, enabled = true) {
         const granted = unwrapClassroomToken(raw);
         if (cancelled) return;
         setCanShareScreen(granted.canShareScreen);
-        await room.connect(granted.serverUrl, granted.token);
+        await room.connect(granted.serverUrl, granted.token, {
+          autoSubscribe: mode !== "audio",
+        });
+        applyDataMode(room, mode);
         if (cancelled) {
           await room.disconnect();
           return;
@@ -217,7 +266,10 @@ export function useLiveKit(sessionId: string, enabled = true) {
         }
         if (restore?.cam) {
           await room.localParticipant
-            .setCameraEnabled(true)
+            .setCameraEnabled(
+              true,
+              mode === "auto" ? undefined : { resolution: VideoPresets.h180.resolution },
+            )
             .then(() => setCamOn(true))
             .catch(() => undefined);
         }
@@ -238,6 +290,11 @@ export function useLiveKit(sessionId: string, enabled = true) {
 
     const refresh = () => syncRemotes(room);
     room
+      .on(RoomEvent.TrackPublished, () => applyDataMode(room, mode))
+      .on(RoomEvent.ParticipantConnected, () => applyDataMode(room, mode))
+      .on(RoomEvent.ConnectionQualityChanged, (quality: ConnectionQuality, p: Participant) => {
+        if (p.isLocal) setConnectionQuality(quality);
+      })
       .on(RoomEvent.TrackSubscribed, refresh)
       .on(RoomEvent.TrackUnsubscribed, refresh)
       .on(RoomEvent.ParticipantConnected, refresh)
@@ -280,7 +337,7 @@ export function useLiveKit(sessionId: string, enabled = true) {
       setConnected(false);
       setStatus("disconnected");
     };
-  }, [sessionId, enabled, getToken, syncRemotes, attempt, scheduleRejoin]);
+  }, [sessionId, enabled, getToken, syncRemotes, attempt, scheduleRejoin, dataMode]);
 
   useEffect(() => {
     const track = roomRef.current?.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
@@ -321,7 +378,10 @@ export function useLiveKit(sessionId: string, enabled = true) {
     if (!room) return false;
     const next = !camOn;
     try {
-      await room.localParticipant.setCameraEnabled(next);
+      await room.localParticipant.setCameraEnabled(
+        next,
+        dataModeRef.current === "auto" ? undefined : { resolution: VideoPresets.h180.resolution },
+      );
       setCamOn(next);
       return next;
     } catch (err) {
@@ -405,6 +465,22 @@ export function useLiveKit(sessionId: string, enabled = true) {
     }
   }, []);
 
+  /**
+   * Switch data mode. The room is rebuilt (adaptive stream can only be set at creation);
+   * mic and camera come back on by themselves, like after a drop.
+   */
+  const setDataMode = useCallback((mode: DataMode) => {
+    try {
+      window.localStorage.setItem(DATA_MODE_KEY, mode);
+    } catch {
+      // Private mode / blocked storage: the choice still applies for this visit.
+    }
+    if (dataModeRef.current === mode) return;
+    dataModeRef.current = mode;
+    restoreRef.current = { ...mediaWantedRef.current };
+    setDataModeState(mode);
+  }, []);
+
   /** Manual "Rejoin" after automatic retries gave up (or any time the room is down). */
   const reconnect = useCallback(() => {
     userStoppedRef.current = false;
@@ -424,6 +500,9 @@ export function useLiveKit(sessionId: string, enabled = true) {
     videoRef: localVideoRef,
     reconnect,
     rejoinExhausted,
+    dataMode,
+    setDataMode,
+    connectionQuality,
     screenVideoRef,
     remotes,
     connected,
