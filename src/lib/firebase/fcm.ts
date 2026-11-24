@@ -1,4 +1,4 @@
-import { getMessaging, getToken, isSupported, type Messaging } from "firebase/messaging";
+import type { Messaging } from "firebase/messaging";
 import { getFirebaseApp, getFirebaseAuth } from "@/lib/firebase/client";
 import { getFirebaseWebConfig } from "@/lib/firebase/config";
 import { COLLECTIONS, setById } from "@/lib/firebase/repo";
@@ -19,6 +19,8 @@ function vapidKey(): string | undefined {
 export async function pushState(): Promise<PushState> {
   if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
   if (!("serviceWorker" in navigator) || !vapidKey()) return "unsupported";
+  // Messaging SDK loads only after the cheap checks pass (keeps it off every page load).
+  const { isSupported } = await import("firebase/messaging");
   if (!(await isSupported().catch(() => false))) return "unsupported";
   return Notification.permission as PushState;
 }
@@ -51,6 +53,7 @@ export async function registerFcmToken(opts: { prompt?: boolean } = {}): Promise
   }
   const user = getFirebaseAuth().currentUser;
   if (!user) return "granted";
+  const { getMessaging, getToken } = await import("firebase/messaging");
   messaging ??= getMessaging(getFirebaseApp());
   const token = await getToken(messaging, {
     vapidKey: vapidKey()!,

@@ -17,7 +17,7 @@ import {
 import { useMyChildren } from "@/lib/school-data";
 import { AssessmentBuilder } from "@/components/app/AssessmentBuilder";
 import { AssessmentMarking } from "@/components/app/AssessmentMarking";
-import { PerformanceAnalytics } from "@/components/app/PerformanceAnalytics";
+import { PerformanceAnalytics } from "@/components/app/PerformanceAnalyticsLazy";
 import { AskAiButton } from "@/components/app/AskAiButton";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { PageHeader, Panel, EmptyState, ListSkeleton } from "@/components/app/primitives";

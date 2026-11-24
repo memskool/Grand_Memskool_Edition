@@ -3,7 +3,7 @@ import { AdmissionsPanel, MeetingsPanel } from "@/components/app/SchoolLifePanel
 import { AiInsightPanel } from "@/components/app/AiInsightPanel";
 import { RewardsWidget } from "@/components/app/RewardsWidget";
 import { MyBehaviourPanel } from "@/components/app/MyBehaviourPanel";
-import { PerformanceAnalytics } from "@/components/app/PerformanceAnalytics";
+import { PerformanceAnalytics } from "@/components/app/PerformanceAnalyticsLazy";
 import { Link } from "@tanstack/react-router";
 import { ClipboardList, Archive, BookOpen } from "lucide-react";
 import { ClassCardGrid } from "@/components/dashboards/ClassCards";

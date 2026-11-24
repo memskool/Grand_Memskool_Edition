@@ -1,4 +1,4 @@
-import logo from "@/assets/memskool-logo.png";
+import logo from "@/assets/memskool-logo.webp";
 import { cn } from "@/lib/utils";
 
 /** Memskool Institute crest. Full colour — do not invert. */

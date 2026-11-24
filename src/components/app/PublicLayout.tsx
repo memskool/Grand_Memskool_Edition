@@ -21,10 +21,10 @@ export function PublicLayout({ children, wide = false }: { children: ReactNode; 
       >
         {wide ? (
           <>
-            <a href="#how" className={`${publicNavLinkClass} hidden sm:inline-flex`}>
+            <a href="#how" className={`${publicNavLinkClass} max-sm:hidden`}>
               How it works
             </a>
-            <a href="#roles" className={`${publicNavLinkClass} hidden md:inline-flex`}>
+            <a href="#roles" className={`${publicNavLinkClass} max-md:hidden`}>
               Who it's for
             </a>
           </>
@@ -32,18 +32,10 @@ export function PublicLayout({ children, wide = false }: { children: ReactNode; 
         <Link preload="intent" to="/home" className={`${publicNavLinkClass} hover:text-sky`}>
           Watch
         </Link>
-        <Link
-          preload="intent"
-          to="/privacy"
-          className={`${publicNavLinkClass} hidden sm:inline-flex`}
-        >
+        <Link preload="intent" to="/privacy" className={`${publicNavLinkClass} max-sm:hidden`}>
           Privacy
         </Link>
-        <Link
-          preload="intent"
-          to="/terms"
-          className={`${publicNavLinkClass} hidden sm:inline-flex`}
-        >
+        <Link preload="intent" to="/terms" className={`${publicNavLinkClass} max-sm:hidden`}>
           Terms
         </Link>
       </PublicHeader>

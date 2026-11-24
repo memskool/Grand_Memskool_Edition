@@ -77,7 +77,7 @@ export function QuickActions() {
             to={a.to as never}
             {...(a.search ? { search: a.search as never } : {})}
             preload="intent"
-            className="group flex flex-col gap-3 rounded-[1.4rem] border border-border bg-card p-4 shadow-[var(--shadow-soft)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="group flex flex-col gap-3 rounded-[1.4rem] border border-border bg-card p-4 shadow-[var(--shadow-soft)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 active:scale-[0.98] hover:shadow-[var(--shadow-lift)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span
               className={cn(

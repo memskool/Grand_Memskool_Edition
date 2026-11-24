@@ -37,7 +37,7 @@ export function ClassCard({
       to="/virtual-classroom"
       search={{ class: klass.id }}
       className={cn(
-        "group flex flex-col overflow-hidden rounded-[1.4rem] border border-border bg-card shadow-[var(--shadow-soft)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]",
+        "group flex flex-col overflow-hidden rounded-[1.4rem] border border-border bg-card shadow-[var(--shadow-soft)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.98] hover:shadow-[var(--shadow-lift)]",
         className,
       )}
     >

@@ -1,5 +1,5 @@
 import { AdmissionsPanel, MeetingsPanel } from "@/components/app/SchoolLifePanels";
-import { PerformanceAnalytics } from "@/components/app/PerformanceAnalytics";
+import { PerformanceAnalytics } from "@/components/app/PerformanceAnalyticsLazy";
 import { useState } from "react";
 import { CalendarCheck, TrendingUp, Users, GraduationCap } from "lucide-react";
 import type { AuthUser } from "@/types/roles";

@@ -8,9 +8,9 @@ import {
   connectFirestoreEmulator,
   type Firestore,
 } from "firebase/firestore";
-import { getStorage, connectStorageEmulator, type FirebaseStorage } from "firebase/storage";
+import type { FirebaseStorage } from "firebase/storage";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
-import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
+import type { Analytics } from "firebase/analytics";
 import { getFirebaseWebConfig, USE_EMULATORS, FIRESTORE_DATABASE_ID } from "./config";
 
 let app: FirebaseApp | undefined;
@@ -59,17 +59,26 @@ export function getDb(): Firestore {
   return db;
 }
 
-export function getFirebaseStorage(): FirebaseStorage {
+/**
+ * Storage SDK loads on demand (only when someone uploads or opens a file), keeping it out
+ * of the bundle every page downloads.
+ */
+export async function getFirebaseStorage(): Promise<FirebaseStorage> {
   if (!storage) {
+    const { getStorage, connectStorageEmulator } = await import("firebase/storage");
     storage = getStorage(getFirebaseApp());
-    connectEmulatorsOnce();
+    if (USE_EMULATORS && typeof window !== "undefined") {
+      connectStorageEmulator(storage, "127.0.0.1", 9199);
+    }
   }
   return storage;
 }
 
+/** Analytics loads after the page is interactive and never blocks rendering. */
 export async function getFirebaseAnalytics(): Promise<Analytics | null> {
   if (typeof window === "undefined") return null;
   if (analytics) return analytics;
+  const { getAnalytics, isSupported } = await import("firebase/analytics");
   if (!(await isSupported())) return null;
   analytics = getAnalytics(getFirebaseApp());
   return analytics;
@@ -95,8 +104,6 @@ function connectEmulatorsOnce() {
   emulatorsConnected = true;
   const authInst = auth ?? getAuth(getFirebaseApp());
   const dbInst = db ?? getFirestore(getFirebaseApp(), FIRESTORE_DATABASE_ID);
-  const storageInst = storage ?? getStorage(getFirebaseApp());
   connectAuthEmulator(authInst, "http://127.0.0.1:9099", { disableWarnings: true });
   connectFirestoreEmulator(dbInst, "127.0.0.1", 8080);
-  connectStorageEmulator(storageInst, "127.0.0.1", 9199);
 }

@@ -1,4 +1,3 @@
-import { getDownloadURL, ref, uploadBytesResumable, getBlob, deleteObject } from "firebase/storage";
 import { getFirebaseAuth, getFirebaseStorage } from "@/lib/firebase/client";
 import { AppError } from "@/lib/errors/app-error";
 import { getPlatformCapabilities } from "@/lib/capabilities.functions";
@@ -57,6 +56,12 @@ export function storageObjectPath(bucket: string, path: string): string {
     return path;
   }
   return path;
+}
+
+/** Firebase Storage SDK, loaded only when a file is actually uploaded or opened. */
+async function fbStorage() {
+  const [sdk, storage] = await Promise.all([import("firebase/storage"), getFirebaseStorage()]);
+  return { ...sdk, storage };
 }
 
 /* ------------------------------------------------------------------ */
@@ -132,7 +137,8 @@ export async function uploadObject(
       return target.publicUrl;
     }
   }
-  const storageRef = ref(getFirebaseStorage(), objectPath);
+  const { ref, uploadBytesResumable, storage } = await fbStorage();
+  const storageRef = ref(storage, objectPath);
   await new Promise<void>((resolve, reject) => {
     const task = uploadBytesResumable(storageRef, file, { contentType });
     task.on(
@@ -157,7 +163,8 @@ export async function getObjectUrl(objectPath: string): Promise<string> {
   if ((await activeProvider()) === "supabase") {
     return (await getStoredFileUrl({ data: { path: objectPath } })).url;
   }
-  return getDownloadURL(ref(getFirebaseStorage(), objectPath));
+  const { ref, getDownloadURL, storage } = await fbStorage();
+  return getDownloadURL(ref(storage, objectPath));
 }
 
 export async function deleteStoredObject(objectPath: string): Promise<void> {
@@ -165,7 +172,8 @@ export async function deleteStoredObject(objectPath: string): Promise<void> {
     await deleteStoredFile({ data: { path: objectPath } });
     return;
   }
-  await deleteObject(ref(getFirebaseStorage(), objectPath));
+  const { ref, deleteObject, storage } = await fbStorage();
+  await deleteObject(ref(storage, objectPath));
 }
 
 /* ------------------------------------------------------------------ */
@@ -198,7 +206,7 @@ export async function downloadObject(bucket: string, path: string, fileName?: st
           if (!r.ok) throw new AppError("not_found", "That file could not be found.");
           return r.blob();
         })
-      : await getBlob(ref(getFirebaseStorage(), objectPath));
+      : await fbStorage().then(({ ref, getBlob, storage }) => getBlob(ref(storage, objectPath)));
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -235,5 +243,6 @@ export async function uploadAvatar(file: File): Promise<string> {
   const publicUrl = await uploadObject(path, file, { contentType: "image/jpeg" });
   // Supabase avatars live in a public bucket; ?v= busts caches after a new photo.
   if (publicUrl) return `${publicUrl}?v=${Date.now()}`;
-  return getDownloadURL(ref(getFirebaseStorage(), path));
+  const { ref, getDownloadURL, storage } = await fbStorage();
+  return getDownloadURL(ref(storage, path));
 }
