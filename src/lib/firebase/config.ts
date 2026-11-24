@@ -22,11 +22,24 @@ function requiredPublic(name: string): string {
   return value;
 }
 
+/**
+ * Sign-in runs through our own domain (Google shows "continue to www.memskool.com"),
+ * via the /__/auth and /__/firebase proxies in vite.config.ts. Gated by
+ * VITE_FIREBASE_AUTH_ON_SITE_DOMAIN=true because Google rejects the redirect until
+ * https://<host>/__/auth/handler is an Authorized redirect URI on the OAuth client.
+ */
+function siteAuthDomain(): string | null {
+  if (import.meta.env["VITE_FIREBASE_AUTH_ON_SITE_DOMAIN"] !== "true") return null;
+  if (typeof window === "undefined") return null;
+  const host = window.location.host;
+  return host === "memskool.com" || host.endsWith(".memskool.com") ? host : null;
+}
+
 export function getFirebaseWebConfig(): FirebaseWebConfig {
   const measurementId = import.meta.env["VITE_FIREBASE_MEASUREMENT_ID"] as string | undefined;
   const base = {
     apiKey: requiredPublic("VITE_FIREBASE_API_KEY"),
-    authDomain: requiredPublic("VITE_FIREBASE_AUTH_DOMAIN"),
+    authDomain: siteAuthDomain() ?? requiredPublic("VITE_FIREBASE_AUTH_DOMAIN"),
     projectId: requiredPublic("VITE_FIREBASE_PROJECT_ID"),
     storageBucket: requiredPublic("VITE_FIREBASE_STORAGE_BUCKET"),
     messagingSenderId: requiredPublic("VITE_FIREBASE_MESSAGING_SENDER_ID"),

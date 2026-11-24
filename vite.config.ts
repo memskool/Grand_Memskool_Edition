@@ -85,8 +85,17 @@ const ADMIN_SDK_TRACE_DEPS = [
 // memskool.com deploys on Vercel — pin so Cloudflare's worker bundle is not used.
 // Declared as a variable (not an inline literal) because @lovable.dev/vite-tanstack-config
 // types only a subset of Nitro options; the full object is still passed through to Nitro.
+// Firebase Auth helper pages served from our own domain, so Google's sign-in screen says
+// "continue to www.memskool.com" (Firebase's documented proxy setup). See
+// src/lib/firebase/config.ts siteAuthDomain().
+const FIREBASE_AUTH_ORIGIN = "https://memskool-4e193.firebaseapp.com";
+
 const NITRO_OPTIONS = {
   preset: "vercel",
+  routeRules: {
+    "/__/auth/**": { proxy: `${FIREBASE_AUTH_ORIGIN}/__/auth/**` },
+    "/__/firebase/**": { proxy: `${FIREBASE_AUTH_ORIGIN}/__/firebase/**` },
+  },
   traceDeps: ADMIN_SDK_TRACE_DEPS,
   vercel: {
     functions: {
