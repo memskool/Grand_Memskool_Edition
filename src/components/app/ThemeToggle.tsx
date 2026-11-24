@@ -11,10 +11,13 @@ function apply(theme: Theme) {
   document.documentElement.style.colorScheme = theme;
 }
 
+/** Light unless the person has chosen dark with the toggle (device dark mode is ignored). */
 function readTheme(): Theme {
-  const stored = window.localStorage.getItem(KEY);
-  if (stored === "dark" || stored === "light") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  try {
+    return window.localStorage.getItem(KEY) === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
 }
 
 type ThemeValue = { theme: Theme; toggle: () => void; setTheme: (next: Theme) => void };

@@ -19,7 +19,8 @@ import { NavigationProgress } from "@/components/app/NavigationProgress";
 const FONT_HREF =
   "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap";
 
-const THEME_BOOT = `(function(){try{var t=localStorage.getItem("memskool-theme");if(t!=="dark"&&t!=="light"){t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(t==="dark")document.documentElement.classList.add("dark");document.documentElement.style.colorScheme=t}catch(e){}})();`;
+// Light by default; dark only after the person chooses it with the toggle (stored choice).
+const THEME_BOOT = `(function(){try{var t=localStorage.getItem("memskool-theme");if(t!=="dark")t="light";if(t==="dark")document.documentElement.classList.add("dark");document.documentElement.style.colorScheme=t}catch(e){}})();`;
 
 /** Apex → www so Home server-function POSTs are not dropped by a host redirect. */
 const CANONICAL_HOST_BOOT = `(function(){try{if(location.hostname==="memskool.com"){location.replace("https://www.memskool.com"+location.pathname+location.search+location.hash)}}catch(e){}})();`;
