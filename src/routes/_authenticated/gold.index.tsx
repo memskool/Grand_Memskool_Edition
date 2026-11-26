@@ -30,7 +30,7 @@ import {
 } from "@/lib/gold-data";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 
-export const Route = createFileRoute("/_authenticated/gold")({
+export const Route = createFileRoute("/_authenticated/gold/")({
   head: () => ({
     meta: [
       { title: "Gold tutoring — Memskool" },

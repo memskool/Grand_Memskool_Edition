@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { HomePublicShell } from "@/components/app/HomePublicShell";
 import { HomeFeed } from "@/components/app/HomeFeed";
 
-export const Route = createFileRoute("/home")({
+export const Route = createFileRoute("/home/")({
   ssr: false,
   head: () => ({
     meta: [
