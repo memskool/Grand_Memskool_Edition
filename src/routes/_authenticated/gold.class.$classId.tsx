@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { GoldLiveRoom } from "@/components/app/GoldLiveRoom";
 import { useSession } from "@/hooks/useAuth";
+import { usePlatformCapabilities } from "@/hooks/usePlatformCapabilities";
 import { authErrorMessage } from "@/lib/errors/auth-errors";
 import { reconcileOrder } from "@/lib/payments.functions";
 import {
@@ -77,6 +78,9 @@ function GoldClassPage() {
   const bundle = page.data as ClassBundle | null | undefined;
   const cls = bundle?.class;
   const isTutor = Boolean(user?.id && cls?.tutor_id === user.id);
+  const { data: capabilities } = usePlatformCapabilities();
+  // Fee is waived until Flutterwave is configured on the server.
+  const feeWaived = capabilities ? !capabilities.payments : false;
   const enrolled = bundle?.enrolment?.status === "active";
 
   if (page.isLoading) return <ListSkeleton rows={5} />;
@@ -131,9 +135,11 @@ function GoldClassPage() {
                   })
                 }
               >
-                {cls.price_cents > 0
+                {cls.price_cents > 0 && !feeWaived
                   ? `Enrol · ${priceLabel(cls.price_cents, cls.currency)}`
-                  : "Enrol for free"}
+                  : cls.price_cents > 0
+                    ? "Enrol · free for now"
+                    : "Enrol for free"}
               </Button>
             )}
             {bundle?.tutor ? (

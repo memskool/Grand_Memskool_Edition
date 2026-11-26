@@ -393,7 +393,10 @@ export async function enrolInGoldClass(input: {
   if (!gate.ok) throw new Error(gate.reason);
 
   const now = new Date().toISOString();
-  if (!enrolmentRequiresPayment(cls.price_cents)) {
+  // Until Flutterwave is registered (no FLUTTERWAVE_SECRET_KEY), paid classes enrol
+  // directly with the fee waived. Setting the key switches checkout back on — no code change.
+  const paymentsLive = Boolean(process.env["FLUTTERWAVE_SECRET_KEY"]?.trim());
+  if (!enrolmentRequiresPayment(cls.price_cents) || !paymentsLive) {
     const enrolment: Omit<GoldEnrolment, "id"> = {
       class_id: cls.id,
       tutor_id: cls.tutor_id,
