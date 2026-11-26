@@ -104,6 +104,99 @@ export function toUserMessage(error: unknown): string {
   return mapFirebaseMessage(firebaseErrorText(error));
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  bio: "Professional biography",
+  qualifications: "Qualifications",
+  full_name: "Full name",
+  title: "Title",
+  description: "Description",
+  feedback: "Feedback",
+  points: "Points",
+  grade: "Mark",
+  email: "Email",
+  subjects: "Subject",
+  levels: "Level",
+  delivery: "Teaching format",
+  experienceYears: "Years of experience",
+  text_body: "Your answer",
+  body: "Message",
+  code: "School ID",
+};
+
+function fieldLabel(path: unknown): string {
+  const last = Array.isArray(path) ? path.filter((p) => typeof p === "string").at(-1) : null;
+  if (!last) return "This field";
+  if (FIELD_LABELS[last]) return FIELD_LABELS[last]!;
+  const words = String(last)
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim();
+  return words ? words[0]!.toUpperCase() + words.slice(1) : "This field";
+}
+
+/**
+ * Server input validation (zod) arrives as a JSON array of issues; shown raw it reads
+ * as "[". Turn the first issue into a plain sentence, or null when it isn't one.
+ */
+export function validationErrorMessage(raw: string): string | null {
+  const text = raw.trim();
+  if (!text.startsWith("[")) return null;
+  let issues: unknown;
+  try {
+    issues = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(issues) || !issues.length) return null;
+  const issue = issues[0] as {
+    code?: string;
+    path?: unknown;
+    message?: string;
+    minimum?: number;
+    maximum?: number;
+    type?: string;
+    received?: string;
+    validation?: string;
+  };
+  if (!issue || typeof issue !== "object" || !("code" in issue)) return null;
+  const field = fieldLabel(issue.path);
+  switch (issue.code) {
+    case "too_small":
+      if (issue.type === "string") {
+        return issue.minimum === 1
+          ? `${field} is required.`
+          : `${field} needs at least ${issue.minimum} characters.`;
+      }
+      if (issue.type === "array")
+        return `Choose at least ${issue.minimum} for ${field.toLowerCase()}.`;
+      return `${field} must be at least ${issue.minimum}.`;
+    case "too_big":
+      if (issue.type === "string") return `${field} can be at most ${issue.maximum} characters.`;
+      if (issue.type === "array")
+        return `Choose at most ${issue.maximum} for ${field.toLowerCase()}.`;
+      return `${field} can be at most ${issue.maximum}.`;
+    case "invalid_type":
+      return issue.received === "undefined" || issue.received === "null"
+        ? `${field} is required.`
+        : `${field} is not in the right format.`;
+    case "invalid_enum_value":
+      return `Choose a valid option for ${field.toLowerCase()}.`;
+    case "invalid_string":
+      return issue.validation === "email"
+        ? "Enter a valid email address."
+        : issue.validation === "url"
+          ? `${field} must be a valid link.`
+          : `${field} is not in the right format.`;
+    default:
+      // Custom refinements carry a human message already (e.g. "Tell the student what to change.").
+      return issue.message &&
+        issue.message.length <= 160 &&
+        !/^(Invalid|Expected)/.test(issue.message)
+        ? issue.message
+        : `${field} is not valid.`;
+  }
+}
+
 /** Firebase Storage needs the Blaze plan (since Feb 2026); without it every call 402/403s. */
 export const STORAGE_OFF_MESSAGE =
   "File uploads are not switched on for Memskool yet. You can still submit written work without an attachment.";
@@ -141,6 +234,8 @@ export function storageErrorMessage(raw: string): string | null {
 export function mapFirebaseMessage(raw: string): string {
   const storage = storageErrorMessage(raw);
   if (storage) return storage;
+  const validation = validationErrorMessage(raw);
+  if (validation) return validation;
   const first = firstErrorLine(raw);
   const m = raw.toLowerCase();
   const f = first.toLowerCase();

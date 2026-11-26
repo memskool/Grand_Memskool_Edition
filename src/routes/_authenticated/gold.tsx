@@ -228,8 +228,16 @@ function TeachGoldPanel({ status }: { status: string | null }) {
             }}
           >
             <div className="space-y-2">
-              <Label>Professional biography</Label>
-              <Textarea value={bio} onChange={(event) => setBio(event.target.value)} required />
+              <Label htmlFor="gold-bio">Professional biography</Label>
+              <Textarea
+                id="gold-bio"
+                rows={4}
+                value={bio}
+                onChange={(event) => setBio(event.target.value)}
+                placeholder="Who you are, what you teach, your experience and how you help learners succeed."
+                required
+              />
+              <MinLengthHint value={bio} min={BIO_MIN} />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
@@ -267,15 +275,25 @@ function TeachGoldPanel({ status }: { status: string | null }) {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Qualifications</Label>
+              <Label htmlFor="gold-qualifications">Qualifications</Label>
               <Textarea
+                id="gold-qualifications"
                 value={qualifications}
                 onChange={(event) => setQualifications(event.target.value)}
+                placeholder="e.g. B.Ed Chemistry, Makerere University; 5 years teaching S1–S4."
                 required
               />
+              <MinLengthHint value={qualifications} min={QUALIFICATIONS_MIN} />
             </div>
-            <Button className="rounded-full" disabled={apply.isPending}>
-              Submit application
+            <Button
+              className="rounded-full"
+              disabled={
+                apply.isPending ||
+                bio.trim().length < BIO_MIN ||
+                qualifications.trim().length < QUALIFICATIONS_MIN
+              }
+            >
+              {apply.isPending ? "Submitting…" : "Submit application"}
             </Button>
           </form>
         )}
@@ -328,6 +346,7 @@ function TeachGoldPanel({ status }: { status: string | null }) {
           <div className="space-y-2">
             <Label>Title</Label>
             <Input value={title} onChange={(event) => setTitle(event.target.value)} required />
+            <MinLengthHint value={title} min={3} />
           </div>
           <div className="space-y-2">
             <Label>Description</Label>
@@ -336,6 +355,7 @@ function TeachGoldPanel({ status }: { status: string | null }) {
               onChange={(event) => setDescription(event.target.value)}
               required
             />
+            <MinLengthHint value={description} min={20} />
           </div>
           <div className="space-y-2">
             <Label>Learning objectives</Label>
@@ -423,5 +443,19 @@ function TeachGoldPanel({ status }: { status: string | null }) {
         </p>
       ) : null}
     </div>
+  );
+}
+
+/* Server rules (gold.functions.ts ApplySchema / ClassSchema) shown before submitting. */
+const BIO_MIN = 40;
+const QUALIFICATIONS_MIN = 8;
+
+function MinLengthHint({ value, min }: { value: string; min: number }) {
+  const n = value.trim().length;
+  const ok = n >= min;
+  return (
+    <p className={ok ? "text-xs text-leaf" : "text-xs text-muted-foreground"} aria-live="polite">
+      {ok ? `${n} characters ✓` : `${n} / ${min} characters minimum`}
+    </p>
   );
 }

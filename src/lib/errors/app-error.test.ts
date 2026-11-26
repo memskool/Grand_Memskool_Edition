@@ -1,4 +1,9 @@
-import { mapFirebaseMessage, STORAGE_OFF_MESSAGE, storageErrorMessage } from "./app-error";
+import {
+  mapFirebaseMessage,
+  STORAGE_OFF_MESSAGE,
+  storageErrorMessage,
+  validationErrorMessage,
+} from "./app-error";
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message);
@@ -101,5 +106,33 @@ assert(
   storageErrorMessage("Missing or insufficient permissions.") === null,
   "firestore error is not storage",
 );
+
+// Server validation (zod) issues read as plain sentences, never "[".
+const zodRaw = JSON.stringify([
+  { code: "too_small", minimum: 40, type: "string", inclusive: true, message: "x", path: ["bio"] },
+]);
+assert(
+  validationErrorMessage(zodRaw) === "Professional biography needs at least 40 characters.",
+  "zod too_small string",
+);
+assert(
+  validationErrorMessage(
+    JSON.stringify([
+      { code: "too_small", minimum: 1, type: "array", message: "x", path: ["subjects"] },
+    ]),
+  ) === "Choose at least 1 for subject.",
+  "zod array minimum",
+);
+assert(
+  validationErrorMessage(
+    JSON.stringify([
+      { code: "custom", message: "Tell the student what to change.", path: ["feedback"] },
+    ]),
+  ) === "Tell the student what to change.",
+  "custom refinement message kept",
+);
+assert(validationErrorMessage("[not json") === null, "non-json ignored");
+assert(validationErrorMessage("Something else") === null, "plain text ignored");
+assert(mapFirebaseMessage(zodRaw).includes("40 characters"), "mapFirebaseMessage uses it");
 
 console.log("error mapping unit checks passed");

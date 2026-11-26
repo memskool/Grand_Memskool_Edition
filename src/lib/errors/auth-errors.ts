@@ -5,6 +5,7 @@ import {
   looksLikeHtmlError,
   storageErrorMessage,
   unwrapErrorMessage,
+  validationErrorMessage,
   toUserMessage,
 } from "@/lib/errors/app-error";
 
@@ -18,6 +19,8 @@ export function authErrorMessage(error: unknown): string {
     `${unwrapped} ${(error as { code?: string } | null)?.code ?? ""}`,
   );
   if (storageMessage) return storageMessage;
+  const validationMessage = validationErrorMessage(unwrapped);
+  if (validationMessage) return validationMessage;
   const direct = unwrapped.split(/\r?\n/)[0]?.trim() ?? "";
   if (looksLikeHtmlError(unwrapped) || looksLikeHtmlError(direct)) {
     return "The server hit an error while saving. Refresh the page and try again.";
