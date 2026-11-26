@@ -16,6 +16,10 @@ Disallow: /missed-work
 Disallow: /onboarding
 Disallow: /auth
 Disallow: /api/
+Disallow: /grades
+Disallow: /gold-admin
+Disallow: /home-admin
+Disallow: /home-studio
 
 User-agent: Googlebot
 Allow: /
@@ -27,3 +31,9 @@ Disallow: /virtual-classroom
 Disallow: /messages
 Disallow: /locker
 Disallow: /api/
+Disallow: /grades
+Disallow: /gold-admin
+Disallow: /home-admin
+Disallow: /home-studio
+
+Sitemap: https://www.memskool.com/sitemap.xml
